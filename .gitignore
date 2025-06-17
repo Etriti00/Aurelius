@@ -1,0 +1,100 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Production builds
+.next/
+dist/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and Editor Configuration
+.vscode/
+.idea/
+*.swp
+*.swo
+.cursor/
+
+# AI Assistant Configuration Files
+.cursorrules
+.cursor-settings.json
+CLAUDE.md
+claude.md
+.claude/
+.anthropic/
+
+# Development Documentation and Scripts
+ETERNAL_TYPESCRIPT_FIX.md
+TYPESCRIPT_ERRORS_ANALYSIS.md
+typescript-fix-*.md
+fix-*.ts
+fix-*.js
+fix-*.py
+*.fix.md
+scripts/fix-*
+scripts/temp-*
+
+# Temporary Development Files
+temp/
+tmp/
+.temp/
+.tmp/
+*.tmp
+*.temp
+scratch/
+playground/
+
+# Code Quality and Analysis Reports
+eslint-report.*
+typescript-report.*
+*.analysis.md
+code-review-*.md
+error-report-*.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Database
+*.db
+*.sqlite
+
+# Cache
+.npm
+.yarn/cache
+.pnpm-store
+
+# Testing
+coverage/
+.nyc_output
+
+# Deployment and Infrastructure
+.turbo/
+.vercel/
+.railway/
+.docker/
+docker-compose.override.yml
+
+# Backup Files
+*.backup
+*.bak
+*~
+.#*
+
+# Local Development Tools
+.local/
+.devcontainer/
+.devenv/

@@ -1,0 +1,380 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  password          String?
+  name              String?
+  avatarUrl         String?
+  provider          String?  @default("email")
+  refreshToken      String?
+  stripeCustomerId  String?  @unique
+  subscription      Subscription?
+  integrations      Integration[]
+  tasks             Task[]
+  emailThreads      EmailThread[]
+  calendarEvents    CalendarEvent[]
+  vectorEmbeddings  VectorEmbedding[]
+  preferences       Json     @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([email])
+  @@index([stripeCustomerId])
+  @@map("users")
+}
+
+model Subscription {
+  id                    String           @id @default(cuid())
+  userId                String           @unique
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier                  SubscriptionTier @default(PRO)
+  status                SubscriptionStatus @default(TRIALING)
+  stripeSubscriptionId  String?          @unique
+  currentPeriodStart    DateTime?
+  currentPeriodEnd      DateTime?
+  aiActionsUsed         Int              @default(0)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  
+  @@index([stripeSubscriptionId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model Integration {
+  id                String              @id @default(cuid())
+  userId            String
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          String              // google, microsoft, slack, github, notion, etc.
+  displayName       String?
+  accessToken       String              @db.Text // Encrypted
+  refreshToken      String?             @db.Text // Encrypted
+  tokenExpiry       DateTime?
+  scope             String[]
+  metadata          Json?
+  enabled           Boolean             @default(true)
+  oauthTokens       String?             @db.Text // Encrypted OAuth tokens
+  lastSync          DateTime?
+  syncStatus        IntegrationSyncStatus @default(IDLE)
+  errorCount        Int                 @default(0)
+  lastError         String?
+  capabilities      String[]            // List of enabled capabilities
+  webhookUrl        String?             // Webhook endpoint for real-time updates
+  webhookSecret     String?             @db.Text // Encrypted webhook secret
+  rateLimitReset    DateTime?           // When rate limit resets
+  rateLimitRemaining Int?               // Remaining requests
+  connectionStatus  IntegrationConnectionStatus @default(DISCONNECTED)
+  lastConnectionCheck DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  // Integration-specific data
+  integrationData   IntegrationData[]
+  webhookEvents     WebhookEvent[]
+  syncLogs          IntegrationSyncLog[]
+  
+  @@unique([userId, provider])
+  @@index([userId, enabled])
+  @@index([provider, syncStatus])
+  @@index([connectionStatus])
+  @@map("integrations")
+}
+
+model IntegrationData {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  dataType      String      // email, calendar_event, file, task, etc.
+  externalId    String      // ID from external service
+  data          Json        // The actual data from the integration
+  lastModified  DateTime?   // When the data was last modified externally
+  syncedAt      DateTime    @default(now())
+  isDeleted     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  @@unique([integrationId, dataType, externalId])
+  @@index([integrationId, dataType])
+  @@index([lastModified])
+  @@map("integration_data")
+}
+
+model WebhookEvent {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  eventType     String      // message.received, file.created, etc.
+  payload       Json        // Raw webhook payload
+  processed     Boolean     @default(false)
+  processedAt   DateTime?
+  error         String?
+  signature     String?     // Webhook signature for verification
+  receivedAt    DateTime    @default(now())
+  
+  @@index([integrationId, processed])
+  @@index([eventType])
+  @@index([receivedAt])
+  @@map("webhook_events")
+}
+
+model IntegrationSyncLog {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  syncType      String      // full, incremental, manual
+  status        IntegrationSyncStatus
+  startedAt     DateTime    @default(now())
+  completedAt   DateTime?
+  itemsProcessed Int        @default(0)
+  itemsSkipped  Int         @default(0)
+  itemsFailed   Int         @default(0)
+  errors        String[]    @default([])
+  metadata      Json?
+  
+  @@index([integrationId, startedAt])
+  @@index([status])
+  @@map("integration_sync_logs")
+}
+
+// Integration enums
+enum IntegrationSyncStatus {
+  IDLE
+  SYNCING
+  SUCCESS
+  ERROR
+  PAUSED
+}
+
+enum IntegrationConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+  RATE_LIMITED
+  AUTH_EXPIRED
+}
+
+model Task {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  status          TaskStatus  @default(TODO)
+  priority        Priority    @default(MEDIUM)
+  dueDate         DateTime?
+  completedAt     DateTime?
+  source          String?     // manual, ai_suggested, email, etc.
+  sourceMetadata  Json?
+  aiContext       Json?       // AI analysis and suggestions
+  aiInsights      AIInsight[] // One-to-many relationship
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@index([userId, status])
+  @@index([dueDate])
+  @@map("tasks")
+}
+
+model EmailThread {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  threadId        String         // External thread ID (Gmail, Outlook)
+  provider        String         // google, microsoft
+  subject         String
+  participants    String[]       // Email addresses
+  lastMessageAt   DateTime
+  isUnread        Boolean        @default(true)
+  isImportant     Boolean        @default(false)
+  labels          String[]
+  aiSummary       String?
+  aiContext       Json?
+  metadata        Json?
+  messageCount    Int            @default(0)
+  messages        EmailMessage[] // One-to-many relationship
+  aiInsights      AIInsight[]    // One-to-many relationship
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  @@unique([userId, threadId, provider])
+  @@index([userId, isUnread])
+  @@index([lastMessageAt])
+  @@map("email_threads")
+}
+
+model EmailMessage {
+  id          String      @id @default(cuid())
+  threadId    String
+  thread      EmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  messageId   String      // External message ID
+  sender      String
+  recipients  String[]
+  subject     String
+  body        String      @db.Text
+  htmlBody    String?     @db.Text
+  sentAt      DateTime
+  isRead      Boolean     @default(false)
+  attachments String[]
+  metadata    Json?
+  aiInsights  AIInsight[] // One-to-many relationship
+  createdAt   DateTime    @default(now())
+  
+  @@unique([threadId, messageId])
+  @@index([sentAt])
+  @@map("email_messages")
+}
+
+model CalendarEvent {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId         String      // External event ID
+  provider        String      // google, microsoft
+  title           String
+  description     String?
+  startTime       DateTime
+  endTime         DateTime
+  location        String?
+  attendees       String[]    // Email addresses
+  isAllDay        Boolean     @default(false)
+  recurring       Boolean     @default(false)
+  recurringPattern String?
+  status          String?     // confirmed, tentative, cancelled
+  aiPrep          Json?       // AI-generated meeting preparation
+  metadata        Json?
+  aiInsights      AIInsight[] // One-to-many relationship
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@unique([userId, eventId, provider])
+  @@index([userId, startTime])
+  @@index([startTime, endTime])
+  @@map("calendar_events")
+}
+
+model VectorEmbedding {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entityType  String   // email, task, note, calendar, document
+  entityId    String
+  embedding   Unsupported("vector(1536)") // For pgvector
+  content     String?  @db.Text
+  metadata    Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId, entityType])
+  @@index([userId, entityId])
+  @@index([userId, createdAt])
+  @@map("vector_embeddings")
+}
+
+model AIInsight {
+  id              String         @id @default(cuid())
+  taskId          String?
+  task            Task?          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  emailMessageId  String?
+  emailMessage    EmailMessage?  @relation(fields: [emailMessageId], references: [id], onDelete: Cascade)
+  emailThreadId   String?
+  emailThread     EmailThread?   @relation(fields: [emailThreadId], references: [id], onDelete: Cascade)
+  calendarEventId String?
+  calendarEvent   CalendarEvent? @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+  type            String         // TASK_ANALYSIS, EMAIL_SUMMARY, MEETING_PREPARATION, etc.
+  content         String         @db.Text
+  metadata        Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  @@index([taskId])
+  @@index([emailMessageId])
+  @@index([calendarEventId])
+  @@index([type])
+  @@map("ai_insights")
+}
+
+model AiAction {
+  id              String   @id @default(cuid())
+  userId          String
+  actionType      String   // email_draft, task_create, calendar_schedule, etc.
+  prompt          String   @db.Text
+  response        String   @db.Text
+  tokensUsed      Int
+  model           String   @default("claude-sonnet-4-20250514")
+  status          String   @default("completed") // pending, completed, failed
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  
+  @@index([userId, createdAt])
+  @@index([actionType])
+  @@map("ai_actions")
+}
+
+model SystemLog {
+  id          String   @id @default(cuid())
+  level       String   // info, warn, error
+  message     String   @db.Text
+  context     Json?
+  userId      String?
+  createdAt   DateTime @default(now())
+  
+  @@index([level, createdAt])
+  @@index([userId])
+  @@map("system_logs")
+}
+
+// Enums
+enum SubscriptionTier {
+  PRO
+  MAX
+  TEAMS
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+  INCOMPLETE
+}
+
+enum Tier {
+  PRO
+  MAX
+  TEAMS
+}
+
+enum Status {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+  INCOMPLETE
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
