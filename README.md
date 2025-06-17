@@ -45,6 +45,8 @@ This is a monorepo containing:
 
 ## Deployment
 
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/Etriti00/Aurelius?utm_source=oss&utm_medium=github&utm_campaign=Etriti00%2FAurelius&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+
 - **Frontend**: Vercel with automatic deployments
 - **Backend**: Railway with PostgreSQL and Redis
 - **Database**: PostgreSQL with pgvector extension for AI embeddings
