@@ -1,178 +1,107 @@
-# Aurelius AI Personal Assistant - Setup Guide
+# 🚀 Aurelius Setup Guide
 
-## 🚀 Ready for Production Deployment
+This guide will help you set up the Aurelius AI Personal Assistant platform for development and production.
 
-The Aurelius platform has been **fully implemented** and tested. All code is complete and functional. You only need to configure external services and create the database tables.
+## 📋 Prerequisites
 
-## ✅ Verification Results
+### Required Software
+- **Node.js**: v20.x LTS (Latest)
+- **PostgreSQL**: v16+ with pgvector extension
+- **Redis**: v7.x
+- **npm**: v10.x (comes with Node.js)
 
-- **Frontend**: ✅ Builds successfully (TypeScript compilation passes)
-- **Backend**: ✅ Builds successfully (NestJS compilation passes)
-- **Database Schema**: ✅ Complete with pgvector support
-- **API Structure**: ✅ All modules properly implemented
-- **Environment Files**: ✅ Configured with placeholder values
-- **WebSocket Integration**: ✅ Real-time updates implemented
-- **AI Integration**: ✅ Claude Sonnet 4 fully integrated
-- **Testing Framework**: ✅ Jest setup with working tests
+### Required Accounts & API Keys
+- **Anthropic**: API key for Claude AI models
+- **ElevenLabs**: API key for voice processing
+- **Google OAuth**: Client ID and secret
+- **Microsoft OAuth**: Client ID and secret
+- **Apple OAuth**: Client ID, team ID, key ID, and private key (optional)
 
-## 📋 Manual Setup Steps Required
+## 🛠️ Development Setup
 
-### 1. Database Setup
-
-#### Install PostgreSQL with pgvector
-```bash
-# Install PostgreSQL (if not already installed)
-sudo apt-get install postgresql postgresql-contrib
-
-# Install pgvector extension
-sudo apt-get install postgresql-15-pgvector
-
-# Connect to PostgreSQL
-sudo -u postgres psql
-
-# Create database and enable extension
-CREATE DATABASE aurelius_dev;
-\c aurelius_dev;
-CREATE EXTENSION vector;
-\q
-```
-
-#### Run Database Migrations
-```bash
-cd backend
-npm run prisma:generate
-npm run prisma:migrate deploy
-npm run prisma:seed
-```
-
-### 2. Redis Setup
+### 1. Clone and Install Dependencies
 
 ```bash
-# Install Redis (if not already installed)
-sudo apt-get install redis-server
+# Clone the repository
+git clone <repository-url>
+cd Aurelius
 
-# Start Redis
-sudo systemctl start redis-server
-sudo systemctl enable redis-server
-
-# Verify Redis is running
-redis-cli ping
-# Should respond with "PONG"
-```
-
-### 3. API Keys Configuration
-
-#### Backend Environment (.env)
-Update `/backend/.env` with your actual API keys:
-
-```bash
-# Required for AI functionality
-ANTHROPIC_API_KEY="your-actual-anthropic-api-key"
-
-# Required for OAuth (get from Google Cloud Console)
-GOOGLE_CLIENT_ID="your-google-oauth-client-id"
-GOOGLE_CLIENT_SECRET="your-google-oauth-client-secret"
-
-# Optional: Microsoft OAuth (get from Azure Portal)
-MICROSOFT_CLIENT_ID="your-microsoft-client-id"
-MICROSOFT_CLIENT_SECRET="your-microsoft-client-secret"
-
-# Required for billing (get from Stripe Dashboard)
-STRIPE_SECRET_KEY="sk_test_your-stripe-secret-key"
-STRIPE_WEBHOOK_SECRET="whsec_your-stripe-webhook-secret"
-
-# Optional: Email notifications (get from SendGrid)
-SENDGRID_API_KEY="your-sendgrid-api-key"
-
-# Update database URL with your credentials
-DATABASE_URL="postgresql://username:password@localhost:5432/aurelius_dev?schema=public"
-
-# Generate a secure JWT secret
-JWT_SECRET="your-super-secure-jwt-secret-key-min-32-chars"
-```
-
-#### Frontend Environment (.env.local)
-Update `/frontend/.env.local` with your OAuth credentials:
-
-```bash
-# Generate a secure NextAuth secret
-NEXTAUTH_SECRET="your-secure-nextauth-secret-key"
-
-# OAuth (same as backend)
-GOOGLE_CLIENT_ID="your-google-oauth-client-id"
-GOOGLE_CLIENT_SECRET="your-google-oauth-client-secret"
-
-# Optional: Microsoft OAuth
-MICROSOFT_CLIENT_ID="your-microsoft-client-id"
-MICROSOFT_CLIENT_SECRET="your-microsoft-client-secret"
-```
-
-### 4. OAuth Setup Instructions
-
-#### Google Cloud Console
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing
-3. Enable Google+ API and Gmail API
-4. Go to Credentials → Create OAuth 2.0 Client ID
-5. Set authorized redirect URIs:
-   - `http://localhost:3000/api/auth/callback/google`
-   - Add your production domain when deploying
-
-#### Microsoft Azure Portal (Optional)
-1. Go to [Azure Portal](https://portal.azure.com/)
-2. App registrations → New registration
-3. Set redirect URI: `http://localhost:3000/api/auth/callback/azure-ad`
-4. API permissions → Add Microsoft Graph permissions
-5. Generate client secret
-
-#### Stripe Setup (for billing)
-1. Go to [Stripe Dashboard](https://dashboard.stripe.com/)
-2. Get API keys from Developers → API keys
-3. Set up webhook endpoint: `http://localhost:3001/api/v1/billing/webhook`
-4. Configure webhook events: `customer.subscription.*`
-
-## 🏃‍♂️ Running the Application
-
-### Development Mode
-```bash
-# Install root dependencies (for concurrently)
+# Install dependencies for both frontend and backend
 npm install
 
-# Start both frontend and backend
-npm run dev
+# Install backend dependencies
+cd backend && npm install
 
-# Or start individually:
-# Frontend (port 3000)
-cd frontend && npm run dev
-
-# Backend (port 3001)  
-cd backend && npm run start:dev
+# Install frontend dependencies  
+cd ../frontend && npm install
 ```
 
-### Production Build
-```bash
-# Build both applications
-npm run build
-
-# Or build individually:
-cd frontend && npm run build
-cd backend && npm run build
-```
-
-## 🧪 Testing
+### 2. Database Setup
 
 ```bash
-# Run all tests
-npm run test
+# Start PostgreSQL and Redis (using Docker)
+docker run --name aurelius-postgres -e POSTGRES_PASSWORD=password -p 5432:5432 -d postgres:16
+docker run --name aurelius-redis -p 6379:6379 -d redis:7
 
-# Frontend tests only
-cd frontend && npm test
-
-# Backend tests only  
-cd backend && npm test
+# Enable pgvector extension in PostgreSQL
+docker exec -it aurelius-postgres psql -U postgres -c "CREATE EXTENSION IF NOT EXISTS vector;"
 ```
 
-## 📊 Database Management
+### 3. Environment Configuration
+
+#### Backend Configuration
+```bash
+cd backend
+cp .env.example .env
+```
+
+Edit `backend/.env` with your actual values:
+
+```env
+# Database
+DATABASE_URL="postgresql://postgres:password@localhost:5432/aurelius_dev?schema=public"
+
+# Redis
+REDIS_URL="redis://localhost:6379"
+
+# JWT Secrets (generate strong random strings)
+JWT_SECRET="your-super-secret-jwt-key-256-bits-minimum"
+REFRESH_TOKEN_SECRET="your-refresh-token-secret-256-bits-minimum"
+
+# AI Services
+ANTHROPIC_API_KEY="sk-ant-api03-..."
+ELEVENLABS_API_KEY="your-elevenlabs-api-key"
+
+# OAuth Providers
+GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="GOCSPX-your-google-client-secret"
+MICROSOFT_CLIENT_ID="your-microsoft-client-id"
+MICROSOFT_CLIENT_SECRET="your-microsoft-client-secret"
+```
+
+#### Frontend Configuration
+```bash
+cd frontend
+cp .env.example .env.local
+```
+
+Edit `frontend/.env.local`:
+
+```env
+# API Configuration
+NEXT_PUBLIC_API_URL="http://localhost:3001/api/v1"
+NEXT_PUBLIC_WS_URL="http://localhost:3001"
+
+# NextAuth
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="your-nextauth-secret-key"
+
+# OAuth (same as backend)
+GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="GOCSPX-your-google-client-secret"
+```
+
+### 4. Database Initialization
 
 ```bash
 cd backend
@@ -180,52 +109,199 @@ cd backend
 # Generate Prisma client
 npm run prisma:generate
 
-# Create and apply migrations
-npm run prisma:migrate dev
-
-# Reset database (development only)
-npm run prisma:migrate reset
-
-# View database in Prisma Studio
-npm run prisma:studio
+# Run database migrations
+npm run prisma:migrate
 
 # Seed database with sample data
 npm run prisma:seed
+
+# Optional: Open Prisma Studio to view data
+npm run prisma:studio
 ```
 
-## 🔐 Security Checklist
+### 5. Start Development Servers
 
-- [ ] Change all placeholder secrets in environment files
-- [ ] Use strong passwords for database and JWT secrets
-- [ ] Configure OAuth redirect URIs for your domain
-- [ ] Set up SSL/TLS certificates for production
-- [ ] Configure proper CORS origins
-- [ ] Set up monitoring and error tracking
+#### Option 1: Start Both Services (Recommended)
+```bash
+# From root directory
+npm run dev
+```
 
-## 🚀 Deployment Ready
+#### Option 2: Start Services Individually
+```bash
+# Terminal 1: Backend
+cd backend
+npm run start:dev
 
-Once you complete the manual setup steps above, the Aurelius AI Personal Assistant will be **fully functional** with:
+# Terminal 2: Frontend  
+cd frontend
+npm run dev
+```
 
-- ✅ AI-powered dashboard with real-time updates
-- ✅ Natural language command processing
-- ✅ Email and calendar integration
-- ✅ Task management with AI insights
-- ✅ WebSocket real-time connectivity
-- ✅ Subscription billing with Stripe
-- ✅ OAuth authentication (Google/Microsoft)
-- ✅ Vector-based semantic search
-- ✅ Comprehensive caching strategy
+## 🔑 OAuth Setup
+
+### Google OAuth
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing
+3. Enable Google+ API and Gmail API
+4. Create OAuth 2.0 credentials
+5. Add authorized redirect URIs:
+   - `http://localhost:3000/api/auth/callback/google`
+   - `http://localhost:3001/api/v1/auth/google/callback`
+
+### Microsoft OAuth
+1. Go to [Azure Portal](https://portal.azure.com/)
+2. Register a new application
+3. Add redirect URIs:
+   - `http://localhost:3000/api/auth/callback/microsoft`
+   - `http://localhost:3001/api/v1/auth/microsoft/callback`
+4. Generate client secret
+
+### Apple OAuth (Optional)
+1. Go to [Apple Developer](https://developer.apple.com/)
+2. Create App ID and Service ID
+3. Generate private key
+4. Configure return URLs
+
+## 🧪 Testing
+
+```bash
+# Backend tests
+cd backend
+npm run test
+npm run test:e2e
+npm run test:cov
+
+# Frontend tests
+cd frontend
+npm run test
+npm run test:watch
+```
+
+## 📝 API Documentation
+
+Once the backend is running, visit:
+- **Swagger UI**: http://localhost:3001/api/docs
+- **Health Check**: http://localhost:3001/api/v1/health
+
+## 🌐 Access Points
+
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:3001/api/v1
+- **Prisma Studio**: http://localhost:5555 (when running)
+
+## 🔍 Monitoring & Debugging
+
+### Logs
+- Backend logs: `backend/logs/`
+- Frontend logs: Browser console + Next.js terminal
+
+### Database
+```bash
+# Connect to database
+docker exec -it aurelius-postgres psql -U postgres -d aurelius_dev
+
+# View tables
+\dt
+
+# Check pgvector extension
+SELECT * FROM pg_extension WHERE extname = 'vector';
+```
+
+### Redis
+```bash
+# Connect to Redis
+docker exec -it aurelius-redis redis-cli
+
+# Check keys
+KEYS *
+
+# Monitor commands
+MONITOR
+```
+
+## 🚀 Production Deployment
+
+### Environment Variables
+Update production environment variables:
+
+```env
+# Backend
+NODE_ENV="production"
+DATABASE_URL="your-production-database-url"
+REDIS_URL="your-production-redis-url"
+JWT_SECRET="strong-production-secret"
+CORS_ORIGIN="https://yourdomain.com"
+
+# Frontend
+NEXT_PUBLIC_API_URL="https://api.yourdomain.com/api/v1"
+NEXTAUTH_URL="https://yourdomain.com"
+```
+
+### Build Commands
+```bash
+# Build backend
+cd backend
+npm run build
+
+# Build frontend
+cd frontend
+npm run build
+
+# Start production
+npm run start:prod
+```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### Database Connection Error
+```bash
+# Check PostgreSQL is running
+docker ps | grep postgres
+
+# Check connection
+npx prisma db pull
+```
+
+#### Redis Connection Error
+```bash
+# Check Redis is running
+docker ps | grep redis
+
+# Test connection
+redis-cli ping
+```
+
+#### OAuth Redirect Errors
+- Verify redirect URIs match exactly in OAuth provider settings
+- Check that ports 3000 and 3001 are not blocked
+- Ensure environment variables are correctly set
+
+#### Build Errors
+```bash
+# Clear Next.js cache
+cd frontend
+rm -rf .next
+
+# Clear node_modules
+rm -rf node_modules package-lock.json
+npm install
+```
 
 ## 📞 Support
 
-The application follows all CLAUDE.md instructions and best practices. All modules are properly implemented and tested. For any issues during setup, refer to the individual service documentation or check the application logs.
+For additional help:
+1. Check the [troubleshooting section](#-troubleshooting)
+2. Review application logs
+3. Verify all environment variables are set correctly
+4. Ensure all required services (PostgreSQL, Redis) are running
 
-## 🎯 Next Steps After Setup
+## 🔐 Security Notes
 
-1. Test OAuth login with your configured providers
-2. Verify AI commands work with your Anthropic API key
-3. Set up your workspace integrations (Google/Microsoft)
-4. Configure billing plans in Stripe Dashboard
-5. Deploy to your preferred hosting platform (Vercel for frontend, Railway for backend)
-
-**The Aurelius platform is complete and ready for use!** 🎉
+- Never commit `.env` files to version control
+- Use strong, unique secrets for production
+- Enable HTTPS in production
+- Regularly rotate API keys and secrets
+- Monitor authentication logs for suspicious activity

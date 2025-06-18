@@ -7,7 +7,7 @@ module.exports = {
   },
   plugins: ['@typescript-eslint/eslint-plugin'],
   extends: [
-    'plugin:@typescript-eslint/recommended',
+    '@typescript-eslint/recommended',
     'plugin:prettier/recommended',
   ],
   root: true,
@@ -18,15 +18,14 @@ module.exports = {
   ignorePatterns: ['.eslintrc.js'],
   rules: {
     '@typescript-eslint/interface-name-prefix': 'off',
-    '@typescript-eslint/explicit-function-return-type': 'off',
-    '@typescript-eslint/explicit-module-boundary-types': 'off',
-    '@typescript-eslint/no-explicit-any': 'warn',
-    '@typescript-eslint/no-unused-vars': ['error', { 
-      'argsIgnorePattern': '^_',
-      'varsIgnorePattern': '^_',
-      'caughtErrorsIgnorePattern': '^_'
-    }],
-    'prefer-const': 'error',
-    'no-var': 'error',
+    '@typescript-eslint/explicit-function-return-type': 'error',
+    '@typescript-eslint/explicit-module-boundary-types': 'error',
+    '@typescript-eslint/no-explicit-any': 'error',
+    '@typescript-eslint/no-unused-vars': 'error',
+    '@typescript-eslint/strict-boolean-expressions': 'error',
+    '@typescript-eslint/prefer-nullish-coalescing': 'error',
+    '@typescript-eslint/prefer-optional-chain': 'error',
+    'no-console': 'error',
+    'no-debugger': 'error',
   },
 };

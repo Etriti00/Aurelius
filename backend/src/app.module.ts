@@ -1,81 +1,140 @@
-import { Module } from '@nestjs/common'
-import { ConfigModule } from '@nestjs/config'
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core'
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
-import { BullModule } from '@nestjs/bull'
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { CacheModule } from '@nestjs/cache-manager';
+import { BullModule } from '@nestjs/bull';
+import { ScheduleModule } from '@nestjs/schedule';
+import { WinstonModule } from 'nest-winston';
+import * as winston from 'winston';
+import * as redisStore from 'cache-manager-redis-store';
 
-// Modules
-import { AuthModule } from './modules/auth/auth.module'
-import { UsersModule } from './modules/users/users.module'
-import { BillingModule } from './modules/billing/billing.module'
-import { IntegrationsModule } from './modules/integrations/integrations.module'
-import { AiGatewayModule } from './modules/ai-gateway/ai-gateway.module'
-import { TasksModule } from './modules/tasks/tasks.module'
-import { CalendarModule } from './modules/calendar/calendar.module'
-import { EmailModule } from './modules/email/email.module'
-import { WebsocketModule } from './modules/websocket/websocket.module'
-import { HealthModule } from './modules/health/health.module'
-import { PrismaModule } from './prisma/prisma.module'
-import { RedisModule } from './common/redis/redis.module'
-
-// Common
-import { LoggingInterceptor } from './common/interceptors/logging.interceptor'
-import { CacheInterceptor } from './common/interceptors/cache.interceptor'
-import { WorkersModule } from './common/workers/workers.module'
+import { PrismaModule } from './modules/prisma/prisma.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { TasksModule } from './modules/tasks/tasks.module';
+import { EmailModule } from './modules/email/email.module';
+import { CalendarModule } from './modules/calendar/calendar.module';
+import { AIGatewayModule } from './modules/ai-gateway/ai-gateway.module';
+import { VoiceModule } from './modules/voice/voice.module';
+import { IntegrationsModule } from './modules/integrations/integrations.module';
+import { WebSocketModule } from './modules/websocket/websocket.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { HealthModule } from './modules/health/health.module';
+import { CacheService } from './common/services/cache.service';
+import { ProactivityEngineService } from './common/services/proactivity-engine.service';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: ['.env.local', '.env'],
+      cache: true,
     }),
 
-    // Rate limiting
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000, // 1 minute
-        limit: 100, // 100 requests per minute
-      },
-    ]),
+    // Scheduling
+    ScheduleModule.forRoot(),
 
-    // Queue management
-    BullModule.forRoot({
-      redis: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT) || 6379,
-        password: process.env.REDIS_PASSWORD,
-      },
+    // Winston Logger
+    WinstonModule.forRootAsync({
+      useFactory: () => ({
+        transports: [
+          new winston.transports.Console({
+            level: process.env.LOG_LEVEL || 'info',
+            format: winston.format.combine(
+              winston.format.timestamp(),
+              winston.format.colorize(),
+              winston.format.printf(({ timestamp, level, message, context, trace }) => {
+                return `${timestamp} [${context}] ${level}: ${message}${
+                  trace ? `\n${trace}` : ''
+                }`;
+              })
+            ),
+          }),
+          new winston.transports.File({
+            filename: 'logs/error.log',
+            level: 'error',
+            format: winston.format.combine(
+              winston.format.timestamp(),
+              winston.format.json()
+            ),
+          }),
+          new winston.transports.File({
+            filename: 'logs/combined.log',
+            format: winston.format.combine(
+              winston.format.timestamp(),
+              winston.format.json()
+            ),
+          }),
+        ],
+      }),
     }),
 
-    // Core modules
+    // Rate Limiting
+    ThrottlerModule.forRootAsync({
+      useFactory: () => [{
+        name: 'default',
+        ttl: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'),
+        limit: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
+      }],
+    }),
+
+    // Redis Cache
+    CacheModule.registerAsync({
+      isGlobal: true,
+      useFactory: () => ({
+        store: redisStore,
+        url: process.env.REDIS_URL || 'redis://localhost:6379',
+        ttl: 300, // 5 minutes default
+      }),
+    }),
+
+    // Bull Queue
+    BullModule.forRootAsync({
+      useFactory: () => ({
+        redis: {
+          host: process.env.REDIS_HOST || 'localhost',
+          port: parseInt(process.env.REDIS_PORT || '6379'),
+          password: process.env.REDIS_PASSWORD,
+        },
+        defaultJobOptions: {
+          removeOnComplete: 10,
+          removeOnFail: 5,
+        },
+      }),
+    }),
+
+    // Queue Registrations
+    BullModule.registerQueue(
+      { name: 'ai-processing' },
+      { name: 'proactivity' }
+    ),
+
+    // Core Modules
     PrismaModule,
-    RedisModule,
-    WorkersModule,
-    HealthModule,
     AuthModule,
     UsersModule,
-    BillingModule,
-    IntegrationsModule,
-    AiGatewayModule,
+
+    // Feature Modules
     TasksModule,
-    CalendarModule,
     EmailModule,
-    WebsocketModule,
+    CalendarModule,
+    AIGatewayModule,
+    VoiceModule,
+    IntegrationsModule,
+    BillingModule,
+
+    // Infrastructure Modules
+    WebSocketModule,
+    HealthModule,
   ],
+  controllers: [AppController],
   providers: [
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: LoggingInterceptor,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: CacheInterceptor,
-    },
+    AppService,
+    CacheService,
+    ProactivityEngineService,
   ],
 })
 export class AppModule {}

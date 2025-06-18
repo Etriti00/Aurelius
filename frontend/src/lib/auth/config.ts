@@ -1,6 +1,47 @@
 import { NextAuthConfig } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials'
+import { JWT } from 'next-auth/jwt'
+
+// Refresh token function
+async function refreshAccessToken(token: JWT): Promise<JWT> {
+  try {
+    const url = `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        refreshToken: token.refreshToken,
+      }),
+    })
+
+    const refreshedTokens = await response.json()
+    
+    if (!response.ok) {
+      throw refreshedTokens
+    }
+    
+    // Handle standardized API response
+    const tokenData = refreshedTokens.success ? refreshedTokens.data : refreshedTokens
+
+    return {
+      ...token,
+      accessToken: tokenData.accessToken,
+      accessTokenExpires: Date.now() + 15 * 60 * 1000, // 15 minutes
+      refreshToken: tokenData.refreshToken ?? token.refreshToken, // Fall back to old refresh token
+    }
+  } catch (error) {
+    console.error('Token refresh error:', error)
+    
+    return {
+      ...token,
+      error: 'RefreshAccessTokenError',
+    }
+  }
+}
 
 export const authConfig: NextAuthConfig = {
   providers: [
@@ -41,15 +82,18 @@ export const authConfig: NextAuthConfig = {
           }
 
           const data = await response.json()
+          
+          // Handle standardized API response
+          const responseData = data.success ? data.data : data
 
-          if (data.user) {
+          if (responseData.user) {
             return {
-              id: data.user.id,
-              email: data.user.email,
-              name: data.user.name,
-              image: data.user.avatarUrl,
-              accessToken: data.access_token,
-              refreshToken: data.refresh_token,
+              id: responseData.user.id,
+              email: responseData.user.email,
+              name: responseData.user.name,
+              image: responseData.user.avatarUrl,
+              accessToken: responseData.accessToken || responseData.access_token,
+              refreshToken: responseData.refreshToken || responseData.refresh_token,
             }
           }
 
@@ -67,25 +111,40 @@ export const authConfig: NextAuthConfig = {
   },
   callbacks: {
     async jwt({ token, user, account }) {
+      // Initial sign in
       if (account && user) {
         token.accessToken = account.access_token
         token.refreshToken = account.refresh_token
         token.userId = user.id
+        token.accessTokenExpires = Date.now() + (account.expires_in ? account.expires_in * 1000 : 15 * 60 * 1000) // 15 minutes default
       }
 
+      // Credentials provider sign in
       if (user?.accessToken) {
         token.accessToken = user.accessToken
         token.refreshToken = user.refreshToken
         token.userId = user.id
+        token.accessTokenExpires = Date.now() + 15 * 60 * 1000 // 15 minutes
       }
 
-      return token
+      // Check if access token has expired
+      if (Date.now() < (token.accessTokenExpires as number)) {
+        return token
+      }
+
+      // Access token has expired, try to refresh it
+      return await refreshAccessToken(token)
     },
     async session({ session, token }) {
       if (token) {
         session.user.id = token.userId as string
         session.accessToken = token.accessToken as string
         session.refreshToken = token.refreshToken as string
+        
+        // Pass error to the client side
+        if (token.error) {
+          session.error = token.error as string
+        }
       }
       return session
     },
@@ -97,6 +156,11 @@ export const authConfig: NextAuthConfig = {
   },
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  
+  // Handle JWT token refresh
+  jwt: {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   secret: process.env.NEXTAUTH_SECRET,

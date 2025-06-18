@@ -1,10 +1,8 @@
-import { Module } from '@nestjs/common'
-import { TasksService } from './tasks.service'
-import { TasksController } from './tasks.controller'
-import { AiGatewayModule } from '../ai-gateway/ai-gateway.module'
+import { Module } from '@nestjs/common';
+import { TasksController } from './tasks.controller';
+import { TasksService } from './tasks.service';
 
 @Module({
-  imports: [AiGatewayModule],
   controllers: [TasksController],
   providers: [TasksService],
   exports: [TasksService],

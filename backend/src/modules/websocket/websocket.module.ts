@@ -1,18 +1,8 @@
-import { Module } from '@nestjs/common'
-import { JwtModule } from '@nestjs/jwt'
-import { WebsocketGateway } from './websocket.gateway'
-import { WebsocketService } from './websocket.service'
-import { UsersModule } from '../users/users.module'
+import { Module } from '@nestjs/common';
+import { WebSocketGateway as WSGateway } from './websocket.gateway';
 
 @Module({
-  imports: [
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'aurelius-secret',
-      signOptions: { expiresIn: '15m' },
-    }),
-    UsersModule,
-  ],
-  providers: [WebsocketGateway, WebsocketService],
-  exports: [WebsocketService],
+  providers: [WSGateway],
+  exports: [WSGateway],
 })
-export class WebsocketModule {}
+export class WebSocketModule {}

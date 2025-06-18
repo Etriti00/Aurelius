@@ -1,109 +1,256 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common'
-import { JwtService } from '@nestjs/jwt'
-import { ConfigService } from '@nestjs/config'
-import * as bcrypt from 'bcryptjs'
+import { Injectable, Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
 
-import { UsersService } from '../users/users.service'
-import { PrismaService } from '../../prisma/prisma.service'
+import { PrismaService } from '../prisma/prisma.service';
+import { UsersService } from '../users/users.service';
+import { UnauthorizedException, ForbiddenException } from '../../common/exceptions/app.exception';
 
-export interface JwtPayload {
-  sub: string,
-  email: string
-  iat?: number
-  exp?: number
+interface JwtPayload {
+  sub: string;
+  email: string;
+  name?: string;
+  iat?: number;
+  exp?: number;
+}
+
+interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+interface OAuthUser {
+  id?: string;
+  email: string;
+  name?: string;
+  avatar?: string;
+  provider: 'google' | 'microsoft' | 'apple';
+  providerId: string;
 }
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
-    private usersService: UsersService,
-    private jwtService: JwtService,
-    private configService: ConfigService,
-    private prisma: PrismaService,
+    private readonly prisma: PrismaService,
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService
   ) {}
 
-  async validateUser(email: string, password: string) {
+  async generateTokens(user: { id: string; email: string; name?: string }): Promise<AuthTokens> {
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      name: user.name,
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+    const refreshToken = await this.generateRefreshToken(user.id);
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: this.getTokenExpirationTime(),
+    };
+  }
+
+  async validateUser(userId: string): Promise<any> {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return user;
+  }
+
+  async validateRefreshToken(refreshToken: string): Promise<any> {
     try {
-      const user = await this.usersService.findByEmail(email)
-      if (user && (await bcrypt.compare(password, user.password))) {
-        const { password: _, ...result } = user
-        return result
+      const tokenRecord = await this.prisma.refreshToken.findUnique({
+        where: { token: refreshToken },
+        include: { user: true },
+      });
+
+      if (!tokenRecord) {
+        throw new UnauthorizedException('Invalid refresh token');
       }
-      return null
+
+      if (tokenRecord.expiresAt < new Date()) {
+        await this.revokeRefreshToken(refreshToken);
+        throw new UnauthorizedException('Refresh token expired');
+      }
+
+      if (tokenRecord.revokedAt) {
+        throw new UnauthorizedException('Refresh token revoked');
+      }
+
+      return tokenRecord.user;
     } catch (error) {
-      return null
+      this.logger.error('Refresh token validation failed', error);
+      throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
-  async login(user: { id: string; email: string; [key: string]: unknown }) {
+  async refreshTokens(refreshToken: string): Promise<AuthTokens> {
+    const user = await this.validateRefreshToken(refreshToken);
+    
+    // Revoke old refresh token (token rotation)
+    await this.revokeRefreshToken(refreshToken);
+    
+    // Generate new tokens
+    return this.generateTokens(user);
+  }
+
+  async handleOAuthLogin(oauthUser: OAuthUser): Promise<AuthTokens> {
     try {
-      const payload: JwtPayload = { email: user.email, sub: user.id }
+      let user = await this.findUserByProvider(oauthUser.provider, oauthUser.providerId);
 
-      const accessToken = this.jwtService.sign(payload)
-      const refreshToken = this.jwtService.sign(payload, {
-        expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
-      })
+      if (!user) {
+        // Create new user
+        user = await this.createUserFromOAuth(oauthUser);
+        this.logger.log(`New user created via ${oauthUser.provider}: ${user.email}`);
+      } else {
+        // Update last active time and sync profile data
+        await this.usersService.updateLastActive(user.id);
+        await this.syncOAuthProfile(user.id, oauthUser);
+      }
 
-      // Store refresh token
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { refreshToken: await bcrypt.hash(refreshToken, 10) },
-      })
+      return this.generateTokens(user);
+    } catch (error) {
+      this.logger.error(`OAuth login failed for ${oauthUser.provider}`, error);
+      throw new UnauthorizedException('OAuth authentication failed');
+    }
+  }
 
-      return {
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        user: {,
-          id: user.id,
-          email: user.email,
+  async revokeRefreshToken(refreshToken: string): Promise<void> {
+    try {
+      await this.prisma.refreshToken.update({
+        where: { token: refreshToken },
+        data: { revokedAt: new Date() },
+      });
+    } catch (error) {
+      this.logger.warn('Failed to revoke refresh token', error);
+    }
+  }
+
+  async revokeAllUserTokens(userId: string): Promise<void> {
+    try {
+      await this.prisma.refreshToken.updateMany({
+        where: { 
+          userId,
+          revokedAt: null,
         },
-      }
+        data: { revokedAt: new Date() },
+      });
+      this.logger.log(`Revoked all tokens for user: ${userId}`);
     } catch (error) {
-      throw new UnauthorizedException('Login failed')
+      this.logger.error('Failed to revoke user tokens', error);
     }
   }
 
-  async refreshTokens(refreshToken: string) {
-    try {
-      const payload = this.jwtService.verify(refreshToken)
-      const user = await this.usersService.findById(payload.sub)
-
-      if (!user || !user.refreshToken) {
-        throw new UnauthorizedException('Invalid refresh token')
-      }
-
-      const isRefreshTokenValid = await bcrypt.compare(refreshToken, user.refreshToken)
-      if (!isRefreshTokenValid) {
-        throw new UnauthorizedException('Invalid refresh token')
-      }
-
-      return this.login(user)
-    } catch (error) {
-      throw new UnauthorizedException('Token refresh failed')
-    }
+  async validateApiKey(apiKey: string): Promise<any> {
+    // For future API key authentication
+    throw new UnauthorizedException('API key authentication not implemented');
   }
 
-  async logout(userId: string) {
-    try {
+  private async generateRefreshToken(userId: string): Promise<string> {
+    const token = uuidv4();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+
+    const family = uuidv4(); // For token rotation family tracking
+
+    await this.prisma.refreshToken.create({
+      data: {
+        token,
+        userId,
+        expiresAt,
+        family,
+      },
+    });
+
+    return token;
+  }
+
+  private async findUserByProvider(provider: string, providerId: string): Promise<any> {
+    const providerField = `${provider}Id`;
+    
+    return this.prisma.user.findFirst({
+      where: {
+        [providerField]: providerId,
+      },
+    });
+  }
+
+  private async createUserFromOAuth(oauthUser: OAuthUser): Promise<any> {
+    const userData: any = {
+      email: oauthUser.email,
+      name: oauthUser.name,
+      avatar: oauthUser.avatar,
+      lastActiveAt: new Date(),
+    };
+
+    // Set provider-specific ID
+    userData[`${oauthUser.provider}Id`] = oauthUser.providerId;
+
+    return this.prisma.user.create({
+      data: userData,
+    });
+  }
+
+  private async syncOAuthProfile(userId: string, oauthUser: OAuthUser): Promise<void> {
+    const updates: any = {};
+
+    if (oauthUser.name) {
+      updates.name = oauthUser.name;
+    }
+
+    if (oauthUser.avatar) {
+      updates.avatar = oauthUser.avatar;
+    }
+
+    if (Object.keys(updates).length > 0) {
       await this.prisma.user.update({
         where: { id: userId },
-        data: { refreshToken: null },
-      })
-      return { success: true }
-    } catch (error) {
-      return { success: false }
+        data: updates,
+      });
     }
   }
 
-  async validateJwtPayload(payload: JwtPayload) {
+  private getTokenExpirationTime(): number {
+    const expiresIn = this.configService.get<string>('JWT_EXPIRES_IN', '15m');
+    
+    // Convert to seconds
+    if (expiresIn.endsWith('m')) {
+      return parseInt(expiresIn) * 60;
+    } else if (expiresIn.endsWith('h')) {
+      return parseInt(expiresIn) * 3600;
+    } else if (expiresIn.endsWith('d')) {
+      return parseInt(expiresIn) * 86400;
+    } else {
+      return parseInt(expiresIn);
+    }
+  }
+
+  async cleanupExpiredTokens(): Promise<void> {
     try {
-      const user = await this.usersService.findById(payload.sub)
-      if (!user) {
-        return null
+      const result = await this.prisma.refreshToken.deleteMany({
+        where: {
+          OR: [
+            { expiresAt: { lt: new Date() } },
+            { revokedAt: { not: null } },
+          ],
+        },
+      });
+      
+      if (result.count > 0) {
+        this.logger.log(`Cleaned up ${result.count} expired/revoked tokens`);
       }
-      return user
     } catch (error) {
-      return null
+      this.logger.error('Failed to cleanup expired tokens', error);
     }
   }
 }

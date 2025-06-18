@@ -19,6 +19,7 @@ const mockAISuggestions: AISuggestion[] = [
     description: 'Based on her urgent email about the project update, I can draft a comprehensive response.',
     action: 'Draft Reply',
     priority: 'high',
+    confidence: 0.85,
     createdAt: new Date().toISOString(),
   },
   {
@@ -28,6 +29,7 @@ const mockAISuggestions: AISuggestion[] = [
     description: 'John requested a meeting reschedule. I found 3 time slots that work for everyone.',
     action: 'Schedule',
     priority: 'medium',
+    confidence: 0.78,
     createdAt: new Date().toISOString(),
   },
   {
@@ -37,6 +39,7 @@ const mockAISuggestions: AISuggestion[] = [
     description: 'Create a summary of Q4 budget changes before tomorrow\'s finance meeting.',
     action: 'Create Task',
     priority: 'high',
+    confidence: 0.92,
     createdAt: new Date().toISOString(),
   },
   {
@@ -46,6 +49,7 @@ const mockAISuggestions: AISuggestion[] = [
     description: 'You\'ve completed 23% more tasks this week. Consider scheduling a break to maintain momentum.',
     action: 'View Details',
     priority: 'low',
+    confidence: 0.95,
     createdAt: new Date().toISOString(),
   }
 ]

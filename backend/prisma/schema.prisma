@@ -2,341 +2,113 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  extensions = [vector]
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
 }
 
+// ===============================
+// USER MANAGEMENT
+// ===============================
+
 model User {
-  id                String   @id @default(cuid())
-  email             String   @unique
-  password          String?
-  name              String?
-  avatarUrl         String?
-  provider          String?  @default("email")
-  refreshToken      String?
-  stripeCustomerId  String?  @unique
-  subscription      Subscription?
-  integrations      Integration[]
-  tasks             Task[]
-  emailThreads      EmailThread[]
-  calendarEvents    CalendarEvent[]
-  vectorEmbeddings  VectorEmbedding[]
-  preferences       Json     @default("{}")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
+  id    String @id @default(cuid())
+  email String @unique
+  name  String?
+  avatar String?
+
+  // OAuth providers
+  googleId    String? @unique
+  microsoftId String? @unique
+  appleId     String? @unique
+
+  // Subscription & billing
+  subscription     Subscription?
+  stripeCustomerId String?       @unique
+
+  // Voice preferences
+  voiceId    String? @default("rachel")
+  voiceSpeed Float   @default(1.0)
+
+  // Security
+  mfaEnabled Boolean @default(false)
+  mfaSecret  String? @db.Text
+
+  // Metadata
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastActiveAt DateTime?
+  preferences  Json      @default("{}")
+
+  // Relations
+  integrations     Integration[]
+  tasks            Task[]
+  emailThreads     EmailThread[]
+  calendarEvents   CalendarEvent[]
+  embeddings       VectorEmbedding[]
+  aiUsage          AIUsageLog[]
+  refreshTokens    RefreshToken[]
+  suggestions      AISuggestion[]
+  voiceInteractions VoiceInteraction[]
+
   @@index([email])
   @@index([stripeCustomerId])
+  @@index([lastActiveAt])
   @@map("users")
 }
 
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique @db.Text
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  family    String?  // For token rotation
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([family])
+  @@map("refresh_tokens")
+}
+
+// ===============================
+// SUBSCRIPTION & BILLING
+// ===============================
+
 model Subscription {
-  id                    String           @id @default(cuid())
-  userId                String           @unique
-  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tier                  SubscriptionTier @default(PRO)
-  status                SubscriptionStatus @default(TRIALING)
-  stripeSubscriptionId  String?          @unique
-  currentPeriodStart    DateTime?
-  currentPeriodEnd      DateTime?
-  aiActionsUsed         Int              @default(0)
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
+  id               String            @id @default(cuid())
+  userId           String            @unique
+  tier             SubscriptionTier  @default(PRO)
+  status           SubscriptionStatus @default(ACTIVE)
+  stripeSubscriptionId String?       @unique
   
+  // Limits
+  aiActionsPerMonth    Int     @default(1000)
+  aiActionsUsed        Int     @default(0)
+  integrationsAllowed  Int     @default(3)
+  
+  // Billing
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
   @@index([stripeSubscriptionId])
-  @@index([status])
   @@map("subscriptions")
 }
 
-model Integration {
-  id                String              @id @default(cuid())
-  userId            String
-  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider          String              // google, microsoft, slack, github, notion, etc.
-  displayName       String?
-  accessToken       String              @db.Text // Encrypted
-  refreshToken      String?             @db.Text // Encrypted
-  tokenExpiry       DateTime?
-  scope             String[]
-  metadata          Json?
-  enabled           Boolean             @default(true)
-  oauthTokens       String?             @db.Text // Encrypted OAuth tokens
-  lastSync          DateTime?
-  syncStatus        IntegrationSyncStatus @default(IDLE)
-  errorCount        Int                 @default(0)
-  lastError         String?
-  capabilities      String[]            // List of enabled capabilities
-  webhookUrl        String?             // Webhook endpoint for real-time updates
-  webhookSecret     String?             @db.Text // Encrypted webhook secret
-  rateLimitReset    DateTime?           // When rate limit resets
-  rateLimitRemaining Int?               // Remaining requests
-  connectionStatus  IntegrationConnectionStatus @default(DISCONNECTED)
-  lastConnectionCheck DateTime?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  
-  // Integration-specific data
-  integrationData   IntegrationData[]
-  webhookEvents     WebhookEvent[]
-  syncLogs          IntegrationSyncLog[]
-  
-  @@unique([userId, provider])
-  @@index([userId, enabled])
-  @@index([provider, syncStatus])
-  @@index([connectionStatus])
-  @@map("integrations")
-}
-
-model IntegrationData {
-  id            String      @id @default(cuid())
-  integrationId String
-  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-  dataType      String      // email, calendar_event, file, task, etc.
-  externalId    String      // ID from external service
-  data          Json        // The actual data from the integration
-  lastModified  DateTime?   // When the data was last modified externally
-  syncedAt      DateTime    @default(now())
-  isDeleted     Boolean     @default(false)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  
-  @@unique([integrationId, dataType, externalId])
-  @@index([integrationId, dataType])
-  @@index([lastModified])
-  @@map("integration_data")
-}
-
-model WebhookEvent {
-  id            String      @id @default(cuid())
-  integrationId String
-  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-  eventType     String      // message.received, file.created, etc.
-  payload       Json        // Raw webhook payload
-  processed     Boolean     @default(false)
-  processedAt   DateTime?
-  error         String?
-  signature     String?     // Webhook signature for verification
-  receivedAt    DateTime    @default(now())
-  
-  @@index([integrationId, processed])
-  @@index([eventType])
-  @@index([receivedAt])
-  @@map("webhook_events")
-}
-
-model IntegrationSyncLog {
-  id            String      @id @default(cuid())
-  integrationId String
-  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-  syncType      String      // full, incremental, manual
-  status        IntegrationSyncStatus
-  startedAt     DateTime    @default(now())
-  completedAt   DateTime?
-  itemsProcessed Int        @default(0)
-  itemsSkipped  Int         @default(0)
-  itemsFailed   Int         @default(0)
-  errors        String[]    @default([])
-  metadata      Json?
-  
-  @@index([integrationId, startedAt])
-  @@index([status])
-  @@map("integration_sync_logs")
-}
-
-// Integration enums
-enum IntegrationSyncStatus {
-  IDLE
-  SYNCING
-  SUCCESS
-  ERROR
-  PAUSED
-}
-
-enum IntegrationConnectionStatus {
-  CONNECTED
-  DISCONNECTED
-  ERROR
-  RATE_LIMITED
-  AUTH_EXPIRED
-}
-
-model Task {
-  id              String      @id @default(cuid())
-  userId          String
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title           String
-  description     String?
-  status          TaskStatus  @default(TODO)
-  priority        Priority    @default(MEDIUM)
-  dueDate         DateTime?
-  completedAt     DateTime?
-  source          String?     // manual, ai_suggested, email, etc.
-  sourceMetadata  Json?
-  aiContext       Json?       // AI analysis and suggestions
-  aiInsights      AIInsight[] // One-to-many relationship
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
-  @@index([userId, status])
-  @@index([dueDate])
-  @@map("tasks")
-}
-
-model EmailThread {
-  id              String         @id @default(cuid())
-  userId          String
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  threadId        String         // External thread ID (Gmail, Outlook)
-  provider        String         // google, microsoft
-  subject         String
-  participants    String[]       // Email addresses
-  lastMessageAt   DateTime
-  isUnread        Boolean        @default(true)
-  isImportant     Boolean        @default(false)
-  labels          String[]
-  aiSummary       String?
-  aiContext       Json?
-  metadata        Json?
-  messageCount    Int            @default(0)
-  messages        EmailMessage[] // One-to-many relationship
-  aiInsights      AIInsight[]    // One-to-many relationship
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  
-  @@unique([userId, threadId, provider])
-  @@index([userId, isUnread])
-  @@index([lastMessageAt])
-  @@map("email_threads")
-}
-
-model EmailMessage {
-  id          String      @id @default(cuid())
-  threadId    String
-  thread      EmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  messageId   String      // External message ID
-  sender      String
-  recipients  String[]
-  subject     String
-  body        String      @db.Text
-  htmlBody    String?     @db.Text
-  sentAt      DateTime
-  isRead      Boolean     @default(false)
-  attachments String[]
-  metadata    Json?
-  aiInsights  AIInsight[] // One-to-many relationship
-  createdAt   DateTime    @default(now())
-  
-  @@unique([threadId, messageId])
-  @@index([sentAt])
-  @@map("email_messages")
-}
-
-model CalendarEvent {
-  id              String      @id @default(cuid())
-  userId          String
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eventId         String      // External event ID
-  provider        String      // google, microsoft
-  title           String
-  description     String?
-  startTime       DateTime
-  endTime         DateTime
-  location        String?
-  attendees       String[]    // Email addresses
-  isAllDay        Boolean     @default(false)
-  recurring       Boolean     @default(false)
-  recurringPattern String?
-  status          String?     // confirmed, tentative, cancelled
-  aiPrep          Json?       // AI-generated meeting preparation
-  metadata        Json?
-  aiInsights      AIInsight[] // One-to-many relationship
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
-  @@unique([userId, eventId, provider])
-  @@index([userId, startTime])
-  @@index([startTime, endTime])
-  @@map("calendar_events")
-}
-
-model VectorEmbedding {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  entityType  String   // email, task, note, calendar, document
-  entityId    String
-  embedding   Unsupported("vector(1536)") // For pgvector
-  content     String?  @db.Text
-  metadata    Json
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([userId, entityType])
-  @@index([userId, entityId])
-  @@index([userId, createdAt])
-  @@map("vector_embeddings")
-}
-
-model AIInsight {
-  id              String         @id @default(cuid())
-  taskId          String?
-  task            Task?          @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  emailMessageId  String?
-  emailMessage    EmailMessage?  @relation(fields: [emailMessageId], references: [id], onDelete: Cascade)
-  emailThreadId   String?
-  emailThread     EmailThread?   @relation(fields: [emailThreadId], references: [id], onDelete: Cascade)
-  calendarEventId String?
-  calendarEvent   CalendarEvent? @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
-  type            String         // TASK_ANALYSIS, EMAIL_SUMMARY, MEETING_PREPARATION, etc.
-  content         String         @db.Text
-  metadata        Json?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  
-  @@index([taskId])
-  @@index([emailMessageId])
-  @@index([calendarEventId])
-  @@index([type])
-  @@map("ai_insights")
-}
-
-model AiAction {
-  id              String   @id @default(cuid())
-  userId          String
-  actionType      String   // email_draft, task_create, calendar_schedule, etc.
-  prompt          String   @db.Text
-  response        String   @db.Text
-  tokensUsed      Int
-  model           String   @default("claude-sonnet-4-20250514")
-  status          String   @default("completed") // pending, completed, failed
-  metadata        Json?
-  createdAt       DateTime @default(now())
-  
-  @@index([userId, createdAt])
-  @@index([actionType])
-  @@map("ai_actions")
-}
-
-model SystemLog {
-  id          String   @id @default(cuid())
-  level       String   // info, warn, error
-  message     String   @db.Text
-  context     Json?
-  userId      String?
-  createdAt   DateTime @default(now())
-  
-  @@index([level, createdAt])
-  @@index([userId])
-  @@map("system_logs")
-}
-
-// Enums
 enum SubscriptionTier {
   PRO
   MAX
@@ -347,22 +119,80 @@ enum SubscriptionStatus {
   ACTIVE
   CANCELED
   PAST_DUE
-  TRIALING
-  INCOMPLETE
+  UNPAID
+  PAUSED
 }
 
-enum Tier {
-  PRO
-  MAX
-  TEAMS
+// ===============================
+// INTEGRATIONS
+// ===============================
+
+model Integration {
+  id       String @id @default(cuid())
+  userId   String
+  provider String // 'google-gmail', 'slack', etc.
+
+  // Encrypted tokens
+  accessToken  String    @db.Text
+  refreshToken String?   @db.Text
+  tokenExpiry  DateTime?
+
+  // Integration status
+  status     IntegrationStatus @default(ACTIVE)
+  lastSyncAt DateTime?
+  syncError  String?
+
+  // Metadata
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([userId, status])
+  @@index([provider, lastSyncAt])
+  @@map("integrations")
 }
 
-enum Status {
+enum IntegrationStatus {
   ACTIVE
-  CANCELED
-  PAST_DUE
-  TRIALING
-  INCOMPLETE
+  PAUSED
+  ERROR
+  EXPIRED
+}
+
+// ===============================
+// TASK MANAGEMENT
+// ===============================
+
+model Task {
+  id          String     @id @default(cuid())
+  userId      String
+  title       String
+  description String?    @db.Text
+  status      TaskStatus @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  
+  // Task metadata
+  dueDate     DateTime?
+  completedAt DateTime?
+  tags        String[]
+  metadata    Json       @default("{}")
+  
+  // AI insights
+  aiInsights  Json?
+  confidence  Float?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([userId, dueDate])
+  @@index([userId, priority])
+  @@map("tasks")
 }
 
 enum TaskStatus {
@@ -372,9 +202,252 @@ enum TaskStatus {
   ARCHIVED
 }
 
-enum Priority {
+enum TaskPriority {
   LOW
   MEDIUM
   HIGH
   URGENT
+}
+
+// ===============================
+// EMAIL MANAGEMENT
+// ===============================
+
+model EmailThread {
+  id         String @id @default(cuid())
+  userId     String
+  threadId   String // External thread ID
+  provider   String // 'gmail', 'outlook'
+  
+  subject    String
+  snippet    String?
+  labels     String[]
+  isRead     Boolean @default(false)
+  isImportant Boolean @default(false)
+  
+  // AI insights
+  summary    String? @db.Text
+  priority   EmailPriority @default(NORMAL)
+  sentiment  Float?  // -1 to 1
+  aiInsights Json?
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  messages   EmailMessage[]
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, threadId, provider])
+  @@index([userId, isRead])
+  @@index([userId, priority])
+  @@map("email_threads")
+}
+
+model EmailMessage {
+  id         String @id @default(cuid())
+  threadId   String
+  messageId  String // External message ID
+  
+  fromEmail  String
+  fromName   String?
+  toEmails   String[]
+  ccEmails   String[]
+  bccEmails  String[]
+  
+  subject    String
+  body       String @db.Text
+  htmlBody   String? @db.Text
+  
+  sentAt     DateTime
+  createdAt  DateTime @default(now())
+  
+  thread     EmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, messageId])
+  @@index([threadId, sentAt])
+  @@map("email_messages")
+}
+
+enum EmailPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+// ===============================
+// CALENDAR MANAGEMENT
+// ===============================
+
+model CalendarEvent {
+  id          String @id @default(cuid())
+  userId      String
+  eventId     String // External event ID
+  provider    String // 'google', 'outlook'
+  
+  title       String
+  description String? @db.Text
+  location    String?
+  
+  startTime   DateTime
+  endTime     DateTime
+  isAllDay    Boolean @default(false)
+  
+  attendees   Json    @default("[]")
+  status      EventStatus @default(CONFIRMED)
+  
+  // AI insights
+  preparation String? @db.Text
+  aiInsights  Json?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId, provider])
+  @@index([userId, startTime])
+  @@index([userId, status])
+  @@map("calendar_events")
+}
+
+enum EventStatus {
+  CONFIRMED
+  TENTATIVE
+  CANCELLED
+}
+
+// ===============================
+// AI & VECTOR EMBEDDINGS
+// ===============================
+
+model VectorEmbedding {
+  id          String @id @default(cuid())
+  userId      String
+  contentType String // 'email' | 'task' | 'document' | 'voice'
+  contentId   String // Reference to original content
+  contentHash String // For deduplication
+  
+  // pgvector - 1536 dimensions for OpenAI embeddings
+  embedding   Unsupported("vector(1536)")
+  
+  // Metadata for filtering
+  metadata    Json
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime // Auto-cleanup old embeddings
+  
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([contentHash, userId])
+  @@index([userId, contentType])
+  @@index([expiresAt])
+  @@map("vector_embeddings")
+}
+
+model AIUsageLog {
+  id           String  @id @default(cuid())
+  userId       String
+  model        String  // 'claude-3-haiku', etc.
+  action       String  // 'email-draft', 'task-analysis', etc.
+  
+  // Metrics
+  inputTokens  Int
+  outputTokens Int
+  totalCost    Decimal @db.Decimal(10, 6)
+  duration     Int     // milliseconds
+  
+  // Cache info
+  cacheHit     Boolean @default(false)
+  
+  createdAt    DateTime @default(now())
+  
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([model, action])
+  @@map("ai_usage_logs")
+}
+
+model AISuggestion {
+  id          String @id @default(cuid())
+  userId      String
+  type        SuggestionType
+  title       String
+  description String @db.Text
+  
+  // Action data
+  actionType  String
+  actionData  Json
+  
+  // Metadata
+  confidence  Float
+  priority    SuggestionPriority @default(MEDIUM)
+  status      SuggestionStatus @default(PENDING)
+  
+  // Timing
+  suggestedAt DateTime @default(now())
+  expiresAt   DateTime?
+  acceptedAt  DateTime?
+  rejectedAt  DateTime?
+  
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([userId, priority])
+  @@index([expiresAt])
+  @@map("ai_suggestions")
+}
+
+enum SuggestionType {
+  TASK_CREATE
+  EMAIL_DRAFT
+  CALENDAR_BLOCK
+  MEETING_PREP
+  WORKFLOW_OPTIMIZE
+}
+
+enum SuggestionPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+// ===============================
+// VOICE INTERACTIONS
+// ===============================
+
+model VoiceInteraction {
+  id           String @id @default(cuid())
+  userId       String
+  
+  // Audio data
+  audioUrl     String?
+  transcript   String @db.Text
+  
+  // Processing
+  intent       String?
+  confidence   Float?
+  
+  // Response
+  responseText String @db.Text
+  responseAudio String?
+  
+  // Metadata
+  duration     Int?    // milliseconds
+  language     String  @default("en")
+  
+  createdAt    DateTime @default(now())
+  
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("voice_interactions")
 }

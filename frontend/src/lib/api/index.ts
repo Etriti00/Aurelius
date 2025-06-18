@@ -5,6 +5,7 @@ export * from './tasks'
 export * from './email'
 export * from './calendar'
 export * from './ai'
+export * from './voice'
 export * from './dashboard'
 
 // Re-export commonly used hooks and functions
@@ -62,10 +63,22 @@ export {
   getQuickStats,
 } from './dashboard'
 
+export {
+  // Voice
+  useVoiceProcessing,
+  useTextToSpeech,
+  useAvailableVoices,
+  useVoiceHistory,
+  useVoiceHealth,
+  formatVoiceProcessingResult,
+  checkVoiceSupport,
+} from './voice'
+
 // Export API clients for direct use
 export { apiClient } from './client'
 export { tasksApi } from './tasks'
 export { emailApi } from './email'
 export { calendarApi } from './calendar'
 export { aiApi } from './ai'
+export { voiceApi } from './voice'
 export { dashboardApi } from './dashboard'

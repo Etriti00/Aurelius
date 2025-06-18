@@ -188,6 +188,9 @@ describe('AI API', () => {
         },
         cost: 0.025,
         cached: false,
+        processingTime: 1250,
+        model: "claude-sonnet-4",
+        timestamp: "2023-01-01T00:00:00.000Z",
       }
 
       const formatted = formatAIResponse(response)
@@ -216,6 +219,9 @@ describe('AI API', () => {
         },
         cost: 0,
         cached: true,
+        processingTime: 50,
+        model: "claude-sonnet-4",
+        timestamp: "2023-01-01T00:01:00.000Z",
       }
 
       const formatted = formatAIResponse(response)

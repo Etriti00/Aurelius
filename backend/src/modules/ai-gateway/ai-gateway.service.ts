@@ -1,337 +1,335 @@
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
-import { RedisService } from '../../common/services/redis.service'
-import { BillingService } from '../billing/billing.service'
-import { UsersService } from '../users/users.service'
-import Anthropic from '@anthropic-ai/sdk'
-import * as crypto from 'crypto'
+import { Injectable, Logger } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Inject } from '@nestjs/common';
+import { Cache } from 'cache-manager';
 
-export interface AIRequest {
-  prompt: string
-  systemPrompt?: string
-  maxTokens?: number
-  temperature?: number
-  userId?: string
-  context?: Record<string, unknown>
+import { AIModelSelectorService } from './services/ai-model-selector.service';
+import { AnthropicService } from './services/anthropic.service';
+import { UsageTrackingService } from './services/usage-tracking.service';
+import { AIServiceException, RateLimitException } from '../../common/exceptions/app.exception';
+
+interface AIProcessRequest {
+  prompt: string;
+  context?: string;
+  systemPrompt?: string;
+  userId: string;
+  action: string;
+  userSubscription: {
+    tier: 'PRO' | 'MAX' | 'TEAMS';
+  };
+  metadata?: {
+    urgency?: 'low' | 'normal' | 'high';
+    type?: string;
+  };
 }
 
-export interface AIResponse {
-  content: string,
-  tokens: {,
-    input: number,
-    output: number,
-    total: number
-  },
-    cost: number,
-  cached: boolean,
-  cacheKey?: string
+interface AIProcessResponse {
+  text: string;
+  model: string;
+  confidence: number;
+  suggestions?: string[];
+  metadata: {
+    inputTokens: number;
+    outputTokens: number;
+    duration: number;
+    cost: number;
+    cacheHit: boolean;
+  };
 }
-
-export interface UsageStats {
-  totalActions: number,
-  totalCost: number,
-  currentMonth: {,
-    actions: number,
-    cost: number
-  }
-
-import { Logger } from '@nestjs/common'
 
 @Injectable()
-export class AiGatewayService {
-  private readonly logger = new Logger(AiGatewayService.name)
-  private readonly anthropic: Anthropic
-  private readonly COST_PER_1K_INPUT_TOKENS = 0.003 // Claude Sonnet 4
-  private readonly COST_PER_1K_OUTPUT_TOKENS = 0.015
-  private readonly DEFAULT_MAX_TOKENS = 4096
-  private readonly DEFAULT_TEMPERATURE = 0.7
+export class AIGatewayService {
+  private readonly logger = new Logger(AIGatewayService.name);
 
   constructor(
-    private readonly configService: ConfigService,
-    private readonly redisService: RedisService,
-    private readonly usersService: UsersService,
-    @Inject(forwardRef(() => BillingService))
-    private readonly billingService: BillingService,
-  ) {
-    const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY')
-    if (!apiKey) {
-      throw new Error('ANTHROPIC_API_KEY is required')
+    private readonly modelSelector: AIModelSelectorService,
+    private readonly anthropicService: AnthropicService,
+    private readonly usageTracking: UsageTrackingService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+  ) {}
+
+  async processRequest(request: AIProcessRequest): Promise<AIProcessResponse> {
+    const startTime = Date.now();
+
+    // Check usage limits
+    const canProceed = await this.usageTracking.checkUsageLimit(request.userId);
+    if (!canProceed) {
+      throw new RateLimitException('Monthly AI action limit exceeded');
     }
 
-    this.anthropic = new Anthropic({
-      apiKey,
-    })
-  }
+    // Select optimal model
+    const modelSelection = this.modelSelector.selectModel({
+      prompt: request.prompt,
+      context: request.context,
+      user: {
+        id: request.userId,
+        subscription: request.userSubscription,
+      },
+      metadata: request.metadata,
+    });
 
-  async generateResponse(request: AIRequest): Promise<AIResponse> {
+    this.logger.debug(
+      `Selected model ${modelSelection.model} for user ${request.userId}: ${modelSelection.reasoning}`
+    );
+
     try {
-    try {
-      // Check usage limits before processing
-      if (request.userId) {
-        const canUse = await this.billingService.incrementAIUsage(request.userId)
-        if (!canUse) {
-          throw new Error(
-            'AI usage limit exceeded. Please upgrade your subscription or wait for the next billing period.',
-          )
-        }
-  }
-      }
+      // Make AI request
+      const aiResponse = await this.anthropicService.generateResponse({
+        prompt: request.prompt,
+        model: modelSelection.model,
+        maxTokens: modelSelection.maxTokens,
+        temperature: modelSelection.temperature,
+        systemPrompt: request.systemPrompt,
+        context: request.context,
+      });
 
-      // Generate cache key for semantic deduplication
-      const cacheKey = this.generateCacheKey(request)
+      // Calculate cost
+      const cost = this.modelSelector.estimateCost(
+        aiResponse.inputTokens,
+        aiResponse.outputTokens,
+        modelSelection.model
+      );
 
-      // Check cache first
-      const cachedResponse = await this.getCachedResponse(cacheKey)
-      if (cachedResponse) {
-        this.logger.debug(`Cache hit for key: ${cacheKey}`)
-        return {
-          ...cachedResponse,
-          cached: true,
-          cacheKey,
-        }
-      }
+      // Record usage
+      await this.usageTracking.recordUsage({
+        userId: request.userId,
+        model: modelSelection.model,
+        action: request.action,
+        inputTokens: aiResponse.inputTokens,
+        outputTokens: aiResponse.outputTokens,
+        totalCost: cost,
+        duration: aiResponse.duration,
+        cacheHit: aiResponse.cacheHit,
+      });
 
-      // Make API call to Claude Sonnet 4
-      const startTime = Date.now()
-      const _response = await this.anthropic.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: request.maxTokens || this.DEFAULT_MAX_TOKENS,
-        temperature: request.temperature || this.DEFAULT_TEMPERATURE,
-        system: request.systemPrompt || this.getDefaultSystemPrompt(),
-        messages: [
-          {
-            role: 'user',
-            content: request.prompt,
-          },
-        ],
-      })
+      // Extract suggestions if the response contains actionable items
+      const suggestions = this.extractSuggestions(aiResponse.text);
 
-      const duration = Date.now() - startTime
-      this.logger.debug(`Claude API call completed in ${duration}ms`)
-
-      // Calculate costs
-      const inputTokens = response.usage.input_tokens
-      const outputTokens = response.usage.output_tokens
-      const totalTokens = inputTokens + outputTokens
-      const cost = this.calculateCost(inputTokens, outputTokens)
-
-      const aiResponse: AIResponse = {,
-        content: response.content[0].type === 'text' ? response.content[0].text : '',
-        tokens: {,
-          input: inputTokens,
-          output: outputTokens,
-          total: totalTokens,
+      const response: AIProcessResponse = {
+        text: aiResponse.text,
+        model: modelSelection.model,
+        confidence: this.calculateConfidence(modelSelection.model, aiResponse.outputTokens),
+        suggestions,
+        metadata: {
+          inputTokens: aiResponse.inputTokens,
+          outputTokens: aiResponse.outputTokens,
+          duration: Date.now() - startTime,
+          cost,
+          cacheHit: aiResponse.cacheHit,
         },
-        cost,
-        cached: false,
-        cacheKey,
-      }
+      };
 
-      // Cache the response for 48-72 hours as per CLAUDE.md
-      await this.cacheResponse(cacheKey, aiResponse, 72 * 3600) // 72 hours
+      this.logger.debug(
+        `AI request completed for user ${request.userId}: ` +
+        `${response.metadata.duration}ms, $${cost.toFixed(6)}, ` +
+        `cache: ${response.metadata.cacheHit}`
+      );
 
-      // Track usage metrics in Redis for analytics
-      if (request.userId) {
-        await this.trackUsageMetrics(request.userId, cost, 1)
-      },
-
-      return aiResponse
-    }
+      return response;
     } catch (error) {
-      this.logger.error('Error generating AI response:', error)
-      throw new Error(`AI Gateway error: ${error.message}`)
+      this.logger.error(`AI request failed for user ${request.userId}`, error);
+      throw error;
     }
+  }
 
-  async generateEmbedding(text: string, userId?: string): Promise<number[]> {
+  async generateSuggestions(request: {
+    userId: string;
+    context: string;
+    userSubscription: { tier: 'PRO' | 'MAX' | 'TEAMS' };
+  }): Promise<string[]> {
+    const suggestionPrompt = `Based on the following user context, generate 3-5 actionable suggestions that would help improve productivity and workflow:
+
+Context: ${request.context}
+
+Provide suggestions that are:
+- Specific and actionable
+- Relevant to the user's current situation
+- Time-sensitive if applicable
+- Focused on automation or efficiency improvements
+
+Format as a simple list.`;
+
     try {
-      // Generate cache key for embedding
-      const cacheKey = this.generateEmbeddingCacheKey(text)
-  }
+      const response = await this.processRequest({
+        prompt: suggestionPrompt,
+        userId: request.userId,
+        action: 'suggestion-generation',
+        userSubscription: request.userSubscription,
+        metadata: { type: 'suggestions' },
+      });
 
-      // Check cache first (embeddings can be cached longer)
-      const cachedEmbedding = await this.redisService.getAIResult(cacheKey)
-      if (cachedEmbedding) {
-        this.logger.debug(`Embedding cache hit`)
-        return cachedEmbedding as number[]
-      }
-
-      // Note: Anthropic doesn't provide embeddings directly
-      // This would typically use OpenAI's text-embedding-ada-002
-      // For now, return a placeholder that matches pgvector dimension (1536)
-      const embedding = new Array(1536).fill(0).map(() => Math.random() - 0.5)
-
-      // Cache embedding for 7 days
-      await this.redisService.setAIResult(cacheKey, embedding, 7 * 24 * 3600)
-
-      if (userId) {
-        await this.trackUsageMetrics(userId, 0.0001, 0) // Minimal cost for embeddings
-      },
-
-      return embedding
-    }
-    catch (error) {
-      console.error('Error in ai-gateway.service.ts:', error)
-      throw error
-    }
+      return this.extractSuggestions(response.text);
     } catch (error) {
-      this.logger.error('Error generating embedding:', error)
-      throw new Error(`Embedding generation error: ${error.message}`)
+      this.logger.error('Failed to generate suggestions', error);
+      return [];
     }
-
-  async batchProcess(requests: AIRequest[]): Promise<AIResponse[]> {
-    // Process requests in batches to optimize API usage
-    const batchSize = 5
-    const results: AIResponse[] = []
   }
 
-    for (let i = 0; i < requests.length; i += batchSize) {
-      const batch = requests.slice(i, i + batchSize)
-      const batchPromises = batch.map(request => this.generateResponse(request))
-      const batchResults = await Promise.allSettled(batchPromises)
+  async analyzeEmailThread(request: {
+    userId: string;
+    emailContent: string;
+    userSubscription: { tier: 'PRO' | 'MAX' | 'TEAMS' };
+  }): Promise<{
+    summary: string;
+    priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+    sentiment: number;
+    actionItems: string[];
+    suggestedResponse?: string;
+  }> {
+    const analysisPrompt = `Analyze this email thread and provide:
+
+1. A concise summary (2-3 sentences)
+2. Priority level (LOW/NORMAL/HIGH/URGENT)
+3. Sentiment score (-1 to 1, where -1 is negative, 0 is neutral, 1 is positive)
+4. Action items extracted from the email
+5. If appropriate, suggest a brief response
+
+Email content:
+${request.emailContent}
+
+Respond in JSON format:
+{
+  "summary": "...",
+  "priority": "...",
+  "sentiment": 0.0,
+  "actionItems": ["...", "..."],
+  "suggestedResponse": "..." (optional)
+}`;
+
+    try {
+      const response = await this.processRequest({
+        prompt: analysisPrompt,
+        userId: request.userId,
+        action: 'email-analysis',
+        userSubscription: request.userSubscription,
+        metadata: { type: 'email-analysis' },
+      });
+
+      // Parse JSON response
+      const analysis = JSON.parse(response.text);
+      return analysis;
+    } catch (error) {
+      this.logger.error('Failed to analyze email thread', error);
+      // Return default analysis
+      return {
+        summary: 'Unable to analyze email content',
+        priority: 'NORMAL',
+        sentiment: 0,
+        actionItems: [],
+      };
     }
-
-      batchResults.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-          results.push(result.value)
-        } else {
-          this.logger.error(`Batch request ${i + index} failed:`, result.reason)
-          results.push({
-            content: 'Error processing request',
-            tokens: { input: 0, output: 0, total: 0 },
-            cost: 0,
-            cached: false,
-          })
-        })
-    },
-
-    return results
   }
 
-  async getUserUsage(userId: string): Promise<UsageStats> {
-    const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
-    const monthlyUsage = await this.redisService.getUsage(userId, currentMonth)
+  async draftEmail(request: {
+    userId: string;
+    context: string;
+    recipient: string;
+    purpose: string;
+    tone?: 'formal' | 'casual' | 'friendly';
+    userSubscription: { tier: 'PRO' | 'MAX' | 'TEAMS' };
+  }): Promise<{ subject: string; body: string }> {
+    const tone = request.tone || 'professional';
+    
+    const draftPrompt = `Draft an email with the following details:
+
+Recipient: ${request.recipient}
+Purpose: ${request.purpose}
+Tone: ${tone}
+Context: ${request.context}
+
+Requirements:
+- Professional and well-structured
+- Clear subject line
+- Appropriate tone for the relationship and purpose
+- Include relevant details from context
+- Concise but complete
+
+Respond in JSON format:
+{
+  "subject": "...",
+  "body": "..."
+}`;
+
+    try {
+      const response = await this.processRequest({
+        prompt: draftPrompt,
+        userId: request.userId,
+        action: 'email-drafting',
+        userSubscription: request.userSubscription,
+        metadata: { type: 'email-drafting' },
+      });
+
+      const draft = JSON.parse(response.text);
+      return draft;
+    } catch (error) {
+      this.logger.error('Failed to draft email', error);
+      throw new AIServiceException('Failed to generate email draft');
+    }
   }
 
-    // Get total usage across all months (simplified - in production would query database)
-    const totalUsage = (await this.redisService.getData<{ actions: number; cost: number }>(
-      `total-usage:${userId}`,
-    )) || {
-      actions: 0,
-      cost: 0,
+  private extractSuggestions(text: string): string[] {
+    // Extract suggestions from AI response
+    const lines = text.split('\n').filter(line => line.trim());
+    const suggestions: string[] = [];
+
+    for (const line of lines) {
+      // Look for numbered lists, bullet points, or suggestion patterns
+      if (
+        /^\d+\./.test(line.trim()) ||
+        /^[-*•]/.test(line.trim()) ||
+        line.toLowerCase().includes('suggest') ||
+        line.toLowerCase().includes('recommend')
+      ) {
+        const cleanSuggestion = line.replace(/^\d+\.|\s*[-*•]\s*/, '').trim();
+        if (cleanSuggestion.length > 10) {
+          suggestions.push(cleanSuggestion);
+        }
+      }
     }
+
+    return suggestions.slice(0, 5); // Limit to 5 suggestions
+  }
+
+  private calculateConfidence(model: string, outputTokens: number): number {
+    // Calculate confidence based on model capability and response length
+    let baseConfidence = 0.7;
+    
+    switch (model) {
+      case 'claude-3-opus':
+        baseConfidence = 0.9;
+        break;
+      case 'claude-3-5-sonnet':
+        baseConfidence = 0.8;
+        break;
+      case 'claude-3-haiku':
+        baseConfidence = 0.7;
+        break;
+    }
+
+    // Adjust based on response length (longer responses might be more detailed)
+    if (outputTokens > 500) {
+      baseConfidence += 0.05;
+    } else if (outputTokens < 50) {
+      baseConfidence -= 0.1;
+    }
+
+    return Math.min(0.95, Math.max(0.5, baseConfidence));
+  }
+
+  async getUsageStats(userId: string): Promise<any> {
+    return this.usageTracking.getUserUsageStats(userId);
+  }
+
+  async healthCheck(): Promise<{ healthy: boolean; services: Record<string, boolean> }> {
+    const [anthropicHealthy] = await Promise.all([
+      this.anthropicService.healthCheck(),
+    ]);
 
     return {
-      totalActions: totalUsage.actions,
-      totalCost: totalUsage.cost,
-      currentMonth: {,
-        actions: monthlyUsage.total || 0,
-        cost: monthlyUsage.totalCost || 0,
+      healthy: anthropicHealthy,
+      services: {
+        anthropic: anthropicHealthy,
       },
-    }
-
-  async checkUsageLimit(userId: string, subscriptionTier: string): Promise<boolean> {
-    const usage = await this.getUserUsage(userId)
-    const limits = this.getSubscriptionLimits(subscriptionTier)
+    };
   }
-
-    return usage.currentMonth.actions < limits.monthlyActions
-  }
-
-  private generateCacheKey(request: AIRequest): string {
-    // Create semantic hash for cache deduplication
-    const content = `${request.systemPrompt || ''}|${request.prompt}|${request.maxTokens || this.DEFAULT_MAX_TOKENS}|${request.temperature || this.DEFAULT_TEMPERATURE}`
-    return `ai-response:${crypto.createHash('sha256').update(content).digest('hex')}`
-  }
-
-  private generateEmbeddingCacheKey(text: string): string {
-    return `embedding:${crypto.createHash('sha256').update(text).digest('hex')}`
-  }
-
-  private async getCachedResponse(cacheKey: string): Promise<AIResponse | null> {
-    return await this.redisService.getAIResult(cacheKey)
-  }
-
-  private async cacheResponse(cacheKey: string, response: AIResponse, ttl: number): Promise<void> {
-    await this.redisService.setAIResult(cacheKey, response, ttl)
-  }
-
-  private calculateCost(inputTokens: number, outputTokens: number): number {
-    const inputCost = (inputTokens / 1000) * this.COST_PER_1K_INPUT_TOKENS
-    const outputCost = (outputTokens / 1000) * this.COST_PER_1K_OUTPUT_TOKENS
-    return Math.round((inputCost + outputCost) * 10000) / 10000 // Round to 4 decimal places
-  }
-
-  private async trackUsageMetrics(userId: string, cost: number, actions: number): Promise<void> {
-    const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
-
-    // Update monthly usage
-    await this.redisService.incrementUsage(userId, 'ai-actions', currentMonth)
-
-    // Update cost tracking
-    const monthlyUsage = await this.redisService.getUsage(userId, currentMonth)
-    monthlyUsage.totalCost = (monthlyUsage.totalCost || 0) + cost
-    await this.redisService.setData(`usage:${userId}:${currentMonth}`, monthlyUsage, 30 * 24 * 3600)
-
-    // Update total usage (simplified)
-    const totalUsage = (await this.redisService.getData<{ actions: number; cost: number }>(
-      `total-usage:${userId}`,
-    )) || {
-      actions: 0,
-      cost: 0,
-    }
-    totalUsage.actions += actions
-    totalUsage.cost += cost
-    await this.redisService.setData(`total-usage:${userId}`, totalUsage, 365 * 24 * 3600)
-  }
-
-  private getDefaultSystemPrompt(): string {
-    return `You are Aurelius, an AI Personal Assistant that acts as a "digital chief of staff." You embody "The Wise Advisor" persona - calm, insightful, and reassuring. 
-
-Your role is to:
-- Proactively manage tasks and workflows
-- Provide intelligent analysis and suggestions
-- Maintain perfect memory of user interactions
-- Execute tasks with precision and care
-- Communicate with wisdom and clarity
-
-Always respond in a helpful, professional manner that reflects your role as a trusted advisor.`
-  }
-
-  private getSubscriptionLimits(tier: string): { monthlyActions: number } {
-    switch (tier.toLowerCase()) {
-      case 'pro':
-        return { monthlyActions: 1000 }
-      case 'max':
-        return { monthlyActions: 3000 }
-      case 'teams':
-        return { monthlyActions: 2000 },
-    }
-    default:
-        return { monthlyActions: 0 } // Free tier or unknown
-    }
-
-  async healthCheck(): Promise<boolean> {
-    try {
-      // Simple health check with minimal token usage
-      const _response = await this.anthropic.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 10,
-        messages: [
-          {
-            role: 'user',
-            content: 'ping',
-          },
-        ],
-      }),
-      return !!response
-    }
-    catch (error) {
-      console.error('Error in ai-gateway.service.ts:', error)
-      throw error
-    }
-    } catch (error) {
-      this.logger.error('AI Gateway health check failed:', error),
-      return false
-    }
-
 }

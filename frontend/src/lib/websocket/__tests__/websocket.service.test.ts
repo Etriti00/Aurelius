@@ -232,7 +232,7 @@ describe('WebSocket Service', () => {
       expect(typeof result.current.subscribeToTaskUpdates).toBe('function')
       expect(typeof result.current.subscribeToEmailUpdates).toBe('function')
       expect(typeof result.current.subscribeToCalendarUpdates).toBe('function')
-      expect(typeof result.current.subscribeToAIInsights).toBe('function')
+      expect(typeof result.current.subscribeToAIUpdates).toBe('function')
     })
 
     it('should handle task update subscriptions', () => {
@@ -279,7 +279,7 @@ describe('WebSocket Service', () => {
       const mockCallback = jest.fn()
 
       act(() => {
-        const unsubscribe = result.current.subscribeToAIInsights(mockCallback)
+        const unsubscribe = result.current.subscribeToAIUpdates(mockCallback)
         expect(mockSocket.on).toHaveBeenCalledWith('ai:insight', mockCallback)
         
         unsubscribe()

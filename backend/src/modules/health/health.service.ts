@@ -1,79 +1,42 @@
-import { Injectable } from '@nestjs/common'
-import { PrismaService } from '../../prisma/prisma.service'
-import { RedisService } from '../../common/services/redis.service'
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class HealthService {
-  constructor(
-    private prisma: PrismaService,
-    private redis: RedisService,
-  ) {}
+  private readonly logger = new Logger(HealthService.name);
 
-  async checkHealth() {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getHealth(): Promise<{
+    status: string;
+    timestamp: string;
+    services: Record<string, boolean>;
+    version: string;
+  }> {
+    const timestamp = new Date().toISOString();
+    
+    const services = {
+      database: await this.checkDatabase(),
+      // Add other service checks here
+    };
+
+    const allHealthy = Object.values(services).every(Boolean);
+
     return {
-      status: 'ok',
-      createdAt: new Date(),
-      uptime: process.uptime(),
-    }
+      status: allHealthy ? 'healthy' : 'degraded',
+      timestamp,
+      services,
+      version: '1.0.0',
+    };
   }
 
-  async checkDatabase() {
+  private async checkDatabase(): Promise<boolean> {
     try {
-      await this.prisma.$queryRaw`SELECT 1`
-      return {
-        status: 'healthy',
-        message: 'Database connection successful',
-      }
+      await this.prisma.$queryRaw`SELECT 1`;
+      return true;
     } catch (error) {
-      return {
-        status: 'unhealthy',
-        message: 'Database connection failed',
-        error: error.message,
-      }
-  }
-
-  async checkRedis() {
-    try {
-      const isHealthy = await this.redis.ping()
-      return {
-        status: isHealthy ? 'healthy' : 'unhealthy',
-        message: isHealthy ? 'Redis connection successful' : 'Redis connection failed',
-      }
-    } catch (error) {
-      return {
-        status: 'unhealthy',
-        message: 'Redis connection failed',
-        error: error.message,
-      }
-  }
-
-  async checkAI() {
-    // TODO: Implement AI service health check
-    return {
-      status: 'healthy',
-      message: 'AI service check not implemented yet',
+      this.logger.error('Database health check failed', error);
+      return false;
     }
   }
-
-  async getDetailedHealth() {
-    const [basic, database, redis, ai] = await Promise.all([
-      this.checkHealth(),
-      this.checkDatabase(),
-      this.checkRedis(),
-      this.checkAI(),
-    ])
-  }
-
-    const allHealthy = [database, redis, ai].every(check => check.status === 'healthy')
-
-    return {
-      ...basic,
-      status: allHealthy ? 'healthy' : 'unhealthy',
-      checks: {
-        database,
-        redis,
-        ai,
-      },
-    }
-
 }

@@ -1,41 +1,77 @@
 import { useState } from 'react'
 import useSWR from 'swr'
 import { apiClient } from './client'
-import { AIResponse, AISuggestion, AICommand, UsageMetrics } from './types'
+import { 
+  AIResponse, 
+  AISuggestion, 
+  AICommand, 
+  ProcessRequestDto,
+  GenerateSuggestionsDto,
+  AnalyzeEmailDto,
+  DraftEmailDto,
+  AIUsageStats,
+  AIHealthCheck,
+  EmailAnalysisResult,
+  DraftedEmail
+} from './types'
 
 // API endpoints
 const AI_ENDPOINT = '/ai-gateway'
 
-// API functions
+// Enhanced API functions matching new backend
 export const aiApi = {
-  // Process AI command
-  processCommand: (command: AICommand) =>
-    apiClient.post<AIResponse>(`${AI_ENDPOINT}/process`, command),
+  // Process AI request with smart model selection
+  processRequest: (data: ProcessRequestDto) =>
+    apiClient.post<AIResponse>(`${AI_ENDPOINT}/process`, data),
 
-  // Generate AI response
-  generateResponse: (prompt: string, systemPrompt?: string, maxTokens?: number) =>
-    apiClient.post<AIResponse>(`${AI_ENDPOINT}/generate`, {
-      prompt,
-      systemPrompt,
-      maxTokens,
+  // Generate proactive suggestions
+  generateSuggestions: (data: GenerateSuggestionsDto) =>
+    apiClient.post<{ suggestions: string[] }>(`${AI_ENDPOINT}/suggestions`, data),
+
+  // Analyze email thread for insights
+  analyzeEmail: (data: AnalyzeEmailDto) =>
+    apiClient.post<EmailAnalysisResult>(`${AI_ENDPOINT}/analyze-email`, data),
+
+  // Draft email based on context
+  draftEmail: (data: DraftEmailDto) =>
+    apiClient.post<DraftedEmail>(`${AI_ENDPOINT}/draft-email`, data),
+
+  // Get AI usage statistics
+  getUsage: () => apiClient.get<AIUsageStats>(`${AI_ENDPOINT}/usage`),
+
+  // Check AI gateway health
+  healthCheck: () => apiClient.get<AIHealthCheck>(`${AI_ENDPOINT}/health`),
+
+  // Legacy API methods for backwards compatibility
+  processCommand: (command: AICommand) =>
+    apiClient.post<AIResponse>(`${AI_ENDPOINT}/process`, {
+      prompt: command.command,
+      context: command.context,
+      action: 'command_processing',
     }),
 
-  // Get AI suggestions
-  getSuggestions: () => apiClient.get<AISuggestion[]>(`${AI_ENDPOINT}/suggestions`),
+  generateResponse: (prompt: string, systemPrompt?: string, maxTokens?: number) =>
+    aiApi.processRequest({
+      prompt,
+      systemPrompt,
+      metadata: { maxTokens },
+      action: 'generate_response',
+    }),
 
-  // Get usage statistics
-  getUsage: () => apiClient.get<UsageMetrics>(`${AI_ENDPOINT}/usage`),
-
-  // Generate embeddings
-  generateEmbedding: (text: string) =>
-    apiClient.post<number[]>(`${AI_ENDPOINT}/embeddings`, { text }),
-
-  // Semantic search
-  semanticSearch: (query: string, limit = 10) =>
-    apiClient.post(`${AI_ENDPOINT}/search`, { query, limit }),
+  getSuggestions: () => 
+    aiApi.generateSuggestions({}).then(response => response.suggestions.map((suggestion, index) => ({
+      id: `suggestion-${index}`,
+      type: 'insight' as const,
+      title: suggestion,
+      description: '',
+      action: 'view',
+      priority: 'medium' as const,
+      confidence: 0.8,
+      createdAt: new Date().toISOString(),
+    }))),
 }
 
-// SWR Hooks
+// Enhanced SWR Hooks
 export const useAISuggestions = () => {
   const { data, error, isLoading, mutate } = useSWR(
     `${AI_ENDPOINT}/suggestions`,
@@ -56,7 +92,7 @@ export const useAISuggestions = () => {
   }
 }
 
-export const useUsageMetrics = () => {
+export const useAIUsageStats = () => {
   const { data, error, isLoading, mutate } = useSWR(
     `${AI_ENDPOINT}/usage`,
     aiApi.getUsage,
@@ -75,24 +111,113 @@ export const useUsageMetrics = () => {
   }
 }
 
-// AI Command Processing Hook
-export const useAICommand = () => {
+export const useAIHealthCheck = () => {
+  const { data, error, isLoading, mutate } = useSWR(
+    `${AI_ENDPOINT}/health`,
+    aiApi.healthCheck,
+    {
+      revalidateOnFocus: false,
+      refreshInterval: 30000, // Refresh every 30 seconds
+    }
+  )
+
+  return {
+    health: data,
+    error,
+    isLoading,
+    mutate,
+    refresh: () => mutate(),
+  }
+}
+
+// Legacy hook for backwards compatibility
+export const useUsageMetrics = useAIUsageStats
+
+// Enhanced AI Processing Hooks
+export const useAIProcessing = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const execute = async (params: { command: string; context?: Record<string, unknown> }) => {
+  const processRequest = async (data: ProcessRequestDto) => {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await aiApi.processCommand(params)
+      const response = await aiApi.processRequest(data)
       setIsLoading(false)
       return response
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to execute command'
+      const errorMessage = error instanceof Error ? error.message : 'Failed to process request'
       setError(errorMessage)
       setIsLoading(false)
       throw error
     }
+  }
+
+  const analyzeEmail = async (emailContent: string) => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const response = await aiApi.analyzeEmail({ emailContent })
+      setIsLoading(false)
+      return response
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to analyze email'
+      setError(errorMessage)
+      setIsLoading(false)
+      throw error
+    }
+  }
+
+  const draftEmail = async (data: DraftEmailDto) => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const response = await aiApi.draftEmail(data)
+      setIsLoading(false)
+      return response
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to draft email'
+      setError(errorMessage)
+      setIsLoading(false)
+      throw error
+    }
+  }
+
+  const generateSuggestions = async (context?: Record<string, unknown>) => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const response = await aiApi.generateSuggestions({ context })
+      setIsLoading(false)
+      return response
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate suggestions'
+      setError(errorMessage)
+      setIsLoading(false)
+      throw error
+    }
+  }
+
+  return {
+    processRequest,
+    analyzeEmail,
+    draftEmail,
+    generateSuggestions,
+    isLoading,
+    error,
+  }
+}
+
+// Legacy AI Command Processing Hook for backwards compatibility
+export const useAICommand = () => {
+  const { processRequest, isLoading, error } = useAIProcessing()
+
+  const execute = async (params: { command: string; context?: Record<string, unknown> }) => {
+    return processRequest({
+      prompt: params.command,
+      context: params.context,
+      action: 'command_processing',
+    })
   }
 
   const processCommand = async (command: string, context?: Record<string, unknown>) => {
@@ -100,13 +225,12 @@ export const useAICommand = () => {
   }
 
   const generateResponse = async (prompt: string, systemPrompt?: string, maxTokens?: number) => {
-    try {
-      const response = await aiApi.generateResponse(prompt, systemPrompt, maxTokens)
-      return response
-    } catch (error) {
-      console.error('Failed to generate AI response:', error)
-      throw error
-    }
+    return processRequest({
+      prompt,
+      systemPrompt,
+      metadata: { maxTokens },
+      action: 'generate_response',
+    })
   }
 
   return {
@@ -118,15 +242,59 @@ export const useAICommand = () => {
   }
 }
 
-// Helper functions
+// Enhanced Helper functions
 export const formatAIResponse = (response: AIResponse) => {
   return {
     content: response.content,
     tokens: response.tokens,
     cost: response.cost,
     cached: response.cached,
+    model: response.model,
+    processingTime: response.processingTime,
+    timestamp: response.timestamp,
     formattedCost: `$${response.cost.toFixed(4)}`,
     efficiency: response.cached ? 'Cached' : 'Generated',
+    formattedProcessingTime: `${response.processingTime}ms`,
+  }
+}
+
+export const formatEmailAnalysis = (analysis: EmailAnalysisResult) => {
+  return {
+    ...analysis,
+    formattedActionItems: analysis.actionItems.map(item => ({
+      ...item,
+      priorityColor: getSuggestionColor(item.priority),
+      formattedDueDate: item.dueDate ? new Date(item.dueDate).toLocaleDateString() : 'No due date',
+    })),
+    sentimentColor: {
+      positive: 'text-green-600 bg-green-50',
+      neutral: 'text-gray-600 bg-gray-50',
+      negative: 'text-red-600 bg-red-50',
+    }[analysis.sentiment],
+    urgencyColor: getSuggestionColor(analysis.urgency),
+  }
+}
+
+export const formatDraftedEmail = (draft: DraftedEmail) => {
+  return {
+    ...draft,
+    confidencePercentage: Math.round(draft.confidence * 100),
+    confidenceColor: draft.confidence >= 0.8 ? 'text-green-600' : 
+                    draft.confidence >= 0.6 ? 'text-yellow-600' : 'text-red-600',
+    wordCount: draft.body.split(' ').length,
+  }
+}
+
+export const formatUsageStats = (stats: AIUsageStats) => {
+  const percentage = (stats.actionsUsed / stats.actionsLimit) * 100
+  return {
+    ...stats,
+    usagePercentage: Math.round(percentage),
+    isNearLimit: percentage >= 80,
+    isAtLimit: stats.actionsUsed >= stats.actionsLimit,
+    formattedCost: `$${stats.costThisPeriod.toFixed(4)}`,
+    formattedPeriod: `${new Date(stats.periodStart).toLocaleDateString()} - ${new Date(stats.periodEnd).toLocaleDateString()}`,
+    usageColor: getUsageColor(percentage),
   }
 }
 
@@ -145,7 +313,7 @@ export const getSuggestionIcon = (type: AISuggestion['type']) => {
   }
 }
 
-export const getSuggestionColor = (priority: AISuggestion['priority']) => {
+export const getSuggestionColor = (priority: 'high' | 'medium' | 'low') => {
   switch (priority) {
     case 'high':
       return 'text-red-600 bg-red-50 border-red-200'
@@ -247,6 +415,8 @@ export const generateMockSuggestions = (): AISuggestion[] => [
     description: 'You have a budget meeting tomorrow. Consider reviewing the Q4 numbers beforehand.',
     action: 'Create review task',
     priority: 'high',
+    confidence: 0.9,
+    reasoning: 'Based on your calendar analysis, you have a budget meeting scheduled.',
     createdAt: new Date().toISOString(),
   },
   {
@@ -256,6 +426,8 @@ export const generateMockSuggestions = (): AISuggestion[] => [
     description: 'Sarah from TechCorp hasn\'t responded to your proposal from last week.',
     action: 'Send follow-up email',
     priority: 'medium',
+    confidence: 0.8,
+    reasoning: 'Email thread analysis shows no response after 7 days.',
     createdAt: new Date().toISOString(),
   },
   {
@@ -265,6 +437,8 @@ export const generateMockSuggestions = (): AISuggestion[] => [
     description: 'It\'s been 3 days since the last team meeting. Consider scheduling a check-in.',
     action: 'Create meeting',
     priority: 'low',
+    confidence: 0.7,
+    reasoning: 'Pattern analysis shows regular meeting intervals.',
     createdAt: new Date().toISOString(),
   },
   {
@@ -274,6 +448,8 @@ export const generateMockSuggestions = (): AISuggestion[] => [
     description: 'Your task completion rate has increased 23% this week. Great momentum!',
     action: 'View details',
     priority: 'low',
+    confidence: 0.95,
+    reasoning: 'Statistical analysis of completed tasks over time.',
     createdAt: new Date().toISOString(),
   },
 ]
