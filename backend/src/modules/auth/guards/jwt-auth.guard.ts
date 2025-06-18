@@ -6,7 +6,7 @@ import { UnauthorizedException } from '../../../common/exceptions/app.exception'
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
-  constructor(private reflector: Reflector) {
+  constructor(private readonly reflector: Reflector) {
     super();
   }
 

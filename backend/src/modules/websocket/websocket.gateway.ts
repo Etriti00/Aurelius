@@ -18,8 +18,8 @@ import { Server, Socket } from 'socket.io';
 })
 export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
-  private logger: Logger = new Logger('WebSocketGateway');
-  private userSockets = new Map<string, string>(); // userId -> socketId
+  private readonly logger: Logger = new Logger('WebSocketGateway');
+  private readonly userSockets = new Map<string, string>(); // userId -> socketId
 
   afterInit(server: Server): void {
     this.logger.log('WebSocket Gateway initialized');

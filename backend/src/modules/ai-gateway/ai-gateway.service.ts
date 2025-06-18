@@ -1,6 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 
 import { AIModelSelectorService } from './services/ai-model-selector.service';
@@ -280,7 +279,7 @@ Respond in JSON format:
         line.toLowerCase().includes('suggest') ||
         line.toLowerCase().includes('recommend')
       ) {
-        const cleanSuggestion = line.replace(/^\d+\.|\s*[-*•]\s*/, '').trim();
+        const cleanSuggestion = line.replace(/^(\d+\.|\s*[-*•]\s*)/, '').trim();
         if (cleanSuggestion.length > 10) {
           suggestions.push(cleanSuggestion);
         }

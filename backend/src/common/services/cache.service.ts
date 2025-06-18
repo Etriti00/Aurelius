@@ -170,15 +170,16 @@ export class CacheService {
   // Multi-layer cache operations
   private async getFromLayer<T>(key: string, layer: CacheLayer): Promise<T | null> {
     switch (layer) {
-      case 'L0_Local':
+      case 'L0_Local': {
         const localEntry = this.localCache.get(key);
         if (localEntry && !this.isExpired(localEntry, 30)) { // 30s TTL for local
           return localEntry.data;
         }
         return null;
+      }
 
       case 'L1_Memory':
-      case 'L2_Redis':
+      case 'L2_Redis': {
         try {
           const cached = await this.redisCache.get<CacheEntry>(key);
           return cached?.data || null;
@@ -186,6 +187,7 @@ export class CacheService {
           this.logger.warn(`Failed to get from ${layer}`, error);
           return null;
         }
+      }
 
       case 'L3_Database':
         // Database cache would be implemented here
@@ -351,6 +353,7 @@ export class CacheService {
       await this.redisCache.del('health-check');
       return true;
     } catch (error) {
+      this.logger.warn('Redis health check failed', error);
       return false;
     }
   }

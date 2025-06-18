@@ -275,7 +275,7 @@ export class ProactivityEngineService {
       });
 
       // Notify user via WebSocket
-      await this.webSocketGateway.sendToUser(suggestion.userId, {
+      this.webSocketGateway.sendToUser(suggestion.userId, {
         type: 'suggestion:executed',
         payload: { suggestion, result },
       });

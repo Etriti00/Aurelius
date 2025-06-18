@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -144,6 +143,7 @@ async function main() {
         keyTopics: ['project status', 'team coordination', 'deadlines'],
         urgency: 'high',
       },
+      lastMessageAt: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
       messages: {
         create: [
           {
@@ -174,6 +174,7 @@ async function main() {
         keyTopics: ['onboarding', 'team welcome', 'first day'],
         urgency: 'low',
       },
+      lastMessageAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
       messages: {
         create: [
           {
@@ -296,7 +297,7 @@ async function main() {
   ];
 
   for (const suggestion of sampleSuggestions) {
-    await prisma.aISuggestion.create({
+    await prisma.aiSuggestion.create({
       data: {
         ...suggestion,
         userId: demoUser.id,
@@ -382,7 +383,7 @@ async function main() {
   ];
 
   for (const usageLog of sampleUsageLogs) {
-    await prisma.aIUsageLog.create({
+    await prisma.aiUsageLog.create({
       data: {
         ...usageLog,
         userId: demoUser.id,

@@ -47,16 +47,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Authentication successful', type: Object })
   @UseGuards(AuthGuard('google'))
   async googleCallback(@Request() req: any): Promise<AuthResponse> {
-    const tokens = await this.authService.generateTokens(req.user);
-    return {
-      ...tokens,
-      user: {
-        id: req.user.id,
-        email: req.user.email,
-        name: req.user.name,
-        avatar: req.user.avatar,
-      },
-    };
+    return this.handleOAuthCallback(req);
   }
 
   @Get('microsoft')
@@ -72,16 +63,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Authentication successful', type: Object })
   @UseGuards(AuthGuard('microsoft'))
   async microsoftCallback(@Request() req: any): Promise<AuthResponse> {
-    const tokens = await this.authService.generateTokens(req.user);
-    return {
-      ...tokens,
-      user: {
-        id: req.user.id,
-        email: req.user.email,
-        name: req.user.name,
-        avatar: req.user.avatar,
-      },
-    };
+    return this.handleOAuthCallback(req);
   }
 
   @Get('apple')
@@ -97,16 +79,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Authentication successful', type: Object })
   @UseGuards(AuthGuard('apple'))
   async appleCallback(@Request() req: any): Promise<AuthResponse> {
-    const tokens = await this.authService.generateTokens(req.user);
-    return {
-      ...tokens,
-      user: {
-        id: req.user.id,
-        email: req.user.email,
-        name: req.user.name,
-        avatar: req.user.avatar,
-      },
-    };
+    return this.handleOAuthCallback(req);
   }
 
   @Post('refresh')
@@ -168,5 +141,18 @@ export class AuthController {
   async revokeAllTokens(@CurrentUser() user: any): Promise<{ message: string }> {
     await this.authService.revokeAllUserTokens(user.id);
     return { message: 'All tokens revoked successfully' };
+  }
+
+  private async handleOAuthCallback(req: any): Promise<AuthResponse> {
+    const tokens = await this.authService.generateTokens(req.user);
+    return {
+      ...tokens,
+      user: {
+        id: req.user.id,
+        email: req.user.email,
+        name: req.user.name,
+        avatar: req.user.avatar,
+      },
+    };
   }
 }

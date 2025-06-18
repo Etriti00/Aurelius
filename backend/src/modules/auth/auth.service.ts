@@ -1,12 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
-import { UnauthorizedException, ForbiddenException } from '../../common/exceptions/app.exception';
+import { UnauthorizedException } from '../../common/exceptions/app.exception';
 
 interface JwtPayload {
   sub: string;
