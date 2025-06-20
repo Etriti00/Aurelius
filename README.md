@@ -46,6 +46,7 @@ This is a monorepo containing:
 ## Deployment
 
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/Etriti00/Aurelius?utm_source=oss&utm_medium=github&utm_campaign=Etriti00%2FAurelius&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FEtriti00%2FAurelius.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FEtriti00%2FAurelius?ref=badge_shield)
 
 - **Frontend**: Vercel with automatic deployments
 - **Backend**: Railway with PostgreSQL and Redis
@@ -54,3 +55,5 @@ This is a monorepo containing:
 ## License
 
 Private - All rights reserved
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FEtriti00%2FAurelius.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FEtriti00%2FAurelius?ref=badge_large)
