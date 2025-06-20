@@ -1,0 +1,107 @@
+{
+  "projectName": "Aurelius AI",
+  "workingDirectory": "/home/etritneziri/projects/Aurelius",
+  "environment": "development",
+  "frontend": {
+    "framework": "Next.js 14",
+    "directory": "./frontend",
+    "port": 3000,
+    "commands": {
+      "install": "cd frontend && npm install",
+      "dev": "cd frontend && npm run dev",
+      "build": "cd frontend && npm run build",
+      "start": "cd frontend && npm run start",
+      "lint": "cd frontend && npm run lint",
+      "type-check": "cd frontend && npm run type-check",
+      "test": "cd frontend && npm run test",
+      "clean": "cd frontend && rm -rf .next node_modules"
+    }
+  },
+  "backend": {
+    "framework": "NestJS",
+    "directory": "./backend",
+    "port": 4000,
+    "commands": {
+      "install": "cd backend && npm install",
+      "dev": "cd backend && npm run start:dev",
+      "build": "cd backend && npm run build",
+      "start": "cd backend && npm run start:prod",
+      "lint": "cd backend && npm run lint",
+      "test": "cd backend && npm run test",
+      "test:e2e": "cd backend && npm run test:e2e",
+      "prisma:generate": "cd backend && npm run prisma:generate",
+      "prisma:migrate": "cd backend && npm run prisma:migrate",
+      "prisma:studio": "cd backend && npm run prisma:studio",
+      "prisma:seed": "cd backend && npm run prisma:seed",
+      "clean": "cd backend && rm -rf dist node_modules"
+    }
+  },
+  "commands": {
+    "setup": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "dev": "concurrently \"cd frontend && npm run dev\" \"cd backend && npm run start:dev\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run start:dev",
+    "build": "cd frontend && npm run build && cd ../backend && npm run build",
+    "test": "cd frontend && npm run test && cd ../backend && npm run test",
+    "lint": "cd frontend && npm run lint && cd ../backend && npm run lint",
+    "clean": "rm -rf */node_modules */.next */dist",
+    "reset": "rm -rf */node_modules */.next */dist && npm install"
+  },
+  "database": {
+    "type": "PostgreSQL",
+    "port": 5432,
+    "commands": {
+      "start": "docker run -d --name aurelius-postgres --network aurelius-network -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=aurelius -p 5432:5432 -v aurelius-postgres-data:/var/lib/postgresql/data pgvector/pgvector:pg15",
+      "stop": "docker stop aurelius-postgres",
+      "reset": "docker stop aurelius-postgres && docker rm aurelius-postgres && docker volume rm aurelius-postgres-data"
+    }
+  },
+  "redis": {
+    "port": 6379,
+    "commands": {
+      "start": "docker run -d --name aurelius-redis --network aurelius-network -p 6379:6379 -v aurelius-redis-data:/data redis:7-alpine redis-server --requirepass redis-password",
+      "stop": "docker stop aurelius-redis",
+      "reset": "docker stop aurelius-redis && docker rm aurelius-redis && docker volume rm aurelius-redis-data"
+    }
+  },
+  "docker": {
+    "commands": {
+      "network-create": "docker network create aurelius-network",
+      "services-up": "docker run -d --name aurelius-postgres --network aurelius-network -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=aurelius -p 5432:5432 -v aurelius-postgres-data:/var/lib/postgresql/data pgvector/pgvector:pg15 && docker run -d --name aurelius-redis --network aurelius-network -p 6379:6379 -v aurelius-redis-data:/data redis:7-alpine redis-server --requirepass redis-password",
+      "services-down": "docker stop aurelius-postgres aurelius-redis",
+      "services-reset": "docker stop aurelius-postgres aurelius-redis && docker rm aurelius-postgres aurelius-redis && docker volume rm aurelius-postgres-data aurelius-redis-data"
+    }
+  },
+  "git": {
+    "commands": {
+      "status": "git status",
+      "add": "git add .",
+      "commit": "git commit -m",
+      "push": "git push",
+      "pull": "git pull",
+      "branch": "git branch",
+      "checkout": "git checkout",
+      "merge": "git merge"
+    }
+  },
+  "preserveUI": true,
+  "backupLocation": "/home/etritneziri/projects/Aurelius_backup_20250619_155940",
+  "quickStart": {
+    "description": "Quick commands to get started",
+    "steps": [
+      "1. Install all dependencies: npm run setup",
+      "2. Start database services: docker network create aurelius-network && docker run commands",
+      "3. Run migrations: cd backend && npm run prisma:migrate",
+      "4. Start development: npm run dev",
+      "5. Open frontend: http://localhost:3000",
+      "6. Open backend: http://localhost:4000"
+    ]
+  },
+  "ports": {
+    "frontend": 3000,
+    "backend": 4000,
+    "postgres": 5432,
+    "redis": 6379,
+    "prisma-studio": 5555
+  }
+}

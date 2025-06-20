@@ -1,0 +1,123 @@
+name: SonarQube Analysis
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  sonarqube:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for better analysis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Cache SonarQube packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Install dependencies (Backend)
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Install dependencies (Frontend)
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run tests with coverage (Backend)
+        working-directory: ./backend
+        run: |
+          npm run test:cov || true
+        env:
+          CI: true
+
+      - name: Run tests with coverage (Frontend)
+        working-directory: ./frontend
+        run: |
+          npm run test:coverage || true
+        env:
+          CI: true
+
+      - name: Run ESLint (Backend)
+        working-directory: ./backend
+        run: |
+          npm run lint -- --format json --output-file eslint-report.json || true
+
+      - name: Run ESLint (Frontend)
+        working-directory: ./frontend
+        run: |
+          npm run lint -- --format json --output-file eslint-report.json || true
+
+      - name: SonarQube Scan
+        uses: sonarqube-quality-gate-action@master
+        with:
+          scanMetadataReportFile: .scannerwork/report-task.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Run SonarQube Scanner
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: SonarQube Quality Gate Check
+        id: sonarqube-quality-gate-check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Comment PR with SonarQube Results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = '.scannerwork/report-task.txt';
+            
+            if (fs.existsSync(path)) {
+              const report = fs.readFileSync(path, 'utf8');
+              const dashboardUrl = report.match(/dashboardUrl=(.+)/)?.[1];
+              
+              if (dashboardUrl) {
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: `## 📊 SonarQube Analysis Results
+            
+            **Quality Gate Status:** ${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}
+            
+            📈 **View detailed analysis:** [SonarQube Dashboard](${dashboardUrl})
+            
+            ### Key Metrics:
+            - Security vulnerabilities
+            - Code coverage
+            - Code smells
+            - Technical debt
+            - Maintainability rating
+            
+            *Analysis completed at: ${new Date().toISOString()}*`
+                });
+              }
+            }
