@@ -76,36 +76,111 @@ async function bootstrap(): Promise<void> {
   if (configService.get<string>('NODE_ENV') !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('Aurelius API')
-      .setDescription('Aurelius AI Personal Assistant API Documentation')
+      .setDescription(`
+        ## Aurelius AI Personal Assistant API
+        
+        Welcome to the Aurelius API documentation. Aurelius is a revolutionary AI Personal Assistant that acts as your "digital chief of staff," transforming how you manage tasks, communications, and workflows.
+        
+        ### Key Features
+        - **AI-Powered Task Management**: Intelligent task creation, prioritization, and completion tracking
+        - **Email Intelligence**: AI-driven email categorization, drafting, and response suggestions
+        - **Calendar Optimization**: Smart scheduling with conflict detection and meeting preparation
+        - **Voice Interaction**: Text-to-speech and speech-to-text capabilities with ElevenLabs integration
+        - **Workflow Automation**: TASA (Trigger → Analysis → Suggestion → Action) engine for proactive task execution
+        - **Semantic Search**: Vector-based search across all your content with AI-powered relevance
+        - **Real-time Updates**: WebSocket-based live notifications and collaborative features
+        - **Multi-Platform Integration**: Google Workspace, Microsoft 365, and more
+        
+        ### Authentication
+        This API uses JWT Bearer tokens for authentication. Obtain tokens through OAuth2 flows with supported providers (Google, Microsoft, Apple) or use the refresh token endpoint to maintain sessions.
+        
+        ### Rate Limiting
+        API endpoints are rate-limited to ensure fair usage:
+        - **Standard endpoints**: 1000 requests per hour per user
+        - **AI endpoints**: 100 requests per hour per user (varies by subscription tier)
+        - **Authentication endpoints**: 10 attempts per 15 minutes
+        
+        ### Response Format
+        All API responses follow a consistent format with success indicators, data payloads, and error details when applicable.
+        
+        ### Subscription Tiers
+        - **Pro ($50/month)**: 1,000 AI actions, 1 workspace, 3 integrations
+        - **Max ($100/month)**: 3,000 AI actions, unlimited integrations, advanced features  
+        - **Teams ($70/user/month)**: 2,000 AI actions per user, team collaboration, admin controls
+        
+        ### Support
+        For technical support, visit our [documentation](https://docs.aurelius.ai) or contact support@aurelius.ai
+      `)
       .setVersion('1.0')
+      .setContact(
+        'Aurelius Support',
+        'https://aurelius.ai',
+        'support@aurelius.ai'
+      )
+      .setLicense(
+        'Commercial License',
+        'https://aurelius.ai/license'
+      )
+      .addServer('https://api.aurelius.ai', 'Production Server')
+      .addServer('https://staging-api.aurelius.ai', 'Staging Server')
+      .addServer('http://localhost:3001', 'Development Server')
       .addBearerAuth(
         {
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'JWT',
-          name: 'JWT',
-          description: 'Enter JWT token',
+          name: 'Authorization',
+          description: 'Enter JWT token obtained from authentication endpoints',
           in: 'header',
         },
         'JWT-auth'
       )
-      .addTag('auth', 'Authentication endpoints')
-      .addTag('users', 'User management')
-      .addTag('tasks', 'Task management')
-      .addTag('email', 'Email integration')
-      .addTag('calendar', 'Calendar integration')
-      .addTag('ai-gateway', 'AI processing')
-      .addTag('voice', 'Voice interaction')
-      .addTag('integrations', 'Third-party integrations')
-      .addTag('billing', 'Billing and subscriptions')
-      .addTag('websocket', 'Real-time communication')
+      .addSecurityRequirements('JWT-auth')
+      .addTag('auth', 'Authentication & Authorization - OAuth2 flows, JWT token management, and user session handling')
+      .addTag('users', 'User Management - User profiles, preferences, and account management')
+      .addTag('tasks', 'Task Management - AI-powered task creation, tracking, and completion with smart insights')
+      .addTag('email', 'Email Intelligence - Email processing, AI drafting, categorization, and integration management')
+      .addTag('calendar', 'Calendar & Scheduling - Event management, scheduling optimization, and calendar integrations')
+      .addTag('ai-gateway', 'AI Processing - Claude AI integration, chat interactions, and AI model management')
+      .addTag('voice', 'Voice Interaction - Text-to-speech, speech-to-text, and voice cloning with ElevenLabs')
+      .addTag('integrations', 'Third-party Integrations - Google Workspace, Microsoft 365, and other external service connections')
+      .addTag('billing', 'Billing & Subscriptions - Stripe integration, subscription management, and usage tracking')
+      .addTag('search', 'Search & Discovery - Semantic search, vector embeddings, and content discovery')
+      .addTag('workflow', 'Workflow Automation - TASA engine, automated workflows, and proactive task execution')
+      .addTag('notifications', 'Notifications - Multi-channel notifications, preferences, and delivery management')
+      .addTag('analytics', 'Analytics & Insights - Productivity metrics, usage analytics, and AI-powered insights')
+      .addTag('storage', 'File Management - File uploads, processing, CDN distribution, and storage management')
+      .addTag('scheduler', 'Job Scheduling - Cron jobs, recurring tasks, and background job management')
+      .addTag('security', 'Security & Audit - Audit logs, rate limiting, and security monitoring')
+      .addTag('websocket', 'Real-time Communication - WebSocket connections, live updates, and collaborative features')
       .build();
 
-    const document = SwaggerModule.createDocument(app, config);
+    const document = SwaggerModule.createDocument(app, config, {
+      operationIdFactory: (_controllerKey: string, methodKey: string) => methodKey,
+      deepScanRoutes: true,
+    });
+
+    // Add custom CSS for better documentation appearance
+    const customCss = `
+      .swagger-ui .topbar { display: none; }
+      .swagger-ui .info { margin: 20px 0; }
+      .swagger-ui .info .title { color: #2c3e50; }
+      .swagger-ui .scheme-container { background: #f8f9fa; padding: 15px; margin: 20px 0; border-radius: 5px; }
+    `;
+
     SwaggerModule.setup('api/docs', app, document, {
       swaggerOptions: {
         persistAuthorization: true,
+        displayRequestDuration: true,
+        filter: true,
+        showExtensions: true,
+        showCommonExtensions: true,
+        tagsSorter: 'alpha',
+        operationsSorter: 'alpha',
       },
+      customCss,
+      customSiteTitle: 'Aurelius API Documentation',
+      customfavIcon: 'https://aurelius.ai/favicon.ico',
     });
   }
 

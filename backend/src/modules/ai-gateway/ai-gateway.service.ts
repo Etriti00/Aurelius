@@ -4,6 +4,8 @@ import { AIModelSelectorService } from './services/ai-model-selector.service';
 import { AnthropicService } from './services/anthropic.service';
 import { UsageTrackingService } from './services/usage-tracking.service';
 import { AIServiceException, RateLimitException } from '../../common/exceptions/app.exception';
+import { ChatMessageDto, AIModel } from './dto/chat-request.dto';
+import { ChatResponseDto, AIUsageDto, SuggestedActionDto } from './dto/chat-response.dto';
 
 interface AIProcessRequest {
   prompt: string;
@@ -17,6 +19,10 @@ interface AIProcessRequest {
   metadata?: {
     urgency?: 'low' | 'normal' | 'high';
     type?: string;
+    conversationId?: string;
+    model?: AIModel;
+    temperature?: number;
+    maxTokens?: number;
   };
 }
 
@@ -327,5 +333,208 @@ Respond in JSON format:
         anthropic: anthropicHealthy,
       },
     };
+  }
+
+  async chat(request: {
+    userId: string;
+    messages: ChatMessageDto[];
+    model?: AIModel;
+    temperature?: number;
+    maxTokens?: number;
+    context?: any;
+    includeContext?: boolean;
+    suggestActions?: boolean;
+    conversationId?: string;
+    systemPrompt?: string;
+    userSubscription: { tier: 'PRO' | 'MAX' | 'TEAMS' };
+  }): Promise<ChatResponseDto> {
+    const startTime = Date.now();
+    
+    try {
+      // Build the conversation prompt from messages
+      const conversationText = request.messages
+        .map(msg => `${msg.role}: ${msg.content}`)
+        .join('\n\n');
+
+      // Add system prompt if provided
+      let fullPrompt = conversationText;
+      if (request.systemPrompt) {
+        fullPrompt = `${request.systemPrompt}\n\n${conversationText}`;
+      }
+
+      // Add context if requested and available
+      if (request.includeContext && request.context) {
+        const contextText = this.formatContextForPrompt(request.context);
+        fullPrompt = `Context: ${contextText}\n\n${fullPrompt}`;
+      }
+
+      // Process the chat request
+      const response = await this.processRequest({
+        prompt: fullPrompt,
+        userId: request.userId,
+        action: 'chat',
+        userSubscription: request.userSubscription,
+        metadata: { 
+          type: 'chat',
+          conversationId: request.conversationId,
+          model: request.model,
+          temperature: request.temperature,
+          maxTokens: request.maxTokens
+        },
+      });
+
+      // Generate suggested actions if requested
+      let suggestedActions: SuggestedActionDto[] = [];
+      if (request.suggestActions) {
+        suggestedActions = this.extractSuggestedActions(response.text);
+      }
+
+      // Create usage information
+      const usage = new AIUsageDto({
+        promptTokens: response.metadata.inputTokens,
+        completionTokens: response.metadata.outputTokens,
+        totalTokens: response.metadata.inputTokens + response.metadata.outputTokens,
+        cost: response.metadata.cost,
+      });
+
+      // Build the chat response
+      const chatResponse = new ChatResponseDto({
+        response: response.text,
+        model: request.model || AIModel.CLAUDE_3_SONNET,
+        usage,
+        timestamp: new Date().toISOString(),
+        conversationTurnId: this.generateTurnId(),
+        conversationId: request.conversationId,
+        suggestedActions: suggestedActions.length > 0 ? suggestedActions : undefined,
+        processingTime: Date.now() - startTime,
+        success: true,
+      });
+
+      return chatResponse;
+
+    } catch (error) {
+      this.logger.error('Failed to process chat request', error);
+      
+      // Return error response
+      return new ChatResponseDto({
+        response: '',
+        model: request.model || AIModel.CLAUDE_3_SONNET,
+        usage: new AIUsageDto({ promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }),
+        timestamp: new Date().toISOString(),
+        conversationTurnId: this.generateTurnId(),
+        conversationId: request.conversationId,
+        processingTime: Date.now() - startTime,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      });
+    }
+  }
+
+  private formatContextForPrompt(context: any): string {
+    const contextParts: string[] = [];
+    
+    if (context.tasks && context.tasks.length > 0) {
+      contextParts.push(`Current tasks: ${context.tasks.map((t: any) => `${t.title} (${t.status})`).join(', ')}`);
+    }
+    
+    if (context.events && context.events.length > 0) {
+      contextParts.push(`Upcoming events: ${context.events.map((e: any) => `${e.title} at ${e.startTime}`).join(', ')}`);
+    }
+    
+    if (context.emails && context.emails.length > 0) {
+      contextParts.push(`Recent emails: ${context.emails.map((e: any) => `"${e.subject}" from ${e.from}`).join(', ')}`);
+    }
+    
+    if (context.location) {
+      contextParts.push(`Location: ${context.location}`);
+    }
+    
+    if (context.timezone) {
+      contextParts.push(`Timezone: ${context.timezone}`);
+    }
+    
+    return contextParts.join('. ');
+  }
+
+  private extractSuggestedActions(text: string): SuggestedActionDto[] {
+    const actions: SuggestedActionDto[] = [];
+    
+    // Look for action-oriented phrases in the response
+    const actionPatterns = [
+      /create.*task/i,
+      /schedule.*meeting/i,
+      /send.*email/i,
+      /set.*reminder/i,
+      /add.*to.*calendar/i,
+    ];
+    
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    
+    sentences.forEach((sentence, index) => {
+      actionPatterns.forEach(pattern => {
+        if (pattern.test(sentence)) {
+          const actionType = this.determineActionType(sentence);
+          if (actionType) {
+            actions.push(new SuggestedActionDto({
+              type: actionType,
+              description: sentence.trim(),
+              parameters: this.extractActionParameters(sentence, actionType),
+              confidence: 0.7,
+              id: `suggestion-${Date.now()}-${index}`,
+            }));
+          }
+        }
+      });
+    });
+    
+    return actions.slice(0, 3); // Limit to 3 suggestions
+  }
+
+  private determineActionType(sentence: string): string | null {
+    if (/create.*task/i.test(sentence)) return 'create_task';
+    if (/schedule.*meeting/i.test(sentence)) return 'schedule_event';
+    if (/send.*email/i.test(sentence)) return 'send_email';
+    if (/set.*reminder/i.test(sentence)) return 'set_reminder';
+    if (/add.*calendar/i.test(sentence)) return 'schedule_event';
+    return null;
+  }
+
+  private extractActionParameters(sentence: string, actionType: string): any {
+    // Basic parameter extraction - could be enhanced with NLP
+    const parameters: any = {};
+    
+    switch (actionType) {
+      case 'create_task':
+        // Try to extract task title from quotes or after "create task"
+        const taskMatch = sentence.match(/create.*task.*["']([^"']+)["']/i) || 
+                         sentence.match(/create.*task.*(?:to|for)\s+([^.!?]+)/i);
+        if (taskMatch) {
+          parameters.title = taskMatch[1].trim();
+        }
+        break;
+        
+      case 'schedule_event':
+        // Try to extract event details
+        const eventMatch = sentence.match(/schedule.*["']([^"']+)["']/i);
+        if (eventMatch) {
+          parameters.title = eventMatch[1].trim();
+        }
+        break;
+        
+      case 'send_email':
+        // Try to extract recipient or subject
+        const emailMatch = sentence.match(/send.*email.*to\s+([^.!?\s]+)/i) ||
+                          sentence.match(/email.*["']([^"']+)["']/i);
+        if (emailMatch) {
+          parameters.recipient = emailMatch[1].trim();
+        }
+        break;
+    }
+    
+    return parameters;
+  }
+
+  private generateTurnId(): string {
+    return `turn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 }

@@ -43,7 +43,9 @@
       "Bash(npx prisma migrate dev:*)",
       "Bash(cat:*)",
       "Bash(npm run start:dev:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run:*)"
     ],
     "deny": []
   }

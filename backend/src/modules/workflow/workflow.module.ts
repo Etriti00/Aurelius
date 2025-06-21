@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { WorkflowController } from './workflow.controller';
 import { WorkflowService } from './workflow.service';
 import { TriggerService } from './services/trigger.service';
@@ -16,6 +17,7 @@ import { SearchModule } from '../search/search.module';
 
 @Module({
   imports: [
+    EventEmitterModule,
     AppConfigModule,
     PrismaModule,
     CacheModule,

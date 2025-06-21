@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { IntegrationsService } from '../integrations/integrations.service';
 import { UnauthorizedException } from '../../common/exceptions/app.exception';
 import { JwtPayload, RequestUser } from '../../common/interfaces/user.interface';
 import { User } from '@prisma/client';
@@ -33,7 +34,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly integrationsService: IntegrationsService
   ) {}
 
   async generateTokens(user: { id: string; email: string; name?: string; roles?: string[] }): Promise<AuthTokens> {
@@ -151,6 +153,46 @@ export class AuthService {
       return this.generateTokens(user);
     } catch (error) {
       this.logger.error(`OAuth login failed for ${oauthUser.provider}`, error);
+      throw new UnauthorizedException('OAuth authentication failed');
+    }
+  }
+
+  async handleOAuthLoginWithTokens(
+    oauthUser: OAuthUser,
+    providerTokens: {
+      accessToken: string;
+      refreshToken?: string;
+      tokenExpiry?: Date;
+    }
+  ): Promise<{ user: User; tokens: AuthTokens }> {
+    try {
+      let user = await this.findUserByProvider(oauthUser.provider, oauthUser.providerId);
+
+      if (!user) {
+        // Create new user
+        user = await this.createUserFromOAuth(oauthUser);
+        this.logger.log(`New user created via ${oauthUser.provider}: ${user.email}`);
+      } else {
+        // Update last active time and sync profile data
+        await this.usersService.updateLastActive(user.id);
+        await this.syncOAuthProfile(user.id, oauthUser);
+      }
+
+      // Store encrypted OAuth tokens for integration use
+      await this.integrationsService.connectIntegration(user.id, oauthUser.provider, {
+        accessToken: providerTokens.accessToken,
+        refreshToken: providerTokens.refreshToken,
+        tokenExpiry: providerTokens.tokenExpiry,
+        tokenType: 'Bearer',
+        providerAccountId: oauthUser.providerId,
+      });
+
+      // Generate JWT tokens for our application
+      const authTokens = await this.generateTokens(user);
+
+      return { user, tokens: authTokens };
+    } catch (error) {
+      this.logger.error(`OAuth login with tokens failed for ${oauthUser.provider}`, error);
       throw new UnauthorizedException('OAuth authentication failed');
     }
   }

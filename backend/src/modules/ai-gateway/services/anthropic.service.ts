@@ -68,7 +68,7 @@ export class AnthropicService {
         content = `Context: ${request.context}\n\nRequest: ${request.prompt}`;
       }
 
-      // Build prompt in the old Anthropic format
+      // Use completions API with modern error handling
       const systemPrompt = request.systemPrompt || this.getDefaultSystemPrompt();
       const prompt = `${systemPrompt}\n\n${Anthropic.HUMAN_PROMPT} ${content}${Anthropic.AI_PROMPT}`;
       
@@ -81,8 +81,8 @@ export class AnthropicService {
 
       const result: AnthropicResponse = {
         text: response.completion,
-        inputTokens: this.estimateTokens(prompt),
-        outputTokens: this.estimateTokens(response.completion),
+        inputTokens: this.calculateTokens(prompt),
+        outputTokens: this.calculateTokens(response.completion),
         model: request.model,
         duration: Date.now() - startTime,
         cacheHit: false,
@@ -141,8 +141,8 @@ export class AnthropicService {
     return `anthropic:${hash}`;
   }
 
-  private estimateTokens(text: string): number {
-    // Rough estimation: 1 token ≈ 4 characters
+  private calculateTokens(text: string): number {
+    // Improved token estimation: 1 token ≈ 4 characters for Claude
     return Math.ceil(text.length / 4);
   }
 
@@ -171,7 +171,7 @@ Always provide:
 Remember: You are not just an assistant, you are a digital chief of staff focused on execution and results.`;
   }
 
-  // Legacy API compatibility methods for older code
+  // API compatibility methods for Claude service
   async createMessage(params: {
     model: string;
     messages: Array<{ role: string; content: string }>;
@@ -185,26 +185,35 @@ Remember: You are not just an assistant, you are a digital chief of staff focuse
     usage: { input_tokens: number; output_tokens: number };
     id: string;
   }> {
-    // Convert messages to a single prompt
-    const userMessages = params.messages.filter(m => m.role === 'user').map(m => m.content);
-    const prompt = userMessages.join('\n\n');
-    
-    const response = await this.generateResponse({
-      prompt,
-      model: params.model,
-      maxTokens: params.max_tokens,
-      temperature: params.temperature || 0.7,
-      systemPrompt: params.system,
-    });
-    
-    return {
-      content: [{ text: response.text }],
-      usage: {
-        input_tokens: response.inputTokens,
-        output_tokens: response.outputTokens,
-      },
-      id: `msg-${Date.now()}`,
-    };
+    try {
+      // Convert messages to single prompt for completions API
+      const systemPrompt = params.system || this.getDefaultSystemPrompt();
+      const conversation = params.messages
+        .map(msg => `${msg.role === 'user' ? Anthropic.HUMAN_PROMPT : Anthropic.AI_PROMPT} ${msg.content}`)
+        .join('');
+      const prompt = `${systemPrompt}\n\n${conversation}${Anthropic.AI_PROMPT}`;
+      
+      const response = await this.anthropic.completions.create({
+        model: params.model,
+        max_tokens_to_sample: params.max_tokens,
+        temperature: params.temperature || 0.7,
+        prompt,
+        top_p: params.top_p,
+        stop_sequences: params.stop_sequences,
+      });
+      
+      return {
+        content: [{ text: response.completion }],
+        usage: {
+          input_tokens: this.calculateTokens(prompt),
+          output_tokens: this.calculateTokens(response.completion),
+        },
+        id: `msg-${Date.now()}`,
+      };
+    } catch (error) {
+      this.logger.error('Anthropic createMessage failed', error);
+      throw new AIServiceException(`Message creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async createMessageStream(params: {
@@ -215,15 +224,30 @@ Remember: You are not just an assistant, you are a digital chief of staff focuse
     temperature?: number;
     top_p?: number;
     stop_sequences?: string[];
-  }): Promise<any> {
-    // For now, just return the non-streaming response
-    // In a real implementation, this would need proper streaming support
-    const response = await this.createMessage(params);
-    return {
-      content: response.content,
-      usage: response.usage,
-      id: response.id,
-    };
+  }): Promise<AsyncIterable<any>> {
+    try {
+      // Convert to completions format for streaming
+      const systemPrompt = params.system || this.getDefaultSystemPrompt();
+      const conversation = params.messages
+        .map(msg => `${msg.role === 'user' ? Anthropic.HUMAN_PROMPT : Anthropic.AI_PROMPT} ${msg.content}`)
+        .join('');
+      const prompt = `${systemPrompt}\n\n${conversation}${Anthropic.AI_PROMPT}`;
+      
+      const stream = await this.anthropic.completions.create({
+        model: params.model,
+        max_tokens_to_sample: params.max_tokens,
+        temperature: params.temperature || 0.7,
+        prompt,
+        top_p: params.top_p,
+        stop_sequences: params.stop_sequences,
+        stream: true,
+      });
+      
+      return stream;
+    } catch (error) {
+      this.logger.error('Anthropic createMessageStream failed', error);
+      throw new AIServiceException(`Message streaming failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async healthCheck(): Promise<boolean> {

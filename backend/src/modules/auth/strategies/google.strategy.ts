@@ -39,14 +39,16 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         providerId: profile.id,
       };
 
-      const tokens = await this.authService.handleOAuthLogin(oauthUser);
+      const result = await this.authService.handleOAuthLoginWithTokens(oauthUser, {
+        accessToken,
+        refreshToken,
+        tokenExpiry: profile._json.expires_in ? new Date(Date.now() + profile._json.expires_in * 1000) : undefined,
+      });
       
-      // Store OAuth tokens for API access
+      // Return user with application tokens
       const user = {
-        ...oauthUser,
-        tokens,
-        googleAccessToken: accessToken,
-        googleRefreshToken: refreshToken,
+        ...result.user,
+        tokens: result.tokens,
       };
 
       done(null, user);

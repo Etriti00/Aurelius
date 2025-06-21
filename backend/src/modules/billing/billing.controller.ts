@@ -14,7 +14,13 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiBody,
+} from '@nestjs/swagger';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -37,6 +43,7 @@ import {
   PaymentMethodDto,
   ListPaymentMethodsResponseDto,
 } from './dto';
+import { ErrorResponseDto } from '../../common/dto/api-response.dto';
 
 @ApiTags('billing')
 @Controller('billing')
@@ -46,8 +53,54 @@ export class BillingController {
   @Post('checkout')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create checkout session' })
-  @ApiResponse({ status: 201, type: CheckoutResponseDto })
+  @ApiOperation({
+    summary: 'Create Stripe checkout session',
+    description: 'Create a new Stripe checkout session for subscription or one-time payments. Returns a secure checkout URL for the user to complete payment.',
+  })
+  @ApiBody({
+    type: CreateCheckoutDto,
+    description: 'Checkout session configuration',
+    examples: {
+      subscription: {
+        summary: 'Create subscription checkout',
+        value: {
+          priceId: 'price_1ABC123xyz',
+          mode: 'subscription',
+          successUrl: 'https://app.aurelius.ai/billing/success',
+          cancelUrl: 'https://app.aurelius.ai/billing/cancel',
+          metadata: {
+            plan: 'pro',
+            source: 'upgrade_prompt'
+          }
+        },
+      },
+      oneTime: {
+        summary: 'One-time payment checkout',
+        value: {
+          priceId: 'price_1DEF456abc',
+          mode: 'payment',
+          quantity: 1,
+          successUrl: 'https://app.aurelius.ai/billing/success',
+          cancelUrl: 'https://app.aurelius.ai/billing/cancel'
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Checkout session created successfully',
+    type: CheckoutResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid checkout parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing JWT token',
+    type: ErrorResponseDto,
+  })
   async createCheckout(
     @CurrentUser() user: any,
     @Body() dto: CreateCheckoutDto,
@@ -70,8 +123,25 @@ export class BillingController {
   @Get('subscription')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current subscription' })
-  @ApiResponse({ status: 200, type: SubscriptionResponseDto })
+  @ApiOperation({
+    summary: 'Get current subscription details',
+    description: 'Retrieve comprehensive details about the user\'s current subscription including plan, status, usage limits, billing cycle, and renewal information.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription details retrieved successfully',
+    type: SubscriptionResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing JWT token',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No active subscription found',
+    type: ErrorResponseDto,
+  })
   async getSubscription(@CurrentUser() user: any): Promise<SubscriptionResponseDto> {
     return this.billingService.getCurrentSubscription(user.id);
   }

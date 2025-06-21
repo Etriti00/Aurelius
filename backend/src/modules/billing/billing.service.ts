@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateCheckoutDto,
@@ -22,56 +24,124 @@ import {
 @Injectable()
 export class BillingService {
   private readonly logger = new Logger(BillingService.name);
+  private readonly stripe: Stripe;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {
+    const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
+    if (!stripeSecretKey) {
+      throw new Error('STRIPE_SECRET_KEY is required');
+    }
+
+    this.stripe = new Stripe(stripeSecretKey, {
+      apiVersion: '2023-10-16',
+    });
+  }
 
   async createCheckoutSession(userId: string, dto: CreateCheckoutDto): Promise<CheckoutResponseDto> {
-    this.logger.log(`Creating checkout session for user ${userId} with price ${dto.priceId}`);
-    
-    // In a real implementation, this would integrate with Stripe
-    return {
-      sessionId: `cs_${Date.now()}`,
-      url: `https://checkout.stripe.com/pay/cs_${Date.now()}`,
-    };
+    try {
+      this.logger.log(`Creating checkout session for user ${userId} with price ${dto.priceId}`);
+      
+      // Get or create Stripe customer
+      let customer = await this.getOrCreateStripeCustomer(userId);
+
+      // Create checkout session
+      const session = await this.stripe.checkout.sessions.create({
+        customer: customer.id,
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: dto.priceId,
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: `${this.configService.get('FRONTEND_URL')}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${this.configService.get('FRONTEND_URL')}/billing/cancelled`,
+        metadata: {
+          userId,
+        },
+        subscription_data: {
+          metadata: {
+            userId,
+          },
+        },
+      });
+
+      return {
+        sessionId: session.id,
+        url: session.url || '',
+      };
+    } catch (error) {
+      this.logger.error(`Failed to create checkout session for user ${userId}`, error);
+      throw new Error(`Failed to create checkout session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async createSubscription(userId: string, dto: CreateSubscriptionDto): Promise<SubscriptionResponseDto> {
-    this.logger.log(`Creating subscription for user ${userId}`);
-    
-    // Map price ID to tier (in real implementation, this would be stored in config)
-    const tier = this.getTierFromPriceId(dto.priceId);
-    
-    const subscription = await this.prisma.subscription.create({
-      data: {
-        userId,
-        tier,
-        status: 'ACTIVE',
-        stripeCustomerId: `cus_${Date.now()}`,
-        stripeSubscriptionId: `sub_${Date.now()}`,
-        stripePriceId: dto.priceId,
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        monthlyActionLimit: this.getActionLimit(tier),
-        integrationLimit: this.getIntegrationLimit(tier),
-        aiModelAccess: this.getAIModelAccess(tier),
-        monthlyPrice: this.getMonthlyPrice(tier),
-        overageRate: this.getOverageRate(tier),
-      },
-    });
+    try {
+      this.logger.log(`Creating subscription for user ${userId}`);
+      
+      // Get or create Stripe customer
+      const customer = await this.getOrCreateStripeCustomer(userId);
 
-    return {
-      id: subscription.id,
-      status: subscription.status,
-      currentPeriodStart: subscription.currentPeriodStart,
-      currentPeriodEnd: subscription.currentPeriodEnd,
-      items: [
-        {
-          id: `si_${Date.now()}`,
-          priceId: dto.priceId,
-          quantity: 1,
-        }
-      ],
-    };
+      // Create Stripe subscription
+      const stripeSubscription = await this.stripe.subscriptions.create({
+        customer: customer.id,
+        items: [
+          {
+            price: dto.priceId,
+          },
+        ],
+        payment_behavior: 'default_incomplete',
+        payment_settings: {
+          save_default_payment_method: 'on_subscription',
+        },
+        expand: ['latest_invoice.payment_intent'],
+        metadata: {
+          userId,
+        },
+      });
+
+      // Map price ID to tier
+      const tier = this.getTierFromPriceId(dto.priceId);
+      
+      // Create local subscription record
+      const subscription = await this.prisma.subscription.create({
+        data: {
+          userId,
+          tier,
+          status: this.mapStripeStatusToLocal(stripeSubscription.status),
+          stripeCustomerId: customer.id,
+          stripeSubscriptionId: stripeSubscription.id,
+          stripePriceId: dto.priceId,
+          currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
+          currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+          monthlyActionLimit: this.getActionLimit(tier),
+          integrationLimit: this.getIntegrationLimit(tier),
+          aiModelAccess: this.getAIModelAccess(tier),
+          monthlyPrice: this.getMonthlyPrice(tier),
+          overageRate: this.getOverageRate(tier),
+        },
+      });
+
+      return {
+        id: subscription.id,
+        status: subscription.status,
+        currentPeriodStart: subscription.currentPeriodStart,
+        currentPeriodEnd: subscription.currentPeriodEnd,
+        items: stripeSubscription.items.data.map(item => ({
+          id: item.id,
+          priceId: item.price.id,
+          quantity: item.quantity || 1,
+        })),
+      };
+    } catch (error) {
+      this.logger.error(`Failed to create subscription for user ${userId}`, error);
+      throw new Error(`Failed to create subscription: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async getCurrentSubscription(userId: string): Promise<SubscriptionResponseDto> {
@@ -459,5 +529,75 @@ export class BillingService {
     }
 
     return dailyUsage;
+  }
+
+  private async getOrCreateStripeCustomer(userId: string): Promise<Stripe.Customer> {
+    try {
+      // Get user details
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true },
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Check if customer already exists in our database
+      const existingSubscription = await this.prisma.subscription.findUnique({
+        where: { userId },
+        select: { stripeCustomerId: true },
+      });
+
+      if (existingSubscription?.stripeCustomerId) {
+        // Verify customer exists in Stripe
+        try {
+          const customer = await this.stripe.customers.retrieve(existingSubscription.stripeCustomerId);
+          if (!customer.deleted) {
+            return customer as Stripe.Customer;
+          }
+        } catch (error) {
+          this.logger.warn(`Stripe customer ${existingSubscription.stripeCustomerId} not found, creating new one`);
+        }
+      }
+
+      // Create new Stripe customer
+      const customer = await this.stripe.customers.create({
+        email: user.email,
+        name: user.name || undefined,
+        metadata: {
+          userId,
+        },
+      });
+
+      this.logger.log(`Created Stripe customer ${customer.id} for user ${userId}`);
+      return customer;
+    } catch (error) {
+      this.logger.error(`Failed to get or create Stripe customer for user ${userId}`, error);
+      throw new Error(`Failed to create customer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private mapStripeStatusToLocal(stripeStatus: string): 'ACTIVE' | 'CANCELED' | 'PAST_DUE' | 'TRIALING' | 'PAUSED' {
+    switch (stripeStatus) {
+      case 'active':
+        return 'ACTIVE';
+      case 'past_due':
+        return 'PAST_DUE';
+      case 'canceled':
+      case 'cancelled':
+        return 'CANCELED';
+      case 'unpaid':
+        return 'PAST_DUE';
+      case 'incomplete':
+      case 'incomplete_expired':
+        return 'PAUSED';
+      case 'trialing':
+        return 'TRIALING';
+      case 'paused':
+        return 'PAUSED';
+      default:
+        return 'PAUSED';
+    }
   }
 }
