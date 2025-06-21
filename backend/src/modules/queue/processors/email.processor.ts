@@ -7,7 +7,7 @@ import { Injectable } from '@nestjs/common';
 export class EmailProcessor {
   @Process('send-email')
   async handleSendEmail(job: Job) {
-    const { to, subject, body, template } = job.data;
+    const { to, subject } = job.data;
     
     try {
       // TODO: Implement actual email sending logic

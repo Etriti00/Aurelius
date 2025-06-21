@@ -44,4 +44,8 @@ export class UploadMultipleFilesDto {
   @IsBoolean()
   @IsOptional()
   public?: boolean = false;
+
+  constructor() {
+    this.files = [];
+  }
 }

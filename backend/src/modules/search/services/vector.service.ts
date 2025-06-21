@@ -1,7 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ConfigService } from '../../config/config.service';
-import { Prisma } from '@prisma/client';
 import {
   VectorDocument,
   SearchResult,
@@ -19,7 +17,6 @@ export class VectorService {
 
   constructor(
     private prisma: PrismaService,
-    private configService: ConfigService,
   ) {}
 
   /**
@@ -36,24 +33,30 @@ export class VectorService {
         update: {
           content: doc.content,
           embedding: doc.embedding,
-          metadata: doc.metadata || {},
-          type: doc.type,
-          userId: doc.userId,
-          updatedAt: new Date(),
+          metadata: this.getMetadata(doc.metadata),
+          contentType: this.getContentType(doc.type),
+          lastAccessedAt: new Date(),
         },
         create: {
           id: doc.id,
           content: doc.content,
           embedding: doc.embedding,
-          metadata: doc.metadata || {},
-          type: doc.type,
-          userId: doc.userId,
+          metadata: this.getMetadata(doc.metadata),
+          contentType: this.getContentType(doc.type),
+          contentId: doc.id,
+          contentHash: this.generateContentHash(doc.content),
+          model: 'text-embedding-3-small',
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          user: {
+            connect: { id: doc.userId }
+          },
         },
       });
 
       this.logger.debug(`Indexed document ${doc.id}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to index document: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to index document: ${errorMessage}`);
       throw new BusinessException(
         'Failed to index document',
         'VECTOR_INDEX_FAILED',
@@ -395,5 +398,33 @@ export class VectorService {
     });
 
     return clauses.join(' AND ');
+  }
+
+  /**
+   * Generate content hash for deduplication
+   */
+  private generateContentHash(content: string): string {
+    const crypto = require('crypto');
+    return crypto.createHash('sha256').update(content).digest('hex');
+  }
+
+  /**
+   * Get metadata safely
+   */
+  private getMetadata(metadata: Record<string, any> | undefined): Record<string, any> {
+    if (metadata) {
+      return metadata;
+    }
+    return {};
+  }
+
+  /**
+   * Get content type safely
+   */
+  private getContentType(type: string | undefined): string {
+    if (type) {
+      return type;
+    }
+    return 'document';
   }
 }

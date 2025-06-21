@@ -7,14 +7,17 @@ import { AIException } from '../../../common/exceptions';
 @Injectable()
 export class OpenAIService {
   private readonly logger = new Logger(OpenAIService.name);
-  private readonly client: OpenAI;
+  private readonly client: OpenAI | null;
   private readonly defaultModel = 'gpt-4-turbo-preview';
 
   constructor(private configService: ConfigService) {
-    const apiKey = this.configService.getOptional<string>('OPENAI_API_KEY');
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     
     if (apiKey) {
       this.client = new OpenAI({ apiKey });
+    } else {
+      this.client = null;
+      this.logger.warn('OpenAI API key not provided - OpenAI services will be disabled');
     }
   }
 
@@ -27,16 +30,17 @@ export class OpenAIService {
       const response = await this.client.embeddings.create({
         model: 'text-embedding-3-small',
         input: text,
-        dimensions: 1536,
+        encoding_format: 'float',
       });
 
       return response.data[0].embedding;
-    } catch (error: any) {
-      this.logger.error(`OpenAI embedding error: ${error.message}`, error.stack);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`OpenAI embedding error: ${errorMessage}`, error);
       throw new AIException(
-        `Failed to generate embedding: ${error.message}`,
+        `Failed to generate embedding: ${errorMessage}`,
         'text-embedding-3-small',
-        { originalError: error.message },
+        { originalError: errorMessage },
       );
     }
   }
@@ -50,16 +54,17 @@ export class OpenAIService {
       const response = await this.client.embeddings.create({
         model: 'text-embedding-3-small',
         input: texts,
-        dimensions: 1536,
+        encoding_format: 'float',
       });
 
       return response.data.map(item => item.embedding);
-    } catch (error: any) {
-      this.logger.error(`OpenAI batch embedding error: ${error.message}`, error.stack);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`OpenAI batch embedding error: ${errorMessage}`, error);
       throw new AIException(
-        `Failed to generate batch embeddings: ${error.message}`,
+        `Failed to generate batch embeddings: ${errorMessage}`,
         'text-embedding-3-small',
-        { originalError: error.message },
+        { originalError: errorMessage },
       );
     }
   }
@@ -113,12 +118,13 @@ export class OpenAIService {
         requestId: response.id,
         processingTime,
       };
-    } catch (error: any) {
-      this.logger.error(`OpenAI API error: ${error.message}`, error.stack);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`OpenAI API error: ${errorMessage}`, error);
       throw new AIException(
-        `Failed to generate response: ${error.message}`,
+        `Failed to generate response: ${errorMessage}`,
         model,
-        { originalError: error.message },
+        { originalError: errorMessage },
       );
     }
   }
@@ -157,12 +163,13 @@ export class OpenAIService {
         model,
         requestId: `stream-${Date.now()}`,
       };
-    } catch (error: any) {
-      this.logger.error(`OpenAI streaming error: ${error.message}`, error.stack);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`OpenAI streaming error: ${errorMessage}`, error);
       throw new AIException(
-        `Failed to generate stream: ${error.message}`,
+        `Failed to generate stream: ${errorMessage}`,
         model,
-        { originalError: error.message },
+        { originalError: errorMessage },
       );
     }
   }

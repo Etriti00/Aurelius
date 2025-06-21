@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CacheService } from '../../cache/services/cache.service';
-import { QueueService } from '../../queue/queue.service';
+import { QueueService } from '../../queue/services/queue.service';
 import { EncryptionService } from '../../security/services/encryption.service';
 import { BaseIntegrationService } from './base-integration.service';
 import { OAuthService } from './oauth.service';
@@ -21,10 +21,10 @@ export class GoogleIntegrationService extends BaseIntegrationService {
   protected readonly logger = new Logger(GoogleIntegrationService.name);
   protected readonly integrationType = IntegrationType.GOOGLE;
   protected readonly capabilities: IntegrationCapability[] = [
-    'email_sync',
-    'calendar_sync',
-    'file_sync',
-    'task_sync',
+    IntegrationCapability.EMAIL_SYNC,
+    IntegrationCapability.CALENDAR_SYNC,
+    IntegrationCapability.FILE_SYNC,
+    IntegrationCapability.TASK_SYNC,
   ];
 
   constructor(
@@ -86,16 +86,20 @@ export class GoogleIntegrationService extends BaseIntegrationService {
 
   async sync(integration: Integration, syncType: 'full' | 'incremental'): Promise<SyncResult> {
     const result: SyncResult = {
+      success: true,
+      itemsProcessed: 0,
       itemsSynced: 0,
       errors: [],
       syncType,
       startedAt: new Date(),
-      completedAt: new Date(),
     };
 
     try {
       // Decrypt tokens
-      const tokens = await this.decryptTokens(integration.config.oauth!);
+      if (!integration.config.oauth) {
+        throw new Error('OAuth tokens not found in integration config');
+      }
+      const tokens = await this.decryptTokens(integration.config.oauth);
 
       // Check if tokens need refresh
       if (tokens.expiresAt && new Date() > new Date(tokens.expiresAt)) {
@@ -113,19 +117,19 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       }
 
       // Sync based on capabilities
-      if (integration.capabilities.includes('email_sync')) {
+      if (integration.capabilities.includes(IntegrationCapability.EMAIL_SYNC)) {
         const emailResult = await this.syncEmails(integration, tokens.accessToken, syncType);
         result.itemsSynced += emailResult.synced;
         result.errors.push(...emailResult.errors);
       }
 
-      if (integration.capabilities.includes('calendar_sync')) {
+      if (integration.capabilities.includes(IntegrationCapability.CALENDAR_SYNC)) {
         const calendarResult = await this.syncCalendar(integration, tokens.accessToken, syncType);
         result.itemsSynced += calendarResult.synced;
         result.errors.push(...calendarResult.errors);
       }
 
-      if (integration.capabilities.includes('task_sync')) {
+      if (integration.capabilities.includes(IntegrationCapability.TASK_SYNC)) {
         const taskResult = await this.syncTasks(integration, tokens.accessToken, syncType);
         result.itemsSynced += taskResult.synced;
         result.errors.push(...taskResult.errors);
@@ -135,11 +139,8 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       return result;
     } catch (error: any) {
       this.logger.error(`Sync failed: ${error.message}`);
-      result.errors.push({
-        item: 'general',
-        error: error.message,
-        retryable: true,
-      });
+      result.success = false;
+      result.errors.push(`Sync failed: ${error.message}`);
       result.completedAt = new Date();
       return result;
     }
@@ -180,7 +181,7 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       // Process messages
       if (response.data.messages) {
         for (const message of response.data.messages) {
-          await this.queueService.addJob('email', {
+          await this.queueService.addEmailProcessingJob({
             type: 'sync_gmail_message',
             integrationId: integration.id,
             messageId: message.id,
@@ -190,11 +191,12 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       }
 
       // Update last sync time
+      const currentSettings = integration.metadata || {};
       await this.prisma.integration.update({
         where: { id: integration.id },
         data: {
-          metadata: {
-            ...integration.metadata,
+          settings: {
+            ...currentSettings,
             lastEmailSync: new Date(),
           },
         },
@@ -203,11 +205,7 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       return { synced: response.data.messages?.length || 0, errors };
     } catch (error: any) {
       this.logger.error(`Email sync failed: ${error.message}`);
-      errors.push({
-        item: 'email_sync',
-        error: error.message,
-        retryable: true,
-      });
+      errors.push(`Email sync failed: ${error.message}`);
       return { synced, errors };
     }
   }
@@ -251,7 +249,7 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       // Process events
       if (response.data.items) {
         for (const event of response.data.items) {
-          await this.queueService.addJob('calendar', {
+          await this.queueService.addIntegrationSyncJob({
             type: 'sync_google_event',
             integrationId: integration.id,
             event,
@@ -260,11 +258,12 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       }
 
       // Update last sync time
+      const currentSettings = integration.metadata || {};
       await this.prisma.integration.update({
         where: { id: integration.id },
         data: {
-          metadata: {
-            ...integration.metadata,
+          settings: {
+            ...currentSettings,
             lastCalendarSync: new Date(),
           },
         },
@@ -273,11 +272,7 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       return { synced: response.data.items?.length || 0, errors };
     } catch (error: any) {
       this.logger.error(`Calendar sync failed: ${error.message}`);
-      errors.push({
-        item: 'calendar_sync',
-        error: error.message,
-        retryable: true,
-      });
+      errors.push(`Calendar sync failed: ${error.message}`);
       return { synced, errors };
     }
   }
@@ -321,7 +316,7 @@ export class GoogleIntegrationService extends BaseIntegrationService {
 
           if (tasksResponse.data.items) {
             for (const task of tasksResponse.data.items) {
-              await this.queueService.addJob('tasks', {
+              await this.queueService.addIntegrationSyncJob({
                 type: 'sync_google_task',
                 integrationId: integration.id,
                 task: {
@@ -337,11 +332,12 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       }
 
       // Update last sync time
+      const currentSettings = integration.metadata || {};
       await this.prisma.integration.update({
         where: { id: integration.id },
         data: {
-          metadata: {
-            ...integration.metadata,
+          settings: {
+            ...currentSettings,
             lastTaskSync: new Date(),
           },
         },
@@ -350,11 +346,7 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       return { synced: totalSynced, errors };
     } catch (error: any) {
       this.logger.error(`Task sync failed: ${error.message}`);
-      errors.push({
-        item: 'task_sync',
-        error: error.message,
-        retryable: true,
-      });
+      errors.push(`Task sync failed: ${error.message}`);
       return { synced, errors };
     }
   }

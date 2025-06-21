@@ -23,19 +23,19 @@ export enum NotificationPriority {
 export class CreateNotificationDto {
   @ApiProperty()
   @IsString()
-  userId: string;
+  userId: string = '';
 
   @ApiProperty({ enum: NotificationType })
   @IsEnum(NotificationType)
-  type: NotificationType;
+  type: NotificationType = NotificationType.INFO;
 
   @ApiProperty()
   @IsString()
-  title: string;
+  title: string = '';
 
   @ApiProperty()
   @IsString()
-  message: string;
+  message: string = '';
 
   @ApiPropertyOptional({ enum: NotificationPriority })
   @IsEnum(NotificationPriority)
@@ -46,4 +46,8 @@ export class CreateNotificationDto {
   @IsObject()
   @IsOptional()
   metadata?: Record<string, any>;
+
+  constructor(partial: Partial<CreateNotificationDto> = {}) {
+    Object.assign(this, partial);
+  }
 }

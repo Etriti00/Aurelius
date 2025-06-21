@@ -31,7 +31,19 @@
       "Bash(echo:*)",
       "Bash(npm run build:*)",
       "Bash(npx tsc:*)",
-      "Bash(./node_modules/.bin/tsc:*)"
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(npm test:*)",
+      "mcp__sonarqube-mcp-server__projects",
+      "mcp__ide__getDiagnostics",
+      "Bash(npx prisma generate:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(git restore:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(cat:*)",
+      "Bash(npm run start:dev:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }

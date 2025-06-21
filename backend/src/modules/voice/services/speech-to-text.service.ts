@@ -4,7 +4,7 @@ import { HttpService } from '@nestjs/axios';
 import { CacheService } from '../../cache/services/cache.service';
 import { firstValueFrom } from 'rxjs';
 import { createHash } from 'crypto';
-import * as FormData from 'form-data';
+import FormData from 'form-data';
 import { BusinessException } from '../../../common/exceptions';
 
 interface TranscriptionRequest {

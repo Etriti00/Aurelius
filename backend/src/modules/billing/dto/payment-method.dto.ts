@@ -10,6 +10,10 @@ export class AddPaymentMethodDto {
   @IsBoolean()
   @IsOptional()
   setAsDefault?: boolean = true;
+
+  constructor() {
+    this.paymentMethodId = '';
+  }
 }
 
 export class PaymentMethodDto {
@@ -32,6 +36,13 @@ export class PaymentMethodDto {
 
   @ApiProperty({ description: 'Created timestamp' })
   created: Date;
+
+  constructor() {
+    this.id = '';
+    this.type = '';
+    this.isDefault = false;
+    this.created = new Date();
+  }
 }
 
 export class ListPaymentMethodsResponseDto {
@@ -40,10 +51,18 @@ export class ListPaymentMethodsResponseDto {
 
   @ApiProperty({ description: 'Default payment method ID' })
   defaultPaymentMethodId?: string;
+
+  constructor() {
+    this.data = [];
+  }
 }
 
 export class RemovePaymentMethodDto {
   @ApiProperty({ description: 'Payment method ID to remove' })
   @IsString()
   paymentMethodId: string;
+
+  constructor() {
+    this.paymentMethodId = '';
+  }
 }

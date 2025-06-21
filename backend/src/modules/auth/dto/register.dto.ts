@@ -48,6 +48,12 @@ export class RegisterDto {
   @IsOptional()
   @IsBoolean()
   marketingEmails?: boolean;
+
+  constructor() {
+    this.email = '';
+    this.password = '';
+    this.name = '';
+  }
 }
 
 export class RegisterResponseDto extends LoginResponseDto {}

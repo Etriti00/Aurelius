@@ -9,6 +9,12 @@ export class FileTypeStatsDto {
 
   @ApiProperty({ description: 'Percentage of total storage' })
   percentage: number;
+
+  constructor() {
+    this.count = 0;
+    this.size = 0;
+    this.percentage = 0;
+  }
 }
 
 export class StorageStatsDto {
@@ -39,6 +45,17 @@ export class StorageStatsDto {
 
   @ApiProperty({ description: 'Last updated timestamp' })
   lastUpdated: Date;
+
+  constructor() {
+    this.totalFiles = 0;
+    this.totalSize = 0;
+    this.totalSizeFormatted = '';
+    this.storageLimit = 0;
+    this.storageLimitFormatted = '';
+    this.usagePercentage = 0;
+    this.byType = {};
+    this.lastUpdated = new Date();
+  }
 }
 
 export class QuotaDto {
@@ -56,4 +73,12 @@ export class QuotaDto {
 
   @ApiProperty({ description: 'Can upload more files' })
   canUpload: boolean;
+
+  constructor() {
+    this.quota = 0;
+    this.used = 0;
+    this.remaining = 0;
+    this.percentageUsed = 0;
+    this.canUpload = true;
+  }
 }

@@ -7,7 +7,7 @@ import { Injectable } from '@nestjs/common';
 export class NotificationProcessor {
   @Process('send')
   async handleSend(job: Job) {
-    const { userId, type, message } = job.data;
+    const { userId, type } = job.data;
     
     try {
       // TODO: Implement notification sending
@@ -22,7 +22,7 @@ export class NotificationProcessor {
 
   @Process('send-batch')
   async handleSendBatch(job: Job) {
-    const { userIds, type, message } = job.data;
+    const { userIds, type } = job.data;
     
     try {
       // TODO: Implement batch notification sending

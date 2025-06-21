@@ -31,6 +31,18 @@ export class WorkflowResponseDto {
 
   @ApiPropertyOptional({ description: 'Additional metadata' })
   metadata?: Record<string, any>;
+
+  constructor() {
+    this.id = '';
+    this.userId = '';
+    this.name = '';
+    this.description = '';
+    this.enabled = false;
+    this.triggers = [];
+    this.executionCount = 0;
+    this.createdAt = new Date();
+    this.updatedAt = new Date();
+  }
 }
 
 export class WorkflowMetricsDto {
@@ -57,6 +69,15 @@ export class WorkflowMetricsDto {
 
   @ApiPropertyOptional({ description: 'User satisfaction score (0-10)' })
   userSatisfaction?: number;
+
+  constructor() {
+    this.workflowId = '';
+    this.executionCount = 0;
+    this.successRate = 0;
+    this.averageExecutionTime = 0;
+    this.timeSaved = 0;
+    this.actionsExecuted = 0;
+  }
 }
 
 export class CreateWorkflowResponseDto {
@@ -65,4 +86,9 @@ export class CreateWorkflowResponseDto {
 
   @ApiProperty({ description: 'Created triggers' })
   triggers: TriggerResponseDto[];
+
+  constructor() {
+    this.workflowId = '';
+    this.triggers = [];
+  }
 }

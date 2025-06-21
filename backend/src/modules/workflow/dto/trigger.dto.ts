@@ -22,6 +22,12 @@ export class TriggerConditionDto {
   @IsEnum(['AND', 'OR'])
   @IsOptional()
   logicalOperator?: 'AND' | 'OR';
+
+  constructor() {
+    this.field = '';
+    this.operator = ConditionOperator.EQUALS;
+    this.value = '';
+  }
 }
 
 export class CreateTriggerDto {
@@ -46,6 +52,11 @@ export class CreateTriggerDto {
   @IsObject()
   @IsOptional()
   metadata?: Record<string, any>;
+
+  constructor() {
+    this.type = TriggerType.EMAIL_RECEIVED;
+    this.conditions = [];
+  }
 }
 
 export class TriggerResponseDto {
@@ -63,6 +74,13 @@ export class TriggerResponseDto {
 
   @ApiPropertyOptional({ description: 'Trigger metadata' })
   metadata?: Record<string, any>;
+
+  constructor() {
+    this.id = '';
+    this.type = TriggerType.EMAIL_RECEIVED;
+    this.conditions = [];
+    this.enabled = false;
+  }
 }
 
 export class TestTriggerDto {

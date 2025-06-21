@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { BaseIntegrationService } from './base-integration.service';
-import { IntegrationType, IntegrationMetadata } from '../interfaces';
+import { IntegrationType, IntegrationMetadata, IntegrationCapability } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 
 @Injectable()
@@ -32,10 +32,10 @@ export class IntegrationRegistryService implements OnModuleInit {
           icon: 'https://cdn.aurelius.ai/integrations/google.svg',
           category: 'productivity',
           capabilities: [
-            'email_sync',
-            'calendar_sync',
-            'file_sync',
-            'task_sync',
+            IntegrationCapability.EMAIL_SYNC,
+            IntegrationCapability.CALENDAR_SYNC,
+            IntegrationCapability.FILE_SYNC,
+            IntegrationCapability.TASK_SYNC,
           ],
           requiredScopes: [
             'gmail.readonly',
@@ -44,6 +44,8 @@ export class IntegrationRegistryService implements OnModuleInit {
             'drive.readonly',
             'tasks',
           ],
+          webhookSupport: true,
+          status: 'active',
           configSchema: {
             syncInterval: { type: 'number', default: 30, min: 5, max: 1440 },
             syncEnabled: { type: 'boolean', default: true },
@@ -67,11 +69,10 @@ export class IntegrationRegistryService implements OnModuleInit {
           icon: 'https://cdn.aurelius.ai/integrations/microsoft.svg',
           category: 'productivity',
           capabilities: [
-            'email_sync',
-            'calendar_sync',
-            'file_sync',
-            'task_sync',
-            'teams_sync',
+            IntegrationCapability.EMAIL_SYNC,
+            IntegrationCapability.CALENDAR_SYNC,
+            IntegrationCapability.FILE_SYNC,
+            IntegrationCapability.TASK_SYNC,
           ],
           requiredScopes: [
             'Mail.Read',
@@ -81,6 +82,8 @@ export class IntegrationRegistryService implements OnModuleInit {
             'Tasks.ReadWrite',
             'Team.ReadBasic.All',
           ],
+          webhookSupport: true,
+          status: 'active',
           configSchema: {
             syncInterval: { type: 'number', default: 30, min: 5, max: 1440 },
             syncEnabled: { type: 'boolean', default: true },
@@ -104,10 +107,10 @@ export class IntegrationRegistryService implements OnModuleInit {
           icon: 'https://cdn.aurelius.ai/integrations/slack.svg',
           category: 'communication',
           capabilities: [
-            'message_sync',
-            'notification_send',
-            'channel_sync',
-            'user_sync',
+            IntegrationCapability.MESSAGE_SYNC,
+            IntegrationCapability.NOTIFICATION_SEND,
+            IntegrationCapability.CHANNEL_SYNC,
+            IntegrationCapability.USER_SYNC,
           ],
           requiredScopes: [
             'channels:read',
@@ -115,6 +118,8 @@ export class IntegrationRegistryService implements OnModuleInit {
             'files:read',
             'users:read',
           ],
+          webhookSupport: true,
+          status: 'active',
           configSchema: {
             syncInterval: { type: 'number', default: 15, min: 5, max: 60 },
             syncEnabled: { type: 'boolean', default: true },
@@ -134,15 +139,17 @@ export class IntegrationRegistryService implements OnModuleInit {
           icon: 'https://cdn.aurelius.ai/integrations/jira.svg',
           category: 'project_management',
           capabilities: [
-            'issue_sync',
-            'project_sync',
-            'comment_sync',
-            'attachment_sync',
+            IntegrationCapability.ISSUE_SYNC,
+            IntegrationCapability.PROJECT_SYNC,
+            IntegrationCapability.COMMENT_SYNC,
+            IntegrationCapability.ATTACHMENT_SYNC,
           ],
           requiredScopes: [
             'read:jira-work',
             'write:jira-work',
           ],
+          webhookSupport: false,
+          status: 'active',
           configSchema: {
             syncInterval: { type: 'number', default: 30, min: 5, max: 1440 },
             syncEnabled: { type: 'boolean', default: true },

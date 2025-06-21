@@ -9,6 +9,9 @@ const unlink = promisify(fs.unlink);
 const mkdir = promisify(fs.mkdir);
 const stat = promisify(fs.stat);
 
+// Export writeFile for use in other modules
+export { writeFile };
+
 export class FileUtils {
   /**
    * Ensure directory exists

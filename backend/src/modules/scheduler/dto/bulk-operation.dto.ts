@@ -11,12 +11,16 @@ export class BulkOperationDto {
   @ApiProperty({ description: 'List of job IDs to operate on' })
   @IsArray()
   @IsString({ each: true })
-  jobIds: string[];
+  jobIds: string[] = [];
 
   @ApiProperty({ 
     enum: BulkOperationType, 
     description: 'Operation to perform on selected jobs' 
   })
   @IsEnum(BulkOperationType)
-  operation: BulkOperationType;
+  operation: BulkOperationType = BulkOperationType.ENABLE;
+
+  constructor(partial: Partial<BulkOperationDto> = {}) {
+    Object.assign(this, partial);
+  }
 }

@@ -10,6 +10,11 @@ export class LoginDto {
   @IsString()
   @MinLength(8)
   password: string;
+
+  constructor() {
+    this.email = '';
+    this.password = '';
+  }
 }
 
 export class LoginResponseDto {
@@ -33,4 +38,16 @@ export class LoginResponseDto {
     avatar: string | null;
     mfaEnabled: boolean;
   };
+
+  constructor(
+    accessToken: string = '',
+    refreshToken: string = '',
+    expiresIn: number = 0,
+    user: any = { id: '', email: '', name: null, avatar: null, mfaEnabled: false }
+  ) {
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+    this.expiresIn = expiresIn;
+    this.user = user;
+  }
 }

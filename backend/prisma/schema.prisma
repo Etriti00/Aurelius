@@ -42,7 +42,8 @@ model User {
   smsNotifications      Boolean @default(false)
   notificationFrequency String  @default("instant") // instant, hourly, daily
   
-  // Security
+  // Security & Authorization
+  roles           String[] @default(["user"])
   mfaEnabled      Boolean  @default(false)
   mfaSecret       String?  @db.Text
   sessions        Session[]
@@ -65,6 +66,21 @@ model User {
   usageHistory    UsageHistory[]
   notifications   Notification[]
   aiMemories      AIMemory[]
+  workflows       Workflow[]
+  workflowExecutions WorkflowExecution[]
+  workflowTriggers WorkflowTrigger[]
+  workflowTemplateUsages WorkflowTemplateUsage[]
+  
+  // PHASE 1.5: New Model Relations
+  refreshTokens       RefreshToken[]
+  auditLogs          AuditLog[]
+  activityLogs       ActivityLog[]
+  aiUsageLogs        AIUsageLog[]
+  aiSuggestions      AISuggestion[]
+  voiceInteractions  VoiceInteraction[]
+  scheduledJobs      ScheduledJob[]
+  emailThreads       EmailThread[]
+  files              File[]
   
   @@index([email])
   @@index([stripeCustomerId])
@@ -91,7 +107,7 @@ model Subscription {
   userId                String   @unique
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  tier                  Tier     @default(PROFESSIONAL)
+  tier                  Tier     @default(PRO)
   status                Status   @default(ACTIVE)
   
   // Stripe
@@ -288,6 +304,10 @@ model Integration {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
+  // PHASE 1.5: New Integration Relations
+  syncStatistics    SyncStatistics?
+  syncConflicts     SyncConflict[]
+  
   @@unique([userId, provider])
   @@index([userId, status])
   @@index([provider, lastSyncAt])
@@ -459,6 +479,9 @@ model Email {
   externalId        String?
   externalProvider  String?
   
+  // Relations
+  emailThread       EmailThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  
   // Timestamps
   sentAt            DateTime?
   receivedAt        DateTime?
@@ -482,8 +505,9 @@ model VectorEmbedding {
   contentId         String   // Reference to original content
   contentHash       String   // For deduplication
   
-  // pgvector - 1536 dimensions for OpenAI, 1024 for Claude
-  embedding         Unsupported("vector(1536)")
+  // Vector embedding as JSON array (workaround for pgvector limitation)
+  // In production, this would use proper pgvector extension
+  embedding         Json // Array of numbers representing the vector
   
   // Original content preview
   content           String   @db.Text
@@ -577,9 +601,9 @@ model Notification {
 
 // Enums
 enum Tier {
-  PROFESSIONAL  // $30 - 1000 actions
-  TEAM          // $50 - 1500 actions  
-  ENTERPRISE    // $100 - 2000 actions
+  PRO     // $50 - 1000 actions
+  MAX     // $100 - 3000 actions  
+  TEAMS   // $70/user - 2000 actions/user
 }
 
 enum Status {
@@ -588,4 +612,343 @@ enum Status {
   PAST_DUE
   TRIALING
   PAUSED
+}
+
+model Workflow {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  enabled       Boolean  @default(true)
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  executions    WorkflowExecution[]
+  triggers      WorkflowTrigger[]
+  metrics       WorkflowMetrics[]
+  
+  @@index([userId])
+  @@index([enabled])
+}
+
+model WorkflowExecution {
+  id                   String   @id @default(cuid())
+  workflowId           String
+  workflow             Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status               String   // 'pending', 'running', 'completed', 'failed'
+  startedAt            DateTime @default(now())
+  completedAt          DateTime?
+  triggerData          Json     @default("{}")
+  analysisData         Json     @default("{}")
+  selectedSuggestions  String[]
+  executedActions      Json     @default("[]")
+  result               Json     @default("[]")
+  error                Json?
+  
+  @@index([workflowId])
+  @@index([userId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model WorkflowTrigger {
+  id          String   @id @default(cuid())
+  workflowId  String?
+  workflow    Workflow? @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // 'time', 'email', 'calendar', 'task', 'webhook'
+  config      Json     @default("{}")
+  metadata    Json     @default("{}")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([type])
+  @@index([active])
+}
+
+model WorkflowMetrics {
+  id               String   @id @default(cuid())
+  workflowId       String   @unique
+  workflow         Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  executionCount   Int      @default(0)
+  successRate      Float    @default(0.0)
+  avgDuration      Float    @default(0.0)
+  lastExecuted     DateTime?
+  updatedAt        DateTime @updatedAt
+  
+  @@index([workflowId])
+}
+
+model WorkflowTemplateUsage {
+  id           String   @id @default(cuid())
+  templateId   String
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usedAt       DateTime @default(now())
+  customizations Json   @default("{}")
+  
+  @@index([templateId])
+  @@index([userId])
+}
+
+// PHASE 1.1: Authentication & Security Models
+model RefreshToken {
+  id           String   @id @default(cuid())
+  token        String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  family       String   // For token rotation
+  createdAt    DateTime @default(now())
+  
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([family])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action       String   // 'CREATE', 'UPDATE', 'DELETE', 'ACCESS'
+  resource     String   // Table/entity name
+  resourceId   String?  // ID of the affected resource
+  success      Boolean  @default(true) // Whether the action succeeded
+  oldValues    Json?    // Previous values
+  newValues    Json?    // New values
+  ipAddress    String?
+  userAgent    String?
+  timestamp    DateTime @default(now())
+  
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([timestamp])
+}
+
+model ActivityLog {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         String   // 'login', 'logout', 'task_created', 'email_sent', etc.
+  category     String   // 'auth', 'productivity', 'communication', etc.
+  description  String
+  metadata     Json     @default("{}")
+  timestamp    DateTime @default(now())
+  
+  @@index([userId])
+  @@index([type])
+  @@index([category])
+  @@index([timestamp])
+}
+
+// PHASE 1.2: AI/ML Models
+model AIUsageLog {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider        String   // 'anthropic', 'openai', 'elevenlabs'
+  model           String   // 'claude-3-haiku', 'gpt-4', etc.
+  action          String   // 'text_generation', 'voice_synthesis', etc.
+  inputTokens     Int      @default(0)
+  outputTokens    Int      @default(0)
+  totalCost       Decimal  @db.Decimal(10, 6)
+  duration        Int      // milliseconds
+  cacheHit        Boolean  @default(false)
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  
+  @@index([userId])
+  @@index([provider])
+  @@index([model])
+  @@index([createdAt])
+}
+
+model AISuggestion {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         String   // 'task', 'email', 'calendar', 'workflow'
+  category     String   // 'productivity', 'communication', 'analysis'
+  title        String
+  description  String
+  actionType   String   // Type of action to be performed
+  actionData   Json     @default("{}")  // Data needed to execute the action
+  status       String   @default("PENDING") // 'PENDING', 'ACCEPTED', 'REJECTED', 'EXECUTED'
+  confidence   Float    // 0.0 to 1.0
+  priority     String   // 'low', 'medium', 'high', 'urgent'
+  suggestedAt  DateTime @default(now())
+  acceptedAt   DateTime?
+  rejectedAt   DateTime?
+  executedAt   DateTime?
+  expiresAt    DateTime?  // When the suggestion expires
+  metadata     Json     @default("{}")
+  
+  @@index([userId])
+  @@index([type])
+  @@index([priority])
+  @@index([status])
+  @@index([suggestedAt])
+}
+
+model VoiceInteraction {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          String   // 'stt', 'tts', 'voice_command'
+  provider      String   // 'elevenlabs', 'openai', 'google'
+  inputText     String?
+  outputText    String?
+  audioFileUrl  String?
+  duration      Float?   // seconds
+  language      String   @default("en-US")
+  voiceId       String?
+  speed         Float    @default(1.0)
+  pitch         Float    @default(1.0)
+  cost          Decimal? @db.Decimal(10, 6)
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+  
+  @@index([userId])
+  @@index([type])
+  @@index([provider])
+  @@index([createdAt])
+}
+
+// PHASE 1.3: Operational Models
+model ScheduledJob {
+  id            String   @id @default(cuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  type          String   // 'cron', 'interval', 'delayed', 'recurring'
+  schedule      String?  // Cron expression or interval
+  payload       Json     @default("{}")
+  enabled       Boolean  @default(true)
+  retryAttempts Int      @default(3)
+  retryDelay    Int      @default(5000) // milliseconds
+  timeout       Int      @default(30000) // milliseconds
+  lastRun       DateTime?
+  nextRun       DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  executions    JobExecution[]
+  
+  @@index([userId])
+  @@index([type])
+  @@index([enabled])
+  @@index([nextRun])
+}
+
+model JobExecution {
+  id           String   @id @default(cuid())
+  jobId        String
+  job          ScheduledJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  status       String   // 'pending', 'running', 'completed', 'failed', 'cancelled'
+  startedAt    DateTime @default(now())
+  completedAt  DateTime?
+  duration     Int?     // milliseconds
+  result       Json?
+  error        Json?
+  retryCount   Int      @default(0)
+  logs         String?  @db.Text
+  
+  @@index([jobId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model EmailThread {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject         String
+  threadId        String   @unique // External thread ID from provider
+  provider        String   // 'gmail', 'outlook'
+  lastMessageAt   DateTime
+  isRead          Boolean  @default(false)
+  isImportant     Boolean  @default(false)
+  isArchived      Boolean  @default(false)
+  labels          String[] // Array of labels/tags
+  participants    String[] // Array of email addresses
+  messageCount    Int      @default(1)
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  emails          Email[]
+  
+  @@index([userId])
+  @@index([threadId])
+  @@index([isRead])
+  @@index([lastMessageAt])
+}
+
+model File {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  originalName String
+  mimeType     String
+  size         BigInt   // bytes
+  url          String?  // S3/CDN URL
+  localPath    String?  // Local file path
+  hash         String?  // File hash for deduplication
+  metadata     Json     @default("{}")
+  uploadedAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([mimeType])
+  @@index([hash])
+  @@index([uploadedAt])
+}
+
+// PHASE 1.4: Integration Models
+model SyncStatistics {
+  id              String   @id @default(cuid())
+  integrationId   String
+  integration     Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  totalSyncs      Int      @default(0)
+  successfulSyncs Int      @default(0)
+  failedSyncs     Int      @default(0)
+  lastSyncAt      DateTime?
+  averageDuration Float?   // Average sync time in milliseconds
+  itemsSynced     Int      @default(0)
+  errors          Json     @default("[]")
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([integrationId])
+  @@index([integrationId])
+}
+
+model SyncConflict {
+  id            String   @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  resourceType  String   // 'email', 'calendar', 'task', etc.
+  resourceId    String   // External resource ID
+  conflictType  String   // 'update_conflict', 'delete_conflict', etc.
+  localData     Json     // Local version
+  remoteData    Json     // Remote version
+  resolution    String?  // 'local_wins', 'remote_wins', 'manual', 'merged'
+  resolvedAt    DateTime?
+  createdAt     DateTime @default(now())
+  
+  @@index([integrationId])
+  @@index([resourceType])
+  @@index([conflictType])
 }

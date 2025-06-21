@@ -7,7 +7,7 @@ import { SuggestionService } from './services/suggestion.service';
 import { ActionService } from './services/action.service';
 import { WorkflowEngineService } from './services/workflow-engine.service';
 import { WorkflowTemplateService } from './services/workflow-template.service';
-import { ConfigModule } from '../config/config.module';
+import { AppConfigModule } from '../config/config.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CacheModule } from '../cache/cache.module';
 import { QueueModule } from '../queue/queue.module';
@@ -16,7 +16,7 @@ import { SearchModule } from '../search/search.module';
 
 @Module({
   imports: [
-    ConfigModule,
+    AppConfigModule,
     PrismaModule,
     CacheModule,
     QueueModule,

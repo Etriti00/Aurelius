@@ -3,6 +3,7 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
+  Logger,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -12,10 +13,14 @@ import { ResponseDto } from '../dto/response.dto';
 export class TransformInterceptor<T>
   implements NestInterceptor<T, ResponseDto<T>>
 {
+  private readonly logger = new Logger(TransformInterceptor.name);
   intercept(
     context: ExecutionContext,
     next: CallHandler,
   ): Observable<ResponseDto<T>> {
+    const request = context.switchToHttp().getRequest();
+    this.logger?.debug(`Transform interceptor applied to ${request.method} ${request.url}`);
+    
     return next.handle().pipe(
       map((data) => {
         // If data is already a ResponseDto, return it as is
@@ -32,5 +37,6 @@ export class TransformInterceptor<T>
         return ResponseDto.success(data);
       }),
     );
+  }
   }
 }

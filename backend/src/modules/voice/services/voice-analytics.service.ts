@@ -91,13 +91,13 @@ export class VoiceAnalyticsService {
 
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { voiceId: true, language: true },
+        select: { voiceId: true, voiceLanguage: true },
       });
 
       // Analyze common queries
       const queryFrequency = new Map<string, number>();
       interactions.forEach(interaction => {
-        const normalized = this.normalizeQuery(interaction.transcript);
+        const normalized = this.normalizeQuery(interaction.inputText || '');
         queryFrequency.set(normalized, (queryFrequency.get(normalized) || 0) + 1);
       });
 
@@ -113,7 +113,7 @@ export class VoiceAnalyticsService {
       const userPreferences = {
         preferredVoice: user?.voiceId || 'default',
         averageQueryLength: this.calculateAverageLength(interactions),
-        preferredLanguage: user?.language || 'en',
+        preferredLanguage: user?.voiceLanguage || 'en-US',
       };
 
       // Performance trends
@@ -181,19 +181,20 @@ export class VoiceAnalyticsService {
         createdAt: { gte: startDate },
       },
       select: {
-        transcript: true,
-        intent: true,
+        inputText: true,
+        metadata: true,
       },
     });
 
     // Group by intent and analyze patterns
     const patternsByIntent = new Map<string, string[]>();
-    interactions.forEach(({ transcript, intent }) => {
-      if (!intent) return;
+    interactions.forEach(({ inputText, metadata }) => {
+      const intent = typeof metadata === 'object' && metadata !== null ? (metadata as any).intent : null;
+      if (!intent || !inputText) return;
       if (!patternsByIntent.has(intent)) {
         patternsByIntent.set(intent, []);
       }
-      patternsByIntent.get(intent)!.push(transcript);
+      patternsByIntent.get(intent)?.push(inputText);
     });
 
     const patterns: Array<{ pattern: string; frequency: number; examples: string[] }> = [];
@@ -239,9 +240,8 @@ export class VoiceAnalyticsService {
         end: endDate,
       },
       summary: {
-        totalInteractions: interactions.length,
-        averagePerDay: interactions.length / this.daysBetween(startDate, endDate),
         ...metrics,
+        averagePerDay: interactions.length / this.daysBetween(startDate, endDate),
       },
       dailyUsage,
       hourlyDistribution,
@@ -475,13 +475,13 @@ export class VoiceAnalyticsService {
           lte: endDate,
         },
       },
-      select: { transcript: true },
+      select: { inputText: true },
     });
 
     const queryCounts = new Map<string, number>();
-    interactions.forEach(({ transcript }) => {
-      if (transcript) {
-        queryCounts.set(transcript, (queryCounts.get(transcript) || 0) + 1);
+    interactions.forEach(({ inputText }) => {
+      if (inputText) {
+        queryCounts.set(inputText, (queryCounts.get(inputText) || 0) + 1);
       }
     });
 
@@ -514,6 +514,10 @@ export class VoiceAnalyticsService {
   ): Promise<void> {
     // Update user voice preferences based on usage patterns
     // This could include updating preferred voice settings, language, etc.
+    this.logger.debug(`Updating voice stats for user ${userId} with interaction ${interaction.id}`);
+    
+    // In a complete implementation, this would update user preferences
+    // based on the interaction patterns, voice settings, language usage, etc.
   }
 
   private async handleLowConfidenceInteraction(

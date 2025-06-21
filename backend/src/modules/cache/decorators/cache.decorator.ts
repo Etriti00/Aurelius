@@ -1,4 +1,3 @@
-import { Inject, applyDecorators, SetMetadata } from '@nestjs/common';
 import { CacheService } from '../services/cache.service';
 
 export const CACHE_KEY_METADATA = 'cache:key';
@@ -21,7 +20,7 @@ export function Cacheable(options: CacheOptions = {}) {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {
-      const cacheService = this.cacheService as CacheService;
+      const cacheService = (this as any).cacheService as CacheService;
       
       if (!cacheService) {
         throw new Error('CacheService not injected. Make sure to inject it in the constructor.');
@@ -58,14 +57,14 @@ export function Cacheable(options: CacheOptions = {}) {
  */
 export function CacheEvict(keyPattern: string) {
   return function (
-    target: any,
-    propertyName: string,
+    _target: object,
+    _propertyName: string,
     descriptor: PropertyDescriptor,
   ) {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {
-      const cacheService = this.cacheService as CacheService;
+      const cacheService = (this as any).cacheService as CacheService;
       
       if (!cacheService) {
         throw new Error('CacheService not injected. Make sure to inject it in the constructor.');
@@ -96,7 +95,7 @@ export function UserCache(options: CacheOptions = {}) {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {
-      const cacheService = this.cacheService as CacheService;
+      const cacheService = (this as any).cacheService as CacheService;
       const userId = args[0]?.userId || args[0]?.user?.id || args[0];
       
       if (!cacheService) {

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsObject, IsNumber, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsObject } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class TextToSpeechDto {
@@ -34,4 +34,8 @@ export class TextToSpeechDto {
     similarityBoost?: number;
     style?: number;
   };
+
+  constructor() {
+    this.text = '';
+  }
 }

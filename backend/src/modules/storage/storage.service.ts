@@ -1,11 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from './services/s3.service';
 import { CdnService } from './services/cdn.service';
 import { ImageService } from './services/image.service';
+import { JsonValue } from '@prisma/client/runtime/library';
 import { CacheService } from '../cache/services/cache.service';
 import {
   StorageFile,
+  FileMetadata,
   UploadOptions,
   SignedUrlOptions,
   StorageListOptions,
@@ -85,21 +87,19 @@ export class StorageService {
         data: {
           id: file.id,
           userId,
-          filename: file.filename,
+          name: file.filename,
           originalName: file.originalName,
           mimeType: file.mimeType,
           size: file.size,
           url: file.url,
-          cdnUrl: this.cdnService.getCdnUrl(file.key),
-          bucket: file.bucket,
-          key: file.key,
-          metadata: file.metadata || {},
+          localPath: file.key,
+          metadata: this.convertFileMetadataToJson(file.metadata),
         },
       });
 
       // Generate responsive variants for images
       if (this.isImage(mimeType)) {
-        this.generateImageVariantsAsync(userId, file.id, buffer, key);
+        this.generateImageVariantsAsync(file.id, buffer, key);
       }
 
       // Update CDN URL
@@ -142,17 +142,17 @@ export class StorageService {
 
     const storageFile: StorageFile = {
       id: file.id,
-      filename: file.filename,
+      filename: file.name,
       originalName: file.originalName,
       mimeType: file.mimeType,
-      size: file.size,
-      url: file.url,
-      cdnUrl: file.cdnUrl || this.cdnService.getCdnUrl(file.key),
-      bucket: file.bucket,
-      key: file.key,
-      metadata: file.metadata as Record<string, any>,
-      uploadedAt: file.createdAt,
-      lastModified: file.updatedAt,
+      size: Number(file.size),
+      url: file.url !== null ? file.url : '',
+      cdnUrl: file.url !== null ? file.url : '',
+      bucket: 'default',
+      key: file.localPath !== null ? file.localPath : '',
+      metadata: this.convertMetadata(file.metadata),
+      uploadedAt: file.uploadedAt,
+      lastModified: file.uploadedAt,
     };
 
     // Cache for 1 hour
@@ -173,13 +173,15 @@ export class StorageService {
       throw new BusinessException('File not found', 'FILE_NOT_FOUND');
     }
 
-    // Delete from S3
-    await this.s3Service.delete(file.key);
+    // Delete from S3 if localPath exists
+    if (file.localPath) {
+      await this.s3Service.delete(file.localPath);
+    }
 
-    // Delete variants if exist
-    if (file.variants) {
-      const variants = file.variants as Record<string, string>;
-      for (const variantKey of Object.values(variants)) {
+    // Delete variants if exist in metadata
+    const fileMetadata = this.convertMetadata(file.metadata);
+    if (fileMetadata.variants) {
+      for (const variantKey of Object.values(fileMetadata.variants)) {
         try {
           await this.s3Service.delete(variantKey);
         } catch (error) {
@@ -193,8 +195,10 @@ export class StorageService {
       where: { id: fileId },
     });
 
-    // Purge CDN cache
-    await this.cdnService.purgeCache([file.key]);
+    // Purge CDN cache if localPath exists
+    if (file.localPath) {
+      await this.cdnService.purgeCache([file.localPath]);
+    }
 
     // Clear local cache
     await this.cacheService.del(`file:${fileId}`);
@@ -222,7 +226,7 @@ export class StorageService {
         },
         take: limit,
         skip: offset,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { uploadedAt: 'desc' },
       }),
       this.prisma.file.count({
         where: {
@@ -236,17 +240,17 @@ export class StorageService {
 
     const storageFiles: StorageFile[] = files.map(file => ({
       id: file.id,
-      filename: file.filename,
+      filename: file.name,
       originalName: file.originalName,
       mimeType: file.mimeType,
-      size: file.size,
-      url: file.url,
-      cdnUrl: file.cdnUrl || this.cdnService.getCdnUrl(file.key),
-      bucket: file.bucket,
-      key: file.key,
-      metadata: file.metadata as Record<string, any>,
-      uploadedAt: file.createdAt,
-      lastModified: file.updatedAt,
+      size: Number(file.size),
+      url: file.url || '',
+      cdnUrl: file.url || '',
+      bucket: 'default',
+      key: file.localPath || '',
+      metadata: this.convertMetadata(file.metadata),
+      uploadedAt: file.uploadedAt,
+      lastModified: file.uploadedAt,
     }));
 
     const hasMore = offset + limit < total;
@@ -317,14 +321,14 @@ export class StorageService {
     };
 
     for (const file of files) {
-      stats.totalSize += file.size;
+      stats.totalSize += Number(file.size);
       
       const type = this.getFileType(file.mimeType);
       if (!stats.byType[type]) {
         stats.byType[type] = { count: 0, size: 0 };
       }
       stats.byType[type].count++;
-      stats.byType[type].size += file.size;
+      stats.byType[type].size += Number(file.size);
     }
 
     return stats;
@@ -340,6 +344,7 @@ export class StorageService {
       throw new BusinessException(
         'File too large',
         'FILE_TOO_LARGE',
+        HttpStatus.BAD_REQUEST,
         { size: buffer.length, maxSize },
       );
     }
@@ -349,6 +354,7 @@ export class StorageService {
       throw new BusinessException(
         'File type not allowed',
         'INVALID_FILE_TYPE',
+        HttpStatus.BAD_REQUEST,
         { mimeType },
       );
     }
@@ -403,7 +409,6 @@ export class StorageService {
    * Generate image variants asynchronously
    */
   private async generateImageVariantsAsync(
-    userId: string,
     fileId: string,
     buffer: Buffer,
     baseKey: string,
@@ -414,9 +419,22 @@ export class StorageService {
         baseKey.replace(/\.[^.]+$/, ''), // Remove extension
       );
 
+      // Store variants in metadata since variants field doesn't exist in model
+      const currentFile = await this.prisma.file.findUnique({
+        where: { id: fileId },
+        select: { metadata: true },
+      });
+      
+      const metadataValue = currentFile && currentFile.metadata ? currentFile.metadata : null;
+      const existingMetadata = this.convertMetadata(metadataValue);
+      const updatedMetadata = {
+        ...existingMetadata,
+        variants,
+      };
+
       await this.prisma.file.update({
         where: { id: fileId },
-        data: { variants },
+        data: { metadata: updatedMetadata },
       });
 
       // Warm CDN cache
@@ -425,5 +443,102 @@ export class StorageService {
       this.logger.error(`Failed to generate image variants: ${error}`);
       // Don't throw, this is a background operation
     }
+  }
+
+  /**
+   * Convert Prisma JsonValue metadata to FileMetadata interface
+   */
+  private convertMetadata(jsonValue: JsonValue | null): FileMetadata {
+    if (!jsonValue || typeof jsonValue !== 'object' || Array.isArray(jsonValue)) {
+      return {};
+    }
+
+    const metadata = jsonValue as Record<string, JsonValue>;
+    const result: FileMetadata = {};
+
+    if (metadata.tags && Array.isArray(metadata.tags)) {
+      result.tags = metadata.tags.filter((tag): tag is string => typeof tag === 'string');
+    }
+
+    if (typeof metadata.description === 'string') {
+      result.description = metadata.description;
+    }
+
+    if (typeof metadata.version === 'string') {
+      result.version = metadata.version;
+    }
+
+    if (typeof metadata.checksum === 'string') {
+      result.checksum = metadata.checksum;
+    }
+
+    if (typeof metadata.encoding === 'string') {
+      result.encoding = metadata.encoding;
+    }
+
+    if (metadata.variants && typeof metadata.variants === 'object' && !Array.isArray(metadata.variants)) {
+      const variants: Record<string, string> = {};
+      const variantsObj = metadata.variants as Record<string, JsonValue>;
+      for (const [key, value] of Object.entries(variantsObj)) {
+        if (typeof value === 'string') {
+          variants[key] = value;
+        }
+      }
+      result.variants = variants;
+    }
+
+    if (metadata.customProperties && typeof metadata.customProperties === 'object' && !Array.isArray(metadata.customProperties)) {
+      const customProperties: Record<string, string | number | boolean> = {};
+      const customObj = metadata.customProperties as Record<string, JsonValue>;
+      for (const [key, value] of Object.entries(customObj)) {
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+          customProperties[key] = value;
+        }
+      }
+      result.customProperties = customProperties;
+    }
+
+    return result;
+  }
+
+  /**
+   * Convert FileMetadata interface to JSON for Prisma storage
+   */
+  private convertFileMetadataToJson(metadata: FileMetadata | undefined): Record<string, JsonValue> {
+    if (!metadata) {
+      return {};
+    }
+
+    const result: Record<string, JsonValue> = {};
+
+    if (metadata.tags) {
+      result.tags = metadata.tags;
+    }
+
+    if (metadata.description) {
+      result.description = metadata.description;
+    }
+
+    if (metadata.version) {
+      result.version = metadata.version;
+    }
+
+    if (metadata.checksum) {
+      result.checksum = metadata.checksum;
+    }
+
+    if (metadata.encoding) {
+      result.encoding = metadata.encoding;
+    }
+
+    if (metadata.variants) {
+      result.variants = metadata.variants;
+    }
+
+    if (metadata.customProperties) {
+      result.customProperties = metadata.customProperties;
+    }
+
+    return result;
   }
 }

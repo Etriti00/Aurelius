@@ -33,6 +33,7 @@ export class UsageTrackingService {
       await this.prisma.aIUsageLog.create({
         data: {
           userId: usage.userId,
+          provider: this.getProviderFromModel(usage.model),
           model: usage.model,
           action: usage.action,
           inputTokens: usage.inputTokens,
@@ -40,6 +41,7 @@ export class UsageTrackingService {
           totalCost: usage.totalCost,
           duration: usage.duration,
           cacheHit: usage.cacheHit,
+          metadata: {},
         },
       });
 
@@ -125,7 +127,7 @@ export class UsageTrackingService {
       include: { subscription: true },
     });
 
-    const limit = user?.subscription?.aiActionsPerMonth || 1000;
+    const limit = user?.subscription?.monthlyActionLimit || 1000;
 
     return {
       actionsUsed: actionsCount,
@@ -226,9 +228,21 @@ export class UsageTrackingService {
         },
       });
 
-      await this.prisma.subscription.update({
-        where: { id: user.subscription.id },
-        data: { aiActionsUsed: currentMonthUsage },
+      // Update user's usage in the Usage model
+      await this.prisma.usage.upsert({
+        where: { userId },
+        create: {
+          userId,
+          periodStart: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+          periodEnd: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
+          monthlyAllocation: user.subscription.monthlyActionLimit,
+          actionsUsed: currentMonthUsage,
+          actionsRemaining: user.subscription.monthlyActionLimit - currentMonthUsage,
+        },
+        update: {
+          actionsUsed: currentMonthUsage,
+          actionsRemaining: user.subscription.monthlyActionLimit - currentMonthUsage,
+        },
       });
     } catch (error) {
       this.logger.error('Failed to update subscription usage', error);
@@ -252,5 +266,16 @@ export class UsageTrackingService {
       this.logger.error('Failed to cleanup old usage logs', error);
       return 0;
     }
+  }
+
+  private getProviderFromModel(model: string): string {
+    if (model.includes('claude')) {
+      return 'anthropic';
+    } else if (model.includes('gpt') || model.includes('text-embedding')) {
+      return 'openai';
+    } else if (model.includes('eleven')) {
+      return 'elevenlabs';
+    }
+    return 'unknown';
   }
 }

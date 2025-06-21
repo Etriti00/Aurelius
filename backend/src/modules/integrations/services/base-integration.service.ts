@@ -1,13 +1,13 @@
 import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CacheService } from '../../cache/services/cache.service';
-import { QueueService } from '../../queue/queue.service';
+import { QueueService } from '../../queue/services/queue.service';
 import { EncryptionService } from '../../security/services/encryption.service';
 import {
   Integration,
   IntegrationConfig,
-  IntegrationStatus,
   IntegrationType,
+  IntegrationStatusEnum,
   SyncResult,
   OAuthTokens,
   IntegrationCapability,
@@ -55,6 +55,9 @@ export abstract class BaseIntegrationService {
    * Handle webhook
    */
   async handleWebhook(integration: Integration, data: any): Promise<void> {
+    // Parameters required for interface but not yet implemented
+    void integration; // Mark as intentionally unused
+    void data; // Mark as intentionally unused
     this.logger.warn(`Webhook handling not implemented for ${this.getName()}`);
   }
 
@@ -82,14 +85,20 @@ export abstract class BaseIntegrationService {
       const integration = await this.prisma.integration.create({
         data: {
           userId,
-          name,
-          type: this.integrationType,
-          config: config as any,
-          status: IntegrationStatus.ACTIVE,
-          capabilities: this.capabilities,
-          metadata: {
-            createdAt: new Date(),
-            syncedAt: null,
+          provider: this.getName(),
+          accountName: name,
+          accessToken: config.oauth?.accessToken || '',
+          refreshToken: config.oauth?.refreshToken,
+          tokenExpiry: config.oauth?.expiresAt,
+          tokenType: config.oauth?.tokenType || 'Bearer',
+          status: 'active',
+          scopes: config.scopes,
+          permissions: {},
+          settings: {
+            clientId: config.clientId,
+            clientSecret: config.clientSecret,
+            redirectUri: config.redirectUri,
+            scopes: config.scopes,
           },
         },
       });
@@ -137,8 +146,12 @@ export abstract class BaseIntegrationService {
       const updated = await this.prisma.integration.update({
         where: { id: integrationId },
         data: {
-          config: newConfig as any,
-          updatedAt: new Date(),
+          settings: {
+            clientId: newConfig.clientId,
+            clientSecret: newConfig.clientSecret,
+            redirectUri: newConfig.redirectUri,
+            scopes: newConfig.scopes,
+          },
         },
       });
 
@@ -220,8 +233,7 @@ export abstract class BaseIntegrationService {
     integrationId: string,
     syncType: 'full' | 'incremental',
   ): Promise<void> {
-    await this.queueService.addJob('integration', {
-      type: 'sync',
+    await this.queueService.addIntegrationSyncJob({
       integrationId,
       syncType,
       integrationService: this.getName(),
@@ -236,38 +248,44 @@ export abstract class BaseIntegrationService {
     syncType: 'full' | 'incremental',
   ): Promise<SyncResult> {
     try {
-      const integration = await this.getIntegration(integrationId);
-      if (!integration) {
+      // Get raw integration from database
+      const dbIntegration = await this.prisma.integration.findUnique({
+        where: { id: integrationId },
+      });
+      
+      if (!dbIntegration) {
         throw new BusinessException('Integration not found', 'INTEGRATION_NOT_FOUND');
       }
 
       // Update status
-      await this.updateStatus(integrationId, IntegrationStatus.SYNCING);
+      await this.updateStatus(integrationId, IntegrationStatusEnum.ACTIVE);
 
       // Decrypt tokens if needed
-      if (integration.config.oauth) {
-        integration.config.oauth = await this.decryptTokens(integration.config.oauth);
-      }
+      const decryptedTokens = await this.decryptTokens({
+        accessToken: dbIntegration.accessToken,
+        refreshToken: dbIntegration.refreshToken || undefined,
+      });
 
-      // Perform sync
+      // Map to interface and perform sync with decrypted tokens
+      const integration = this.mapToIntegration(dbIntegration);
+      // Use decrypted tokens for authentication
+      integration.config.oauth = decryptedTokens;
       const result = await this.sync(integration, syncType);
 
       // Update sync metadata
       await this.prisma.integration.update({
         where: { id: integrationId },
         data: {
-          status: IntegrationStatus.ACTIVE,
+          status: 'active',
           lastSyncAt: new Date(),
-          metadata: {
-            ...integration.metadata,
-            lastSyncResult: result,
-          },
+          syncError: null,
+          errorCount: 0,
         },
       });
 
       this.logger.log(
         `Sync completed for integration ${integrationId}: ` +
-        `${result.itemsSynced} items synced, ${result.errors.length} errors`,
+        `${result.itemsProcessed} items synced, ${result.errors.length} errors`,
       );
 
       return result;
@@ -275,7 +293,7 @@ export abstract class BaseIntegrationService {
       this.logger.error(`Sync failed for integration ${integrationId}: ${error.message}`);
       
       // Update status
-      await this.updateStatus(integrationId, IntegrationStatus.ERROR, error.message);
+      await this.updateStatus(integrationId, IntegrationStatusEnum.ERROR, error.message);
 
       throw new BusinessException(
         'Integration sync failed',
@@ -327,18 +345,16 @@ export abstract class BaseIntegrationService {
    */
   protected async updateStatus(
     integrationId: string,
-    status: IntegrationStatus,
+    status: IntegrationStatusEnum,
     error?: string,
   ): Promise<void> {
     await this.prisma.integration.update({
       where: { id: integrationId },
       data: {
-        status,
+        status: status.toLowerCase(),
         ...(error && {
-          metadata: {
-            lastError: error,
-            lastErrorAt: new Date(),
-          },
+          syncError: error,
+          errorCount: 1,
         }),
       },
     });
@@ -365,18 +381,60 @@ export abstract class BaseIntegrationService {
    * Map database model to interface
    */
   protected mapToIntegration(dbIntegration: any): Integration {
+    const settings = dbIntegration.settings as Record<string, any>;
+    
+    let clientId = '';
+    let clientSecret = '';
+    let redirectUri = '';
+    let scopes: string[] = [];
+    
+    if (settings) {
+      if (settings.clientId) {
+        clientId = settings.clientId;
+      }
+      if (settings.clientSecret) {
+        clientSecret = settings.clientSecret;
+      }
+      if (settings.redirectUri) {
+        redirectUri = settings.redirectUri;
+      }
+      if (settings.scopes && Array.isArray(settings.scopes)) {
+        scopes = settings.scopes;
+      }
+    }
+    
+    let status: IntegrationStatusEnum;
+    if (dbIntegration.status === 'active') {
+      status = IntegrationStatusEnum.ACTIVE;
+    } else if (dbIntegration.status === 'error') {
+      status = IntegrationStatusEnum.ERROR;
+    } else if (dbIntegration.status === 'paused') {
+      status = IntegrationStatusEnum.PAUSED;
+    } else {
+      status = IntegrationStatusEnum.DISCONNECTED;
+    }
+    
+    let updatedAt = dbIntegration.createdAt;
+    if (dbIntegration.updatedAt) {
+      updatedAt = dbIntegration.updatedAt;
+    }
+    
     return {
       id: dbIntegration.id,
       userId: dbIntegration.userId,
-      name: dbIntegration.name,
-      type: dbIntegration.type,
-      config: dbIntegration.config,
-      status: dbIntegration.status,
-      capabilities: dbIntegration.capabilities,
+      provider: dbIntegration.provider,
+      type: this.integrationType,
+      config: {
+        clientId: clientId,
+        clientSecret: clientSecret,
+        redirectUri: redirectUri,
+        scopes: scopes,
+      },
+      capabilities: this.capabilities,
+      status: status,
       lastSyncAt: dbIntegration.lastSyncAt,
-      metadata: dbIntegration.metadata,
       createdAt: dbIntegration.createdAt,
-      updatedAt: dbIntegration.updatedAt,
+      updatedAt: updatedAt,
     };
   }
 }

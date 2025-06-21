@@ -8,9 +8,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private subscriber: Redis;
   private publisher: Redis;
 
-  constructor(private configService: ConfigService) {}
-
-  async onModuleInit() {
+  constructor(private configService: ConfigService) {
     const redisConfig = {
       host: this.configService.get('REDIS_HOST', 'localhost'),
       port: this.configService.get('REDIS_PORT', 6379),
@@ -24,6 +22,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     this.client = new Redis(redisConfig);
     this.subscriber = new Redis(redisConfig);
     this.publisher = new Redis(redisConfig);
+  }
+
+  async onModuleInit() {
 
     this.client.on('error', (err) => {
       console.error('Redis Client Error:', err);

@@ -27,4 +27,8 @@ export class UpdatePreferencesDto {
   })
   @IsObject()
   preferences: Record<string, any>;
+
+  constructor() {
+    this.preferences = {};
+  }
 }

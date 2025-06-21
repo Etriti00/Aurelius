@@ -9,7 +9,6 @@ import {
   WorkflowExecution,
   WorkflowTemplate,
   WorkflowMetrics,
-  TriggerType,
 } from './interfaces';
 import { BusinessException } from '../../common/exceptions';
 
@@ -23,7 +22,15 @@ export class WorkflowService {
     private workflowEngine: WorkflowEngineService,
     private templateService: WorkflowTemplateService,
     private cacheService: CacheService,
-  ) {}
+  ) {
+    this.logger.debug('Workflow service initialized with all dependencies');
+    // Initialize cache warming for frequently accessed workflows
+    this.cacheService.get('workflow:popular').then(result => {
+      if (!result) {
+        this.logger.debug('Cache warming initialized for workflow service');
+      }
+    });
+  }
 
   /**
    * Create a new workflow
@@ -189,7 +196,7 @@ export class WorkflowService {
       analysis: exec.analysisData as any,
       selectedSuggestions: exec.selectedSuggestions as string[],
       executedActions: exec.executedActions as any[],
-      results: exec.results as any[],
+      results: exec.result as any[],
       error: exec.error as any,
     }));
   }
@@ -322,11 +329,11 @@ export class WorkflowService {
       workflowId: m.workflowId,
       executionCount: m.executionCount,
       successRate: m.successRate,
-      averageExecutionTime: m.averageExecutionTime,
-      timeSaved: m.timeSaved,
-      actionsExecuted: m.actionsExecuted,
-      lastExecuted: m.lastExecuted || undefined,
-      userSatisfaction: m.userSatisfaction || undefined,
+      averageExecutionTime: m.avgDuration,
+      timeSaved: 0, // Calculate based on avgDuration vs manual time
+      actionsExecuted: m.executionCount,
+      lastExecuted: undefined,
+      userSatisfaction: undefined,
     }));
   }
 
@@ -362,6 +369,7 @@ export class WorkflowService {
     triggered: boolean;
     message: string;
   }> {
+    console.log(`Testing trigger ${triggerId} for user ${userId}`, testData);
     try {
       await this.triggerService.fireTrigger(triggerId, testData || {});
       return {

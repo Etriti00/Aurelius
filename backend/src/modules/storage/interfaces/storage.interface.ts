@@ -1,3 +1,13 @@
+export interface FileMetadata {
+  tags?: string[];
+  description?: string;
+  version?: string;
+  checksum?: string;
+  encoding?: string;
+  variants?: Record<string, string>;
+  customProperties?: Record<string, string | number | boolean>;
+}
+
 export interface StorageFile {
   id: string;
   filename: string;
@@ -8,7 +18,7 @@ export interface StorageFile {
   cdnUrl?: string;
   bucket: string;
   key: string;
-  metadata?: Record<string, any>;
+  metadata?: FileMetadata;
   uploadedAt: Date;
   lastModified?: Date;
 }

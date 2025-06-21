@@ -53,6 +53,10 @@ export class SearchDto {
   @IsBoolean()
   @IsOptional()
   includeDistance?: boolean = false;
+
+  constructor() {
+    this.query = '';
+  }
 }
 
 export class SearchByTypeDto extends SearchDto {
@@ -62,6 +66,11 @@ export class SearchByTypeDto extends SearchDto {
   })
   @IsEnum(SearchableType)
   type: SearchableType;
+
+  constructor() {
+    super();
+    this.type = SearchableType.TASK;
+  }
 }
 
 export class SearchSuggestionsDto {
@@ -81,4 +90,8 @@ export class SearchSuggestionsDto {
   @Min(1)
   @Max(10)
   limit?: number = 5;
+
+  constructor() {
+    this.query = '';
+  }
 }

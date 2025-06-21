@@ -7,10 +7,12 @@ import { createHash } from 'crypto';
 
 interface EmbeddingRequest {
   text: string;
+  content: string; // Full content for storage
   contentType: 'email' | 'task' | 'document' | 'voice';
   contentId: string;
   userId: string;
   metadata?: Record<string, any>;
+  tags?: string[];
 }
 
 interface SemanticSearchRequest {
@@ -64,8 +66,13 @@ export class EmbeddingsService {
           contentType: request.contentType,
           contentId: request.contentId,
           contentHash,
-          embedding: embedding as any, // Cast for Prisma
+          content: request.content.substring(0, 1000), // Truncate for storage
+          contentSummary: request.content.length > 1000 ? request.content.substring(0, 200) + '...' : null,
+          embedding: embedding,
           metadata: request.metadata || {},
+          tags: request.tags || [],
+          model: 'text-embedding-placeholder',
+          dimensions: embedding.length,
           expiresAt,
         },
       });
@@ -95,18 +102,29 @@ export class EmbeddingsService {
       // Generate query embedding
       const queryEmbedding = await this.generateEmbeddingVector(request.query);
       
-      // TODO: Use queryEmbedding for proper vector similarity search
-      // Perform similarity search (simplified - would use proper vector similarity)
-      // This is a placeholder implementation
-      const results = await this.prisma.vectorEmbedding.findMany({
+      // Use queryEmbedding for similarity search
+      // This is a simplified implementation - in production would use proper vector similarity
+      const allEmbeddings = await this.prisma.vectorEmbedding.findMany({
         where: {
           userId: request.userId,
           contentType: request.contentTypes ? { in: request.contentTypes } : undefined,
           expiresAt: { gt: new Date() },
         },
-        take: request.limit || 10,
+        take: 100, // Get more candidates for similarity scoring
         orderBy: { createdAt: 'desc' },
       });
+      
+      // Calculate similarity scores and sort by relevance
+      const scoredResults = allEmbeddings.map(embedding => {
+        // Simple cosine similarity approximation using the hash-based vector
+        const similarity = this.calculateSimilarity(queryEmbedding, embedding.embedding as number[]);
+        return { ...embedding, similarity };
+      });
+      
+      // Sort by similarity and take top results
+      const results = scoredResults
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, request.limit || 10);
 
       // Cache results for 1 hour
       await this.cacheManager.set(cacheKey, results, 3600);
@@ -183,14 +201,37 @@ export class EmbeddingsService {
   }
 
   private async generateEmbeddingVector(text: string): Promise<number[]> {
-    // Placeholder implementation - would use OpenAI embeddings API
-    // For now, return a dummy 1536-dimensional vector
+    // Placeholder implementation - generates deterministic vector based on text content
+    // In production, this would use OpenAI embeddings API
     const dimensions = 1536;
-    const vector = Array.from({ length: dimensions }, () => Math.random() - 0.5);
+    const hash = this.generateContentHash(text);
+    
+    // Generate deterministic vector from hash
+    const vector = Array.from({ length: dimensions }, (_, i) => {
+      const byte = parseInt(hash.slice((i * 2) % hash.length, (i * 2 + 2) % hash.length) || '00', 16);
+      return (byte / 255.0) - 0.5; // Normalize to [-0.5, 0.5]
+    });
     
     // Normalize the vector
     const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
     return vector.map(val => val / magnitude);
+  }
+  
+  private calculateSimilarity(vec1: number[], vec2: number[]): number {
+    // Simple cosine similarity calculation
+    if (vec1.length !== vec2.length) return 0;
+    
+    let dotProduct = 0;
+    let norm1 = 0;
+    let norm2 = 0;
+    
+    for (let i = 0; i < vec1.length; i++) {
+      dotProduct += vec1[i] * vec2[i];
+      norm1 += vec1[i] * vec1[i];
+      norm2 += vec2[i] * vec2[i];
+    }
+    
+    return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
   }
 
   private generateContentHash(text: string): string {

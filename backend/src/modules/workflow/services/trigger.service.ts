@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CacheService } from '../../cache/services/cache.service';
-import { QueueService } from '../../queue/queue.service';
+import { QueueService } from '../../queue/services/queue.service';
 import {
   WorkflowTrigger,
   TriggerType,
@@ -48,8 +48,8 @@ export class TriggerService {
           id: triggerId,
           userId,
           type: trigger.type,
-          conditions: trigger.conditions,
-          enabled: trigger.enabled,
+          config: JSON.parse(JSON.stringify({ conditions: trigger.conditions })),
+          active: trigger.enabled,
           metadata: trigger.metadata || {},
         },
       });
@@ -136,7 +136,7 @@ export class TriggerService {
       // Update database
       await this.prisma.workflowTrigger.update({
         where: { id: triggerId },
-        data: { enabled: false },
+        data: { active: false },
       });
 
       this.logger.log(`Deactivated trigger ${triggerId}`);
@@ -208,12 +208,11 @@ export class TriggerService {
       }
 
       // Queue workflow execution
-      await this.queueService.addJob('workflow', {
+      await this.queueService.addWorkflowJob({
         userId,
         triggerId,
         triggerType: trigger.type,
         triggerData: data,
-        timestamp: new Date(),
       });
 
       // Emit event for real-time updates
@@ -253,8 +252,8 @@ export class TriggerService {
     return triggers.map(t => ({
       id: t.id,
       type: t.type as TriggerType,
-      conditions: t.conditions as TriggerCondition[],
-      enabled: t.enabled,
+      conditions: Array.isArray((t.config as Record<string, unknown>)?.conditions) ? (t.config as Record<string, unknown>).conditions as TriggerCondition[] : [],
+      enabled: t.active,
       metadata: t.metadata as Record<string, any>,
     }));
   }
@@ -266,6 +265,7 @@ export class TriggerService {
     userId: string,
     trigger: WorkflowTrigger,
   ): Promise<void> {
+    this.logger.debug(`Activating time trigger for user ${userId}: ${trigger.id}`);
     const cronPattern = trigger.metadata?.cronPattern;
     if (!cronPattern) {
       throw new Error('Time trigger requires cronPattern in metadata');
@@ -473,8 +473,9 @@ export class TriggerService {
    * Cache trigger configuration
    */
   private async cacheTrigger(userId: string, trigger: WorkflowTrigger): Promise<void> {
-    const key = `trigger:${trigger.id}`;
+    const key = `trigger:${userId}:${trigger.id}`;
     await this.cacheService.set(key, trigger, 3600); // 1 hour
+    this.logger.debug(`Cached trigger ${trigger.id} for user ${userId}`);
   }
 
   /**
@@ -497,15 +498,15 @@ export class TriggerService {
   private async loadActiveTriggers(): Promise<void> {
     try {
       const triggers = await this.prisma.workflowTrigger.findMany({
-        where: { enabled: true },
+        where: { active: true },
       });
 
       for (const trigger of triggers) {
         const workflowTrigger: WorkflowTrigger = {
           id: trigger.id,
           type: trigger.type as TriggerType,
-          conditions: trigger.conditions as TriggerCondition[],
-          enabled: trigger.enabled,
+          conditions: Array.isArray((trigger.config as Record<string, unknown>)?.conditions) ? (trigger.config as Record<string, unknown>).conditions as TriggerCondition[] : [],
+          enabled: trigger.active,
           metadata: trigger.metadata as Record<string, any>,
         };
 

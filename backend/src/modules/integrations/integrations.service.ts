@@ -1,10 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class IntegrationsService {
-  private readonly logger = new Logger(IntegrationsService.name);
-
   constructor(private readonly prisma: PrismaService) {}
 
   async getUserIntegrations(userId: string): Promise<any[]> {
@@ -38,7 +36,12 @@ export class IntegrationsService {
   // Placeholder for integration management methods
   async connectIntegration(userId: string, provider: string, credentials: any): Promise<any> {
     // Implementation will be added when creating specific integrations
-    return { message: `${provider} integration setup initiated` };
+    // Parameters are required for interface but not yet implemented
+    return { 
+      message: `${provider} integration setup initiated`,
+      userId: userId,
+      hasCredentials: !!credentials
+    };
   }
 
   async disconnectIntegration(userId: string, provider: string): Promise<any> {

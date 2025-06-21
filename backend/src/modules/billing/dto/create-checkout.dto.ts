@@ -29,6 +29,13 @@ export class CreateCheckoutDto {
   @IsObject()
   @IsOptional()
   metadata?: Record<string, any>;
+
+  constructor() {
+    this.priceId = '';
+    this.successUrl = '';
+    this.cancelUrl = '';
+    this.mode = CheckoutMode.SUBSCRIPTION;
+  }
 }
 
 export class CheckoutResponseDto {
@@ -37,4 +44,9 @@ export class CheckoutResponseDto {
 
   @ApiProperty({ description: 'Checkout URL' })
   url: string;
+
+  constructor() {
+    this.sessionId = '';
+    this.url = '';
+  }
 }

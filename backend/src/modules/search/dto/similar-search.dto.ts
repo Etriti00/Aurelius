@@ -19,6 +19,10 @@ export class FindSimilarDto {
   @Min(1)
   @Max(50)
   limit?: number = 10;
+
+  constructor() {
+    this.itemId = '';
+  }
 }
 
 export class SimilarItemDto {
@@ -36,6 +40,13 @@ export class SimilarItemDto {
 
   @ApiPropertyOptional({ description: 'Item metadata' })
   metadata?: Record<string, any>;
+
+  constructor() {
+    this.id = '';
+    this.similarity = 0;
+    this.type = '';
+    this.title = '';
+  }
 }
 
 export class SimilarItemsResponseDto {
@@ -47,4 +58,9 @@ export class SimilarItemsResponseDto {
 
   @ApiProperty({ description: 'Total similar items found' })
   total: number;
+
+  constructor() {
+    this.items = [];
+    this.total = 0;
+  }
 }

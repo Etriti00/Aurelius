@@ -23,6 +23,7 @@ import {
 import { BusinessException } from '../../../common/exceptions';
 import { v4 as uuidv4 } from 'uuid';
 import * as mime from 'mime-types';
+import { Readable } from 'stream';
 
 @Injectable()
 export class S3Service implements StorageProvider {
@@ -32,8 +33,11 @@ export class S3Service implements StorageProvider {
   private readonly region: string;
 
   constructor(private configService: ConfigService) {
-    this.region = this.configService.get<string>('AWS_REGION', 'us-east-1');
-    this.defaultBucket = this.configService.get<string>('AWS_S3_BUCKET', 'aurelius-storage');
+    const awsRegion = this.configService.getOptional<string>('AWS_REGION');
+    this.region = awsRegion !== undefined ? awsRegion : 'us-east-1';
+    
+    const s3Bucket = this.configService.getOptional<string>('AWS_S3_BUCKET');
+    this.defaultBucket = s3Bucket !== undefined ? s3Bucket : 'aurelius-storage';
 
     this.s3Client = new S3Client({
       region: this.region,
@@ -97,7 +101,7 @@ export class S3Service implements StorageProvider {
   }
 
   async uploadStream(
-    stream: NodeJS.ReadableStream,
+    stream: Readable,
     key: string,
     options: UploadOptions = {},
   ): Promise<StorageFile> {
@@ -124,7 +128,7 @@ export class S3Service implements StorageProvider {
         },
       });
 
-      const result = await upload.done();
+      await upload.done();
       const url = this.getPublicUrl(bucket, finalKey);
 
       // Get file size

@@ -2,13 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SemanticSearchService } from './services/semantic-search.service';
 import { VectorService } from './services/vector.service';
-import { EmbeddingService } from './services/embedding.service';
 import { CacheService } from '../cache/services/cache.service';
 import {
   SearchQuery,
   SearchResponse,
   SearchOptions,
-  VectorDocument,
   SearchResult,
 } from './interfaces';
 import { BusinessException } from '../../common/exceptions';
@@ -31,7 +29,6 @@ export class SearchService {
     private prisma: PrismaService,
     private semanticSearch: SemanticSearchService,
     private vectorService: VectorService,
-    private embeddingService: EmbeddingService,
     private cacheService: CacheService,
   ) {}
 
@@ -120,7 +117,6 @@ export class SearchService {
         where: { id: taskId },
         include: {
           subtasks: true,
-          labels: true,
         },
       });
 
@@ -136,7 +132,7 @@ export class SearchService {
         status: task.status,
         priority: task.priority,
         dueDate: task.dueDate?.toISOString(),
-        labels: task.labels.map(l => l.name),
+        labels: task.labels,
       };
 
       await this.semanticSearch.indexContent(
@@ -165,8 +161,7 @@ export class SearchService {
       const email = await this.prisma.email.findUnique({
         where: { id: emailId },
         include: {
-          thread: true,
-          attachments: true,
+          emailThread: true,
         },
       });
 
@@ -181,8 +176,8 @@ export class SearchService {
         subject: email.subject,
         from: email.from,
         to: email.to,
-        date: email.receivedAt.toISOString(),
-        hasAttachments: email.attachments.length > 0,
+        date: email.receivedAt ? email.receivedAt.toISOString() : email.createdAt.toISOString(),
+        hasAttachments: this.checkEmailHasAttachments(email.attachments),
         threadId: email.threadId,
       };
 
@@ -211,9 +206,6 @@ export class SearchService {
     try {
       const event = await this.prisma.calendarEvent.findUnique({
         where: { id: eventId },
-        include: {
-          attendees: true,
-        },
       });
 
       if (!event) {
@@ -228,8 +220,8 @@ export class SearchService {
         startTime: event.startTime.toISOString(),
         endTime: event.endTime.toISOString(),
         location: event.location,
-        attendeeCount: event.attendees.length,
-        isRecurring: event.recurrence !== null,
+        attendeeCount: this.getCalendarAttendeeCount(event.attendees),
+        isRecurring: event.isRecurring,
       };
 
       await this.semanticSearch.indexContent(
@@ -266,7 +258,7 @@ export class SearchService {
       const metadata = {
         type: SearchableType.MEMORY,
         category: memory.category,
-        importance: memory.importance,
+        confidence: memory.confidence,
         createdAt: memory.createdAt.toISOString(),
       };
 
@@ -438,5 +430,19 @@ export class SearchService {
     }
 
     return parts.filter(Boolean).join(' ');
+  }
+
+  private checkEmailHasAttachments(attachments: object | string | number | boolean | null): boolean {
+    if (Array.isArray(attachments)) {
+      return attachments.length > 0;
+    }
+    return false;
+  }
+
+  private getCalendarAttendeeCount(attendees: object | string | number | boolean | null): number {
+    if (Array.isArray(attendees)) {
+      return attendees.length;
+    }
+    return 0;
   }
 }

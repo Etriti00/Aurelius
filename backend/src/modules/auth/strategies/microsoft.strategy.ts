@@ -9,7 +9,7 @@ import { AuthService } from '../auth.service';
 export class MicrosoftStrategy extends PassportStrategy(Strategy, 'microsoft') {
   constructor(
     private readonly authService: AuthService,
-    private readonly configService: ConfigService
+    configService: ConfigService
   ) {
     super({
       clientID: configService.get<string>('MICROSOFT_CLIENT_ID'),
@@ -52,7 +52,8 @@ export class MicrosoftStrategy extends PassportStrategy(Strategy, 'microsoft') {
 
       done(null, user);
     } catch (error) {
-      done(error, null);
+      const errorToPass = error instanceof Error ? error : new Error('Authentication failed');
+      done(errorToPass, undefined);
     }
   }
 }

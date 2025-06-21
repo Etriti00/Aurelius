@@ -77,8 +77,7 @@ export class VoiceService {
         userSubscription: request.userSubscription,
         metadata: {
           type: 'voice-interaction',
-          originalTranscript: transcript,
-          ...request.metadata,
+          urgency: 'normal',
         },
       });
 
@@ -98,13 +97,17 @@ export class VoiceService {
       await this.prisma.voiceInteraction.create({
         data: {
           userId: request.userId,
-          transcript,
-          intent: enhancedRequest.intent,
-          confidence: enhancedRequest.confidence,
-          responseText: aiResponse.text,
-          responseAudio: audioResponse.audioUrl,
-          duration: Date.now() - startTime,
-          language: request.language || 'en',
+          type: 'voice_command',
+          provider: 'openai',
+          inputText: transcript,
+          outputText: aiResponse.text,
+          audioFileUrl: audioResponse.audioUrl,
+          duration: (Date.now() - startTime) / 1000,
+          language: request.language || 'en-US',
+          metadata: {
+            intent: enhancedRequest.intent,
+            confidence: enhancedRequest.confidence,
+          },
         },
       });
 
@@ -220,11 +223,10 @@ export class VoiceService {
         skip: offset,
         select: {
           id: true,
-          transcript: true,
-          responseText: true,
+          inputText: true,
+          outputText: true,
           duration: true,
-          confidence: true,
-          intent: true,
+          metadata: true,
           createdAt: true,
         },
       });
@@ -255,7 +257,7 @@ export class VoiceService {
             select: {
               tasks: { where: { status: { not: 'ARCHIVED' } } },
               emailThreads: { where: { isRead: false } },
-              calendarEvents: {
+              events: {
                 where: {
                   startTime: { gte: new Date() },
                   status: 'CONFIRMED',
@@ -284,8 +286,8 @@ export class VoiceService {
         contextParts.push(`${userWithCount._count.emailThreads} unread emails`);
       }
       
-      if (userWithCount._count?.calendarEvents > 0) {
-        contextParts.push(`${userWithCount._count.calendarEvents} upcoming calendar events`);
+      if (userWithCount._count?.events > 0) {
+        contextParts.push(`${userWithCount._count.events} upcoming calendar events`);
       }
 
       const currentTime = new Date().toLocaleString();

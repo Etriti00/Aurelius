@@ -33,4 +33,12 @@ export class SignedUrlResponseDto {
 
   @ApiProperty({ description: 'URL expiration timestamp' })
   expiresAt: Date;
+
+  constructor(
+    url: string = '',
+    expiresAt: Date = new Date()
+  ) {
+    this.url = url;
+    this.expiresAt = expiresAt;
+  }
 }

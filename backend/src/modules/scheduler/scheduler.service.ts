@@ -3,7 +3,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JobSchedulerService } from './services/job-scheduler.service';
 import { JobExecutorService } from './services/job-executor.service';
 import { SchedulerMonitorService } from './services/scheduler-monitor.service';
-import { CacheService } from '../cache/services/cache.service';
 import {
   ScheduledJob,
   JobType,
@@ -29,7 +28,6 @@ export class SchedulerService {
     private jobScheduler: JobSchedulerService,
     private jobExecutor: JobExecutorService,
     private monitorService: SchedulerMonitorService,
-    private cacheService: CacheService,
   ) {
     this.loadJobTemplates();
   }
@@ -129,21 +127,7 @@ export class SchedulerService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return jobs.map(job => ({
-      id: job.id,
-      userId: job.userId,
-      name: job.name,
-      description: job.description || undefined,
-      type: job.type as JobType,
-      schedule: job.schedule as JobSchedule,
-      action: job.action as JobAction,
-      enabled: job.enabled,
-      metadata: job.metadata as Record<string, any>,
-      lastRun: job.lastRun || undefined,
-      nextRun: job.nextRun || undefined,
-      createdAt: job.createdAt,
-      updatedAt: job.updatedAt,
-    }));
+    return jobs.map(job => this.mapJobToScheduledJob(job));
   }
 
   /**
@@ -158,21 +142,7 @@ export class SchedulerService {
       return null;
     }
 
-    return {
-      id: job.id,
-      userId: job.userId,
-      name: job.name,
-      description: job.description || undefined,
-      type: job.type as JobType,
-      schedule: job.schedule as JobSchedule,
-      action: job.action as JobAction,
-      enabled: job.enabled,
-      metadata: job.metadata as Record<string, any>,
-      lastRun: job.lastRun || undefined,
-      nextRun: job.nextRun || undefined,
-      createdAt: job.createdAt,
-      updatedAt: job.updatedAt,
-    };
+    return this.mapJobToScheduledJob(job);
   }
 
   /**
@@ -220,7 +190,11 @@ export class SchedulerService {
       }
     }
 
-    return this.getJob(jobId, userId)!;
+    const updatedJob = await this.getJob(jobId, userId);
+    if (!updatedJob) {
+      throw new Error('Job not found after update');
+    }
+    return updatedJob;
   }
 
   /**
@@ -504,5 +478,56 @@ export class SchedulerService {
       popularity: 90,
       tags: ['reminder', 'digest', 'morning'],
     });
+  }
+
+  private mapJobToScheduledJob(job: any): ScheduledJob {
+    return {
+      id: job.id,
+      userId: job.userId || '',
+      name: job.name,
+      description: job.description || undefined,
+      type: job.type as JobType,
+      schedule: this.parseSchedule(job.schedule),
+      action: this.parseAction(job.payload),
+      enabled: job.enabled,
+      metadata: this.parseMetadata(job.payload),
+      lastRun: job.lastRun || undefined,
+      nextRun: job.nextRun || undefined,
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
+    };
+  }
+
+  private parseSchedule(schedule: string | null): JobSchedule {
+    if (!schedule) {
+      return { type: JobType.ONE_TIME };
+    }
+    try {
+      return JSON.parse(schedule);
+    } catch {
+      return { type: JobType.ONE_TIME };
+    }
+  }
+
+  private parseAction(payload: any): JobAction {
+    if (!payload || typeof payload !== 'object') {
+      return {
+        type: 'custom_function' as any,
+        target: 'default',
+        method: 'execute',
+      };
+    }
+    return payload.action || {
+      type: 'custom_function' as any,
+      target: 'default',
+      method: 'execute',
+    };
+  }
+
+  private parseMetadata(payload: any): Record<string, any> {
+    if (!payload || typeof payload !== 'object') {
+      return {};
+    }
+    return payload.metadata || {};
   }
 }

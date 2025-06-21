@@ -4,13 +4,13 @@ import { StorageService } from './storage.service';
 import { S3Service } from './services/s3.service';
 import { CdnService } from './services/cdn.service';
 import { ImageService } from './services/image.service';
-import { ConfigModule } from '../config/config.module';
+import { AppConfigModule } from '../config/config.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CacheModule } from '../cache/cache.module';
 
 @Module({
   imports: [
-    ConfigModule,
+    AppConfigModule,
     PrismaModule,
     CacheModule,
   ],

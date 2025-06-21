@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import { HttpModule } from '@nestjs/axios';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 
@@ -14,7 +15,7 @@ import {
 import { AIGatewayModule } from '../ai-gateway/ai-gateway.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CacheModule } from '../cache/cache.module';
-import { ConfigModule } from '../config/config.module';
+import { AppConfigModule } from '../config/config.module';
 
 @Module({
   imports: [
@@ -22,19 +23,23 @@ import { ConfigModule } from '../config/config.module';
     AIGatewayModule,
     PrismaModule,
     CacheModule,
-    ConfigModule,
+    AppConfigModule,
     MulterModule.register({
       storage: diskStorage({
         destination: './uploads/voice',
-        filename: (req, file, callback) => {
+        filename: (req: Express.Request, file, callback) => {
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+          // req parameter required by multer interface but unused for this simple filename generation
+          void req; // Explicitly mark as intentionally unused
           callback(null, `voice-${uniqueSuffix}${extname(file.originalname)}`);
         },
       }),
       limits: {
         fileSize: 10 * 1024 * 1024, // 10MB
       },
-      fileFilter: (req, file, callback) => {
+      fileFilter: (req: Express.Request, file, callback) => {
+        // req parameter required by multer interface but unused for simple file filtering
+        void req; // Explicitly mark as intentionally unused
         const allowedMimes = ['audio/mp3', 'audio/wav', 'audio/webm', 'audio/ogg'];
         if (allowedMimes.includes(file.mimetype)) {
           callback(null, true);
@@ -50,6 +55,7 @@ import { ConfigModule } from '../config/config.module';
     ElevenLabsService,
     SpeechToTextService,
     VoiceAnalyticsService,
+    EventEmitter2,
   ],
   exports: [VoiceService, VoiceAnalyticsService],
 })

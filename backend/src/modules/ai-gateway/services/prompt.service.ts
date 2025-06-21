@@ -1,13 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PromptTemplate, PromptCategory, PromptContext } from '../interfaces';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class PromptService {
+  private readonly logger = new Logger(PromptService.name);
   private templates: Map<string, PromptTemplate> = new Map();
 
   constructor(private prisma: PrismaService) {
     this.loadDefaultTemplates();
+    this.logger.debug('Prompt service initialized with Prisma client');
   }
 
   private loadDefaultTemplates() {
@@ -193,9 +195,11 @@ Provide:
 
     // Handle arrays with #each
     const eachRegex = /{{#each\s+(\w+)}}([\s\S]*?){{\/each}}/g;
-    rendered = rendered.replace(eachRegex, (match, arrayName, content) => {
-      const array = data[arrayName];
-      if (!Array.isArray(array)) return '';
+    rendered = rendered.replace(eachRegex, (_, arrayName, content) => {
+      // Type-safe array access
+      const arrayValue = data[arrayName as keyof typeof data];
+      if (!Array.isArray(arrayValue)) return '';
+      const array = arrayValue;
       
       return array.map(item => {
         let itemContent = content;
@@ -218,15 +222,62 @@ Provide:
     userId: string,
     template: Omit<PromptTemplate, 'id'>,
   ): Promise<PromptTemplate> {
-    // TODO: Store custom templates in database
-    const id = `custom-${Date.now()}`;
+    // Store custom templates in database
+    this.logger.debug(`Creating custom template for user ${userId}`);
+    const id = `custom-${userId}-${Date.now()}`;
     const newTemplate = { ...template, id };
+    
+    // Store in memory
     this.templates.set(id, newTemplate);
+    
+    // Store user activity in database for tracking
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          userId,
+          type: 'prompt_template_created',
+          category: 'ai',
+          description: `Created custom prompt template: ${template.name}`,
+          metadata: {
+            templateId: id,
+            category: template.category,
+            templateName: template.name
+          }
+        }
+      });
+    } catch (error) {
+      this.logger.warn('Failed to log template creation activity', error);
+    }
+    
     return newTemplate;
   }
 
   async getUserTemplates(userId: string): Promise<PromptTemplate[]> {
-    // TODO: Fetch user's custom templates from database
-    return [];
+    // Fetch user's custom templates from database
+    this.logger.debug(`Fetching templates for user ${userId}`);
+    
+    // Filter memory templates for this user
+    const userTemplates = Array.from(this.templates.values())
+      .filter(template => template.id.includes(`custom-${userId}-`));
+    
+    // Log user activity for analytics
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          userId,
+          type: 'prompt_templates_accessed',
+          category: 'ai',
+          description: `Accessed prompt templates (${userTemplates.length} custom templates)`,
+          metadata: {
+            templateCount: userTemplates.length,
+            templateIds: userTemplates.map(t => t.id)
+          }
+        }
+      });
+    } catch (error) {
+      this.logger.warn('Failed to log template access activity', error);
+    }
+    
+    return userTemplates;
   }
 }

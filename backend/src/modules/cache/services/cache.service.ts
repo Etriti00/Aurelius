@@ -32,7 +32,8 @@ export class CacheService {
    * Get value from cache
    */
   async get<T>(key: string): Promise<T | null> {
-    return await this.cacheManager.get<T>(key);
+    const result = await this.cacheManager.get<T>(key);
+    return result ?? null;
   }
 
   /**
@@ -100,5 +101,15 @@ export class CacheService {
     await Promise.all(
       patterns.map(pattern => this.delByPattern(pattern))
     );
+  }
+
+  /**
+   * Increment a counter value
+   */
+  async increment(key: string, amount: number = 1): Promise<number> {
+    const current = await this.get<number>(key);
+    const newValue = (current || 0) + amount;
+    await this.set(key, newValue);
+    return newValue;
   }
 }

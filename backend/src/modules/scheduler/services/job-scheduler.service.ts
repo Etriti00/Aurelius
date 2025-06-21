@@ -2,13 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CacheService } from '../../cache/services/cache.service';
 import {
   ScheduledJob,
   JobType,
   JobSchedule,
-  JobExecution,
   ExecutionStatus,
+  JobAction,
 } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 import * as cronParser from 'cron-parser';
@@ -22,7 +21,6 @@ export class JobSchedulerService {
   constructor(
     private schedulerRegistry: SchedulerRegistry,
     private prisma: PrismaService,
-    private cacheService: CacheService,
   ) {
     this.loadActiveJobs();
   }
@@ -47,10 +45,9 @@ export class JobSchedulerService {
           name: job.name,
           description: job.description,
           type: job.type,
-          schedule: job.schedule,
-          action: job.action,
+          schedule: this.serializeSchedule(job.schedule),
+          payload: this.serializePayload(job.action, job.metadata || {}),
           enabled: job.enabled,
-          metadata: job.metadata || {},
           nextRun,
         },
       });
@@ -164,7 +161,7 @@ export class JobSchedulerService {
       const updatedJob = await this.prisma.scheduledJob.update({
         where: { id: jobId },
         data: {
-          schedule: newSchedule,
+          schedule: this.serializeSchedule(newSchedule),
           nextRun,
         },
       });
@@ -468,7 +465,7 @@ export class JobSchedulerService {
 
     if (!job) return;
 
-    const nextRun = this.calculateNextRun(job.schedule as JobSchedule);
+    const nextRun = this.calculateNextRun(this.parseSchedule(job.schedule));
     
     await this.prisma.scheduledJob.update({
       where: { id: jobId },
@@ -536,5 +533,39 @@ export class JobSchedulerService {
     } catch (error) {
       this.logger.error(`Failed to load active jobs: ${error}`);
     }
+  }
+
+  private serializeSchedule(schedule: JobSchedule): string {
+    return JSON.stringify(schedule);
+  }
+
+  private parseSchedule(schedule: string | null): JobSchedule {
+    if (!schedule) {
+      return { type: JobType.ONE_TIME };
+    }
+    try {
+      return JSON.parse(schedule);
+    } catch {
+      return { type: JobType.ONE_TIME };
+    }
+  }
+
+  private serializePayload(action: JobAction, metadata: Record<string, string | number | boolean | object>): Record<string, string | number | boolean | object> {
+    const result: Record<string, string | number | boolean | object> = {};
+    result.action = {
+      type: action.type,
+      target: action.target,
+      method: action.method,
+      parameters: action.parameters || {},
+      retryPolicy: action.retryPolicy || null,
+    };
+    
+    if (metadata) {
+      result.metadata = metadata;
+    } else {
+      result.metadata = {};
+    }
+    
+    return result;
   }
 }

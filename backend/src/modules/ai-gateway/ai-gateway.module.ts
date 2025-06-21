@@ -5,6 +5,7 @@ import { AIGatewayController } from './ai-gateway.controller';
 import { AIGatewayService } from './ai-gateway.service';
 import { AIModelSelectorService } from './services/ai-model-selector.service';
 import { AnthropicService } from './services/anthropic.service';
+import { OpenAIService } from './services/openai.service';
 import { EmbeddingsService } from './services/embeddings.service';
 import { UsageTrackingService } from './services/usage-tracking.service';
 
@@ -19,9 +20,10 @@ import { UsageTrackingService } from './services/usage-tracking.service';
     AIGatewayService,
     AIModelSelectorService,
     AnthropicService,
+    OpenAIService,
     EmbeddingsService,
     UsageTrackingService,
   ],
-  exports: [AIGatewayService, EmbeddingsService],
+  exports: [AIGatewayService, OpenAIService, EmbeddingsService],
 })
 export class AIGatewayModule {}

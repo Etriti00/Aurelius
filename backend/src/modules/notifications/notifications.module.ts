@@ -6,9 +6,10 @@ import { InAppNotificationService } from './services/in-app-notification.service
 import { NotificationsController } from './notifications.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { QueueModule } from '../queue/queue.module';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 @Module({
-  imports: [PrismaModule, QueueModule],
+  imports: [PrismaModule, QueueModule, WebSocketModule],
   controllers: [NotificationsController],
   providers: [
     NotificationsService,

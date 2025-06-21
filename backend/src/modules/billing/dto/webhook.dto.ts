@@ -36,6 +36,17 @@ export class StripeWebhookDto {
     id: string | null;
     idempotency_key: string | null;
   };
+
+  constructor() {
+    this.id = '';
+    this.type = '';
+    this.api_version = '';
+    this.created = 0;
+    this.data = { object: {} };
+    this.livemode = false;
+    this.pending_webhooks = 0;
+    this.request = { id: null, idempotency_key: null };
+  }
 }
 
 export enum StripeWebhookEvent {

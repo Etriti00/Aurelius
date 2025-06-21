@@ -21,7 +21,6 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SearchService, SearchableType } from './search.service';
 import {
   SearchDto,
-  SearchByTypeDto,
   SearchSuggestionsDto,
   SearchResponseDto,
   SuggestionsResponseDto,
@@ -29,7 +28,6 @@ import {
   BulkIndexDto,
   IndexResponseDto,
   BulkIndexResponseDto,
-  FindSimilarDto,
   SimilarItemsResponseDto,
 } from './dto';
 
@@ -184,7 +182,6 @@ export class SearchController {
   @ApiResponse({ status: 201, type: IndexResponseDto })
   @HttpCode(HttpStatus.CREATED)
   async indexTask(
-    @CurrentUser() user: any,
     @Param('taskId') taskId: string,
   ): Promise<IndexResponseDto> {
     try {
@@ -203,7 +200,6 @@ export class SearchController {
   @ApiResponse({ status: 201, type: IndexResponseDto })
   @HttpCode(HttpStatus.CREATED)
   async indexEmail(
-    @CurrentUser() user: any,
     @Param('emailId') emailId: string,
   ): Promise<IndexResponseDto> {
     try {
@@ -222,7 +218,6 @@ export class SearchController {
   @ApiResponse({ status: 201, type: IndexResponseDto })
   @HttpCode(HttpStatus.CREATED)
   async indexCalendarEvent(
-    @CurrentUser() user: any,
     @Param('eventId') eventId: string,
   ): Promise<IndexResponseDto> {
     try {
@@ -241,7 +236,6 @@ export class SearchController {
   @ApiResponse({ status: 201, type: IndexResponseDto })
   @HttpCode(HttpStatus.CREATED)
   async indexMemory(
-    @CurrentUser() user: any,
     @Param('memoryId') memoryId: string,
   ): Promise<IndexResponseDto> {
     try {
@@ -260,7 +254,6 @@ export class SearchController {
   @ApiResponse({ status: 204 })
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeFromIndex(
-    @CurrentUser() user: any,
     @Param('itemId') itemId: string,
   ): Promise<void> {
     await this.searchService.removeFromIndex(itemId);

@@ -24,6 +24,17 @@ export class WorkflowTemplateDto {
 
   @ApiProperty({ description: 'Template tags' })
   tags: string[];
+
+  constructor() {
+    this.id = '';
+    this.name = '';
+    this.description = '';
+    this.category = '';
+    this.requiredIntegrations = [];
+    this.estimatedTimeSaving = 0;
+    this.popularity = 0;
+    this.tags = [];
+  }
 }
 
 export class TemplateSuggestionDto {
@@ -35,4 +46,10 @@ export class TemplateSuggestionDto {
 
   @ApiProperty({ description: 'Potential time saving (minutes/week)' })
   potentialTimeSaving: number;
+
+  constructor() {
+    this.templateId = '';
+    this.reason = '';
+    this.potentialTimeSaving = 0;
+  }
 }

@@ -18,7 +18,7 @@ export class EmbeddingService {
     private openAIService: OpenAIService,
     private cacheService: CacheService,
   ) {
-    this.cacheEnabled = this.configService.get<boolean>('EMBEDDING_CACHE_ENABLED', true);
+    this.cacheEnabled = this.configService.getOptional<boolean>('EMBEDDING_CACHE_ENABLED') ?? true;
   }
 
   /**

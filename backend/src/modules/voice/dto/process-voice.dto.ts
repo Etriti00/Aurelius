@@ -26,4 +26,8 @@ export class ProcessVoiceDto {
     description: 'Audio file (mp3, wav, webm, ogg)',
   })
   audio: any;
+
+  constructor() {
+    this.audio = null;
+  }
 }

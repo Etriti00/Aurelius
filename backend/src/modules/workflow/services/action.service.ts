@@ -1,16 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { QueueService } from '../../queue/queue.service';
+import { QueueService } from '../../queue/services/queue.service';
 import { AIGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { EmailService } from '../../email/email.service';
-import { TaskService } from '../../tasks/tasks.service';
+import { TasksService } from '../../tasks/tasks.service';
 import { CalendarService } from '../../calendar/calendar.service';
 import {
   WorkflowAction,
   ActionType,
   ExecutedAction,
-  ExecutionResult,
-  WorkflowError,
 } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -25,7 +23,7 @@ export class ActionService {
     private queueService: QueueService,
     private aiGateway: AIGatewayService,
     private emailService: EmailService,
-    private taskService: TaskService,
+    private tasksService: TasksService,
     private calendarService: CalendarService,
     private eventEmitter: EventEmitter2,
   ) {
@@ -145,7 +143,7 @@ export class ActionService {
     userId: string,
     parameters: Record<string, any>,
   ): Promise<any> {
-    const task = await this.taskService.createTask(userId, {
+    const task = await this.tasksService.create(userId, {
       title: parameters.title,
       description: parameters.description,
       dueDate: parameters.dueDate ? new Date(parameters.dueDate) : undefined,
@@ -173,7 +171,7 @@ export class ActionService {
 
     const results = [];
     for (const taskId of parameters.taskIds || [parameters.taskId]) {
-      const task = await this.taskService.updateTask(userId, taskId, updates);
+      const task = await this.tasksService.update(userId, taskId, updates);
       results.push({
         taskId: task.id,
         updated: true,
@@ -190,19 +188,32 @@ export class ActionService {
     // Generate email content if needed
     let content = parameters.content;
     if (parameters.generateContent) {
-      const generated = await this.aiGateway.generateResponse(
-        `Write a professional email with subject: ${parameters.subject}\nContext: ${parameters.context}`,
-        { maxTokens: 500 },
-      );
-      content = generated.content;
+      // Get user subscription info for AI gateway
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { subscription: true },
+      });
+      
+      if (!user || !user.subscription) {
+        throw new Error('User or subscription not found for AI content generation');
+      }
+      
+      const generated = await this.aiGateway.processRequest({
+        prompt: `Write a professional email with subject: ${parameters.subject}\nContext: ${parameters.context}`,
+        userId,
+        action: 'email-content-generation',
+        userSubscription: { tier: user.subscription.tier },
+        metadata: { type: 'email-content' },
+      });
+      content = generated.text;
     }
 
     const email = await this.emailService.sendEmail({
       from: parameters.from || 'noreply@aurelius.ai',
       to: parameters.to,
       subject: parameters.subject,
+      content,
       html: content,
-      attachments: parameters.attachments,
     });
 
     return {
@@ -222,7 +233,6 @@ export class ActionService {
       endTime: new Date(parameters.endTime || Date.now() + parameters.duration * 60000),
       location: parameters.location,
       attendees: parameters.attendees || [],
-      reminders: parameters.reminders || [{ minutes: 15 }],
     });
 
     return {
@@ -236,33 +246,30 @@ export class ActionService {
     userId: string,
     parameters: Record<string, any>,
   ): Promise<any> {
-    const reminder = await this.prisma.reminder.create({
+    // Create a scheduled notification as a reminder
+    const reminder = await this.prisma.notification.create({
       data: {
         userId,
+        type: 'reminder',
         title: parameters.title,
         message: parameters.message,
-        remindAt: new Date(parameters.remindAt),
-        type: parameters.type || 'notification',
-        metadata: parameters.metadata || {},
+        scheduledFor: new Date(parameters.remindAt),
+        actions: [],
+        channels: ['in_app'],
       },
     });
 
     // Schedule reminder notification
-    await this.queueService.addJob(
-      'notification',
-      {
-        userId,
-        type: 'reminder',
-        reminderId: reminder.id,
-      },
-      {
-        delay: new Date(parameters.remindAt).getTime() - Date.now(),
-      },
-    );
+    await this.queueService.addNotificationJob({
+      notificationId: reminder.id,
+      userId,
+      type: 'reminder',
+      scheduledFor: new Date(parameters.remindAt),
+    });
 
     return {
       reminderId: reminder.id,
-      scheduledFor: reminder.remindAt,
+      scheduledFor: new Date(parameters.remindAt),
     };
   }
 
@@ -273,14 +280,11 @@ export class ActionService {
     // This would call the appropriate integration service
     const integration = parameters.integration;
     const action = parameters.action;
-    const data = parameters.data;
 
     // Queue integration execution
-    const job = await this.queueService.addJob('integration', {
-      userId,
-      integration,
-      action,
-      data,
+    const job = await this.queueService.addIntegrationSyncJob({ integrationId: integration, userId, action }, {
+      removeOnComplete: true,
+      removeOnFail: false,
     });
 
     return {
@@ -298,11 +302,11 @@ export class ActionService {
     const workflowId = parameters.workflowId || parameters.workflowType;
     
     // Queue workflow execution
-    const job = await this.queueService.addJob('workflow', {
+    const job = await this.queueService.addWorkflowJob({
       userId,
-      workflowId,
+      triggerId: workflowId,
+      triggerType: 'manual',
       triggerData: parameters.data || {},
-      parentWorkflowId: parameters.parentWorkflowId,
     });
 
     return {
@@ -317,30 +321,47 @@ export class ActionService {
   ): Promise<any> {
     const prompt = parameters.prompt || this.buildContentPrompt(parameters);
     
-    const response = await this.aiGateway.generateResponse(prompt, {
-      model: parameters.model || 'claude-3-haiku',
-      maxTokens: parameters.maxTokens || 1000,
-      temperature: parameters.temperature || 0.7,
+    // Get user subscription info for AI gateway
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { subscription: true },
+    });
+    
+    if (!user || !user.subscription) {
+      throw new Error('User or subscription not found for content generation');
+    }
+    
+    const response = await this.aiGateway.processRequest({
+      prompt,
+      userId,
+      action: 'content-generation',
+      userSubscription: { tier: user.subscription.tier },
+      metadata: { 
+        type: 'content-generation',
+      },
     });
 
     // Save generated content if requested
     if (parameters.save) {
-      await this.prisma.generatedContent.create({
+      // Save to ActionLog since there's no generatedContent model
+      await this.prisma.actionLog.create({
         data: {
           userId,
-          type: parameters.contentType || 'text',
-          content: response.content,
+          type: 'content_generation',
+          category: 'ai',
+          output: response.text,
           metadata: {
             prompt,
             parameters,
+            contentType: parameters.contentType || 'text',
           },
         },
       });
     }
 
     return {
-      content: response.content,
-      tokens: response.usage.totalTokens,
+      content: response.text,
+      metadata: response.metadata,
       saved: parameters.save || false,
     };
   }
@@ -351,7 +372,10 @@ export class ActionService {
   ): Promise<any> {
     const dataType = parameters.dataType;
     const timeRange = parameters.timeRange || '7d';
-    const metrics = parameters.metrics || [];
+    const metricsRequested = parameters.metrics || [];
+
+    // Log the metrics requested for potential future use
+    this.logger.debug(`Analyzing data for type ${dataType}, timeRange ${timeRange}, metrics: ${metricsRequested.join(', ')}`);
 
     // Gather data based on type
     let data: any;
@@ -386,13 +410,15 @@ export class ActionService {
         type: parameters.notificationType || 'info',
         title: parameters.title,
         message: parameters.message,
-        data: parameters.data || {},
+        actions: parameters.actions || [],
         channels: parameters.channels || ['in_app'],
+        relatedType: parameters.relatedType,
+        relatedId: parameters.relatedId,
       },
     });
 
     // Queue notification delivery
-    await this.queueService.addJob('notification', {
+    await this.queueService.addNotificationJob({
       notificationId: notification.id,
       userId,
       channels: notification.channels,
@@ -418,7 +444,6 @@ export class ActionService {
         throw new BusinessException(
           `Missing required parameter: ${key}`,
           'MISSING_PARAMETER',
-          { action: action.type, parameter: key },
         );
       }
 
@@ -429,7 +454,6 @@ export class ActionService {
         throw new BusinessException(
           `Parameter ${key} must be an array`,
           'INVALID_PARAMETER_TYPE',
-          { expected: 'array', received: typeof value },
         );
       }
 
@@ -485,7 +509,9 @@ export class ActionService {
   }
 
   private async checkPermission(userId: string, scope: string): Promise<void> {
-    // Implementation would check user permissions
+    // Implementation would check user permissions for the given scope
+    // For now, we log the permission check and allow all operations
+    this.logger.debug(`Checking permission for user ${userId} with scope ${scope}`);
     const hasPermission = true; // Placeholder
     if (!hasPermission) {
       throw new BusinessException(
@@ -513,7 +539,9 @@ export class ActionService {
   }
 
   private async checkDataAvailability(userId: string, dataType: string): Promise<void> {
-    // Implementation would check if required data exists
+    // Implementation would check if required data exists for the user and data type
+    // For now, we log the data availability check and assume data exists
+    this.logger.debug(`Checking data availability for user ${userId} with type ${dataType}`);
     const hasData = true; // Placeholder
     if (!hasData) {
       throw new BusinessException(

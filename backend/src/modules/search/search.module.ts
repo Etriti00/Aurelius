@@ -4,14 +4,14 @@ import { SearchService } from './search.service';
 import { VectorService } from './services/vector.service';
 import { EmbeddingService } from './services/embedding.service';
 import { SemanticSearchService } from './services/semantic-search.service';
-import { ConfigModule } from '../config/config.module';
+import { AppConfigModule } from '../config/config.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CacheModule } from '../cache/cache.module';
 import { AIGatewayModule } from '../ai-gateway/ai-gateway.module';
 
 @Module({
   imports: [
-    ConfigModule,
+    AppConfigModule,
     PrismaModule,
     CacheModule,
     AIGatewayModule,

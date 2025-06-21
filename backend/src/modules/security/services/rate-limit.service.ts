@@ -1,7 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CacheService } from '../../cache/services/cache.service';
-import { ConfigService } from '@nestjs/config';
-import { BusinessException } from '../../../common/exceptions';
 
 export interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
@@ -27,7 +25,6 @@ export class RateLimitService {
 
   constructor(
     private cacheService: CacheService,
-    private configService: ConfigService,
   ) {
     this.defaultConfig = {
       windowMs: 15 * 60 * 1000, // 15 minutes

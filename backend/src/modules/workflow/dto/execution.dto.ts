@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ExecutionStatus, InsightType, SuggestionType, ActionType } from '../interfaces';
+import { ExecutionStatus, InsightType, SuggestionType } from '../interfaces';
 
 export class ExecutionInsightDto {
   @ApiProperty({ enum: InsightType, description: 'Insight type' })
@@ -19,6 +19,14 @@ export class ExecutionInsightDto {
     description: 'Importance level'
   })
   importance: 'low' | 'medium' | 'high' | 'critical';
+
+  constructor() {
+    this.type = InsightType.PATTERN_DETECTED;
+    this.title = '';
+    this.description = '';
+    this.data = {};
+    this.importance = 'medium';
+  }
 }
 
 export class ExecutionSuggestionDto {
@@ -49,6 +57,17 @@ export class ExecutionSuggestionDto {
 
   @ApiProperty({ description: 'Confidence score (0-1)' })
   confidence: number;
+
+  constructor() {
+    this.id = '';
+    this.type = SuggestionType.OPTIMIZE_WORKFLOW;
+    this.title = '';
+    this.description = '';
+    this.priority = 5;
+    this.estimatedImpact = {};
+    this.reasoning = '';
+    this.confidence = 0;
+  }
 }
 
 export class ExecutedActionDto {
@@ -75,6 +94,14 @@ export class ExecutedActionDto {
 
   @ApiPropertyOptional({ description: 'Error message if failed' })
   error?: string;
+
+  constructor() {
+    this.actionId = '';
+    this.executedAt = new Date();
+    this.duration = 0;
+    this.status = 'success';
+    this.input = {};
+  }
 }
 
 export class ExecutionResultDto {
@@ -89,6 +116,11 @@ export class ExecutionResultDto {
 
   @ApiPropertyOptional({ description: 'Additional data' })
   data?: Record<string, any>;
+
+  constructor() {
+    this.type = 'success';
+    this.message = '';
+  }
 }
 
 export class WorkflowExecutionDto {
@@ -131,6 +163,19 @@ export class WorkflowExecutionDto {
 
   @ApiProperty({ description: 'Analysis confidence score' })
   confidence: number;
+
+  constructor() {
+    this.id = '';
+    this.workflowId = '';
+    this.status = ExecutionStatus.PENDING;
+    this.startedAt = new Date();
+    this.insights = [];
+    this.suggestions = [];
+    this.selectedSuggestions = [];
+    this.executedActions = [];
+    this.results = [];
+    this.confidence = 0;
+  }
 }
 
 export class ExecutionListDto {
@@ -157,4 +202,14 @@ export class ExecutionListDto {
 
   @ApiProperty({ description: 'Success count' })
   successCount: number;
+
+  constructor() {
+    this.id = '';
+    this.workflowId = '';
+    this.workflowName = '';
+    this.status = ExecutionStatus.PENDING;
+    this.startedAt = new Date();
+    this.actionsExecuted = 0;
+    this.successCount = 0;
+  }
 }

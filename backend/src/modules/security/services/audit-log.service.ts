@@ -61,15 +61,12 @@ export enum AuditSeverity {
 interface AuditLogEntry {
   userId?: string;
   action: AuditAction;
-  severity: AuditSeverity;
-  resource?: string;
+  resource: string;
   resourceId?: string;
   details?: Record<string, any>;
   ipAddress?: string;
   userAgent?: string;
-  requestId?: string;
   success: boolean;
-  error?: string;
 }
 
 @Injectable()
@@ -95,16 +92,12 @@ export class AuditLogService {
         data: {
           userId: entry.userId,
           action: entry.action,
-          severity: entry.severity,
           resource: entry.resource,
           resourceId: entry.resourceId,
-          details: sanitizedDetails,
+          newValues: sanitizedDetails,
           ipAddress: entry.ipAddress ? await this.encryptionService.encrypt(entry.ipAddress) : null,
           userAgent: entry.userAgent,
-          requestId: entry.requestId,
           success: entry.success,
-          error: entry.error,
-          timestamp: new Date(),
         },
       });
 
@@ -112,19 +105,9 @@ export class AuditLogService {
       this.eventEmitter.emit('audit.log.created', {
         id: auditLog.id,
         action: entry.action,
-        severity: entry.severity,
         userId: entry.userId,
         success: entry.success,
       });
-
-      // Log critical events
-      if (entry.severity === AuditSeverity.CRITICAL) {
-        this.logger.error(`Critical audit event: ${entry.action}`, {
-          userId: entry.userId,
-          resource: entry.resource,
-          error: entry.error,
-        });
-      }
     } catch (error) {
       this.logger.error('Failed to create audit log', error);
       // Don't throw - audit logging should not break the application
@@ -143,7 +126,7 @@ export class AuditLogService {
     await this.log({
       userId,
       action: AuditAction.LOGIN,
-      severity: AuditSeverity.INFO,
+      resource: 'auth',
       details: { method },
       ipAddress,
       userAgent,
@@ -162,7 +145,7 @@ export class AuditLogService {
   ): Promise<void> {
     await this.log({
       action: AuditAction.LOGIN_FAILED,
-      severity: AuditSeverity.WARNING,
+      resource: 'auth',
       details: {
         email: this.maskEmail(email),
         reason,
@@ -170,7 +153,6 @@ export class AuditLogService {
       ipAddress,
       userAgent,
       success: false,
-      error: reason,
     });
   }
 
@@ -194,7 +176,6 @@ export class AuditLogService {
     await this.log({
       userId,
       action: actionMap[action],
-      severity: AuditSeverity.INFO,
       resource,
       resourceId,
       details,
@@ -214,7 +195,7 @@ export class AuditLogService {
     await this.log({
       userId,
       action: AuditAction.SECURITY_ALERT,
-      severity: AuditSeverity.CRITICAL,
+      resource: 'security',
       details: {
         alertType,
         ...details,
@@ -242,7 +223,6 @@ export class AuditLogService {
 
     if (filters.userId) where.userId = filters.userId;
     if (filters.action) where.action = filters.action;
-    if (filters.severity) where.severity = filters.severity;
     if (filters.resource) where.resource = filters.resource;
     if (filters.success !== undefined) where.success = filters.success;
     

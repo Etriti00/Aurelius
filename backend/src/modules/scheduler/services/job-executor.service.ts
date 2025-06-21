@@ -1,18 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { QueueService } from '../../queue/queue.service';
-import { TaskService } from '../../tasks/tasks.service';
+import { QueueService } from '../../queue/services/queue.service';
+import { TasksService } from '../../tasks/tasks.service';
 import { EmailService } from '../../email/email.service';
-import { NotificationService } from '../../notifications/notifications.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
 import {
   ScheduledJob,
   JobAction,
   ActionType,
-  JobExecution,
   ExecutionStatus,
   JobError,
 } from '../interfaces';
-import { BusinessException } from '../../../common/exceptions';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 
@@ -23,9 +21,9 @@ export class JobExecutorService {
   constructor(
     private prisma: PrismaService,
     private queueService: QueueService,
-    private taskService: TaskService,
+    private tasksService: TasksService,
     private emailService: EmailService,
-    private notificationService: NotificationService,
+    private notificationsService: NotificationsService,
     private httpService: HttpService,
   ) {}
 
@@ -120,7 +118,7 @@ export class JobExecutorService {
     userId: string,
     parameters?: Record<string, any>,
   ): Promise<any> {
-    const task = await this.taskService.createTask(userId, {
+    const task = await this.tasksService.create(userId, {
       title: parameters?.title || 'Scheduled Task',
       description: parameters?.description,
       dueDate: parameters?.dueDate ? new Date(parameters.dueDate) : undefined,
@@ -157,7 +155,7 @@ export class JobExecutorService {
 
     const results = [];
     for (const taskId of taskIds) {
-      const task = await this.taskService.updateTask(userId, taskId, updates);
+      const task = await this.tasksService.update(userId, taskId, updates);
       results.push({
         taskId: task.id,
         updated: true,
@@ -182,13 +180,8 @@ export class JobExecutorService {
       from: parameters.from || 'noreply@aurelius.ai',
       to: parameters.to,
       subject: parameters.subject,
-      html: parameters.content || parameters.html,
-      text: parameters.text,
-      attachments: parameters.attachments,
-      metadata: {
-        scheduledJob: true,
-        userId,
-      },
+      content: parameters.content || parameters.text || '',
+      html: parameters.html,
     });
 
     return {
@@ -202,12 +195,10 @@ export class JobExecutorService {
     userId: string,
     parameters?: Record<string, any>,
   ): Promise<any> {
-    const notification = await this.notificationService.sendNotification(userId, {
+    const notification = await this.notificationsService.sendToUser(userId, {
       type: parameters?.type || 'scheduled',
       title: parameters?.title || 'Scheduled Notification',
       message: parameters?.message || '',
-      data: parameters?.data,
-      channels: parameters?.channels || ['in_app'],
     });
 
     return {
@@ -225,7 +216,7 @@ export class JobExecutorService {
     const timeRange = parameters?.timeRange || '7d';
 
     // Queue report generation
-    const job = await this.queueService.addJob('analytics', {
+    const job = await this.queueService.addAnalyticsEventJob({
       type: 'generate_report',
       userId,
       reportType,
@@ -256,7 +247,7 @@ export class JobExecutorService {
         where: {
           userId,
           createdAt: { lt: cutoffDate },
-          read: true,
+          isRead: true,
         },
       });
       results.notifications = deleted.count;
@@ -267,7 +258,7 @@ export class JobExecutorService {
       const deleted = await this.prisma.activityLog.deleteMany({
         where: {
           userId,
-          createdAt: { lt: cutoffDate },
+          timestamp: { lt: cutoffDate },
         },
       });
       results.activityLogs = deleted.count;
@@ -302,7 +293,7 @@ export class JobExecutorService {
     }
 
     // Queue integration sync
-    const job = await this.queueService.addJob('integration', {
+    const job = await this.queueService.addIntegrationSyncJob({
       type: 'sync',
       userId,
       integrationId,
@@ -351,11 +342,11 @@ export class JobExecutorService {
     }
 
     // Queue workflow execution
-    const job = await this.queueService.addJob('workflow', {
+    const job = await this.queueService.addWorkflowJob({
       userId,
       triggerId,
+      triggerType: 'scheduled_job',
       triggerData: parameters?.data || {},
-      source: 'scheduled_job',
     });
 
     return {
@@ -427,7 +418,11 @@ export class JobExecutorService {
         status: ExecutionStatus.FAILED,
         completedAt: new Date(),
         duration,
-        error,
+        error: {
+          code: error.code,
+          message: error.message,
+          retryable: this.isRetryableError(error),
+        },
       },
     });
   }
@@ -450,8 +445,7 @@ export class JobExecutorService {
     if (execution.retryCount < maxRetries) {
       const delay = retryDelayMs * Math.pow(backoffMultiplier, execution.retryCount);
 
-      await this.queueService.addJob(
-        'scheduler',
+      await this.queueService.addAIAnalysisJob(
         {
           type: 'retry_job',
           jobId: job.id,

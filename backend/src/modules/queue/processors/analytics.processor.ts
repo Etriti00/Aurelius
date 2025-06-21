@@ -7,7 +7,7 @@ import { Injectable } from '@nestjs/common';
 export class AnalyticsProcessor {
   @Process('track-event')
   async handleTrackEvent(job: Job) {
-    const { userId, event, properties } = job.data;
+    const { userId, event } = job.data;
     
     try {
       // TODO: Implement event tracking

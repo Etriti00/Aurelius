@@ -24,6 +24,11 @@ import { CacheModule as CustomCacheModule } from './modules/cache/cache.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { SchedulerModule } from './modules/scheduler/scheduler.module';
+import { SearchModule } from './modules/search/search.module';
+import { SecurityModule } from './modules/security/security.module';
+import { StorageModule } from './modules/storage/storage.module';
+import { WorkflowModule } from './modules/workflow/workflow.module';
 import { ProactivityEngineService } from './common/services/proactivity-engine.service';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -137,6 +142,11 @@ import { AppService } from './app.service';
     QueueModule,
     NotificationsModule,
     AnalyticsModule,
+    SchedulerModule,
+    SearchModule,
+    SecurityModule,
+    StorageModule,
+    WorkflowModule,
   ],
   controllers: [AppController],
   providers: [

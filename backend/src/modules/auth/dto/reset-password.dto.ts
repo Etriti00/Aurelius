@@ -1,10 +1,10 @@
-import { IsString, MinLength, Matches, IsUUID } from 'class-validator';
+import { IsString, MinLength, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ResetPasswordDto {
   @ApiProperty()
   @IsString()
-  token: string;
+  declare token: string;
 
   @ApiProperty({ example: 'NewStrongPassword123!' })
   @IsString()
@@ -16,7 +16,7 @@ export class ResetPasswordDto {
         'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
     },
   )
-  password: string;
+  declare password: string;
 }
 
 export class ResetPasswordResponseDto {
@@ -25,4 +25,9 @@ export class ResetPasswordResponseDto {
 
   @ApiProperty()
   message: string;
+
+  constructor(success: boolean = false, message: string = '') {
+    this.success = success;
+    this.message = message;
+  }
 }

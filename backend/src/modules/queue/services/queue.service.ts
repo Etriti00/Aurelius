@@ -108,6 +108,19 @@ export class QueueService {
   }
 
   /**
+   * Workflow Queue Methods
+   */
+  async addWorkflowJob(data: { userId: string; triggerId: string; triggerType: string; triggerData: Record<string, unknown> }, options?: JobOptions) {
+    return await this.aiTaskQueue.add('workflow-execution', data, {
+      removeOnComplete: true,
+      removeOnFail: false,
+      attempts: 2,
+      timeout: 120000, // 2 minutes
+      ...options,
+    });
+  }
+
+  /**
    * Analytics Queue Methods
    */
   async addAnalyticsEventJob(data: any, options?: JobOptions) {

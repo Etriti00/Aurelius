@@ -7,7 +7,7 @@ import { Injectable } from '@nestjs/common';
 export class AITaskProcessor {
   @Process('analyze')
   async handleAnalyze(job: Job) {
-    const { userId, content, type } = job.data;
+    const { userId, type } = job.data;
     
     try {
       // TODO: Implement AI analysis logic
@@ -22,7 +22,7 @@ export class AITaskProcessor {
 
   @Process('generate-suggestions')
   async handleGenerateSuggestions(job: Job) {
-    const { userId, context } = job.data;
+    const { userId } = job.data;
     
     try {
       // TODO: Implement suggestion generation

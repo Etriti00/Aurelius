@@ -43,7 +43,7 @@ export class UsersService {
           select: {
             tasks: { where: { status: { not: 'ARCHIVED' } } },
             emailThreads: { where: { isRead: false } },
-            calendarEvents: {
+            events: {
               where: {
                 startTime: { gte: new Date() },
                 status: 'CONFIRMED',
@@ -89,8 +89,13 @@ export class UsersService {
               status: 'ACTIVE',
               currentPeriodStart: new Date(),
               currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-              aiActionsPerMonth: 1000,
-              integrationsAllowed: 3,
+              monthlyActionLimit: 1000,
+              integrationLimit: 10,
+              stripeCustomerId: '',
+              stripeSubscriptionId: '',
+              stripePriceId: '',
+              monthlyPrice: 50.0,
+              overageRate: 0.06,
             },
           },
         },
@@ -103,7 +108,7 @@ export class UsersService {
       return user;
     } catch (error) {
       this.logger.error('Failed to create user', error);
-      if (error.code === 'P2002') {
+      if (error instanceof Error && 'code' in error && error.code === 'P2002') {
         throw new ConflictException('User with this email already exists');
       }
       throw error;
@@ -135,7 +140,7 @@ export class UsersService {
       this.logger.log(`Updated user profile: ${id}`);
       return user;
     } catch (error) {
-      if (error.code === 'P2025') {
+      if (error instanceof Error && 'code' in error && error.code === 'P2025') {
         throw new NotFoundException('User');
       }
       this.logger.error('Failed to update user', error);
@@ -167,7 +172,7 @@ export class UsersService {
       this.logger.log(`Updated preferences for user: ${id}`);
       return user;
     } catch (error) {
-      if (error.code === 'P2025') {
+      if (error instanceof Error && 'code' in error && error.code === 'P2025') {
         throw new NotFoundException('User');
       }
       throw error;
@@ -192,7 +197,7 @@ export class UsersService {
       stats: {
         activeTasks: user._count.tasks,
         unreadEmails: user._count.emailThreads,
-        upcomingEvents: user._count.calendarEvents,
+        upcomingEvents: user._count.events,
       },
     };
   }
@@ -236,14 +241,14 @@ export class UsersService {
       },
       aiUsage: {
         actionsUsed: actionCount,
-        actionsLimit: user.subscription.aiActionsPerMonth,
+        actionsLimit: user.subscription.monthlyActionLimit,
         totalCost,
         inputTokens: aiUsage._sum.inputTokens || 0,
         outputTokens: aiUsage._sum.outputTokens || 0,
       },
       integrations: {
         active: user.integrations.length,
-        limit: user.subscription.integrationsAllowed,
+        limit: user.subscription.integrationLimit,
       },
     };
   }
@@ -255,7 +260,7 @@ export class UsersService {
       });
       this.logger.log(`Deleted user: ${id}`);
     } catch (error) {
-      if (error.code === 'P2025') {
+      if (error instanceof Error && 'code' in error && error.code === 'P2025') {
         throw new NotFoundException('User');
       }
       throw error;

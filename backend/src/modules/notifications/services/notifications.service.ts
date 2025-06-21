@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { QueueService } from '../../queue/services/queue.service';
-import { CreateNotificationDto } from '../dto/create-notification.dto';
+import { CreateNotificationDto, NotificationType, NotificationPriority } from '../dto/create-notification.dto';
 import { UpdateNotificationDto } from '../dto/update-notification.dto';
 import { NotificationQueryDto } from '../dto/notification-query.dto';
 
@@ -19,7 +19,6 @@ export class NotificationsService {
         type: data.type,
         title: data.title,
         message: data.message,
-        metadata: data.metadata || {},
         priority: data.priority || 'medium',
       },
     });
@@ -134,7 +133,10 @@ export class NotificationsService {
     // Create notification in database
     const created = await this.create({
       userId,
-      ...notification,
+      type: this.validateNotificationType(notification.type),
+      title: notification.title,
+      message: notification.message,
+      priority: this.validateNotificationPriority(notification.priority),
     });
 
     // Send real-time notification via WebSocket
@@ -167,5 +169,24 @@ export class NotificationsService {
     });
 
     return { count: notifications.count };
+  }
+
+  private validateNotificationType(type: string): NotificationType {
+    const validTypes = Object.values(NotificationType);
+    if (validTypes.includes(type as NotificationType)) {
+      return type as NotificationType;
+    }
+    return NotificationType.INFO;
+  }
+
+  private validateNotificationPriority(priority: string | undefined): NotificationPriority | undefined {
+    if (!priority) {
+      return undefined;
+    }
+    const validPriorities = Object.values(NotificationPriority);
+    if (validPriorities.includes(priority as NotificationPriority)) {
+      return priority as NotificationPriority;
+    }
+    return NotificationPriority.MEDIUM;
   }
 }

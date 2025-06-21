@@ -9,7 +9,7 @@ import { AuthService } from '../auth.service';
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(
     private readonly authService: AuthService,
-    private readonly configService: ConfigService
+    configService: ConfigService
   ) {
     super({
       clientID: configService.get<string>('GOOGLE_CLIENT_ID'),
@@ -51,7 +51,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
 
       done(null, user);
     } catch (error) {
-      done(error, null);
+      const errorToPass = error instanceof Error ? error : new Error('Authentication failed');
+      done(errorToPass, undefined);
     }
   }
 }

@@ -22,6 +22,12 @@ export class IndexContentDto {
   @IsObject()
   @IsOptional()
   metadata?: Record<string, any>;
+
+  constructor() {
+    this.id = '';
+    this.content = '';
+    this.type = SearchableType.TASK;
+  }
 }
 
 export class BulkIndexDto {
@@ -31,6 +37,10 @@ export class BulkIndexDto {
   })
   @IsArray()
   items: IndexContentDto[];
+
+  constructor() {
+    this.items = [];
+  }
 }
 
 export class IndexResponseDto {
@@ -39,6 +49,10 @@ export class IndexResponseDto {
 
   @ApiPropertyOptional({ description: 'Error message if failed' })
   error?: string;
+
+  constructor() {
+    this.success = false;
+  }
 }
 
 export class BulkIndexResponseDto {
@@ -56,4 +70,9 @@ export class BulkIndexResponseDto {
     id: string;
     error: string;
   }>;
+
+  constructor() {
+    this.indexed = 0;
+    this.failed = 0;
+  }
 }

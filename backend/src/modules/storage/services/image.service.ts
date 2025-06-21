@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '../../config/config.service';
 import { ImageTransformOptions } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
-import * as sharp from 'sharp';
+import sharp from 'sharp';
 import { S3Service } from './s3.service';
 import { CdnService } from './cdn.service';
 import * as crypto from 'crypto';
@@ -27,8 +27,11 @@ export class ImageService {
     private s3Service: S3Service,
     private cdnService: CdnService,
   ) {
-    this.maxFileSize = this.configService.get<number>('IMAGE_MAX_SIZE', 10 * 1024 * 1024); // 10MB
-    this.maxDimension = this.configService.get<number>('IMAGE_MAX_DIMENSION', 4096);
+    const maxSize = this.configService.getOptional<number>('IMAGE_MAX_SIZE');
+    const maxDim = this.configService.getOptional<number>('IMAGE_MAX_DIMENSION');
+    
+    this.maxFileSize = maxSize !== undefined ? maxSize : 10 * 1024 * 1024; // 10MB
+    this.maxDimension = maxDim !== undefined ? maxDim : 4096;
   }
 
   /**
@@ -72,7 +75,7 @@ export class ImageService {
       }
 
       // Set format and quality
-      const format = options.format || this.getOptimalFormat(metadata.format);
+      const format = options.format || this.getOptimalFormat();
       const quality = options.quality || this.getOptimalQuality(format);
 
       switch (format) {
@@ -183,6 +186,7 @@ export class ImageService {
     isAnimated: boolean;
     colorSpace?: string;
     density?: number;
+    channels?: number;
     exif?: Record<string, any>;
   }> {
     try {
@@ -192,6 +196,9 @@ export class ImageService {
       const aspectRatio = metadata.width && metadata.height
         ? this.calculateAspectRatio(metadata.width, metadata.height)
         : 'unknown';
+
+      // Use stats for color analysis if needed
+      const channelCount = Array.isArray(stats.channels) ? stats.channels.length : 0;
 
       return {
         format: metadata.format || 'unknown',
@@ -203,7 +210,8 @@ export class ImageService {
         isAnimated: metadata.pages ? metadata.pages > 1 : false,
         colorSpace: metadata.space,
         density: metadata.density,
-        exif: metadata.exif ? this.parseExif(metadata.exif) : undefined,
+        channels: channelCount,
+        exif: metadata.exif ? this.parseExif() : undefined,
       };
     } catch (error: any) {
       this.logger.error(`Failed to analyze image: ${error.message}`);
@@ -272,6 +280,7 @@ export class ImageService {
       throw new BusinessException(
         'Unsupported image format',
         'INVALID_IMAGE_FORMAT',
+        HttpStatus.BAD_REQUEST,
         { format: metadata.format },
       );
     }
@@ -280,6 +289,7 @@ export class ImageService {
       throw new BusinessException(
         'Image file too large',
         'IMAGE_TOO_LARGE',
+        HttpStatus.BAD_REQUEST,
         { size: metadata.size, maxSize: this.maxFileSize },
       );
     }
@@ -291,6 +301,7 @@ export class ImageService {
       throw new BusinessException(
         'Image dimensions too large',
         'IMAGE_DIMENSIONS_TOO_LARGE',
+        HttpStatus.BAD_REQUEST,
         { 
           width: metadata.width,
           height: metadata.height,
@@ -303,7 +314,7 @@ export class ImageService {
   /**
    * Get optimal format based on input
    */
-  private getOptimalFormat(inputFormat?: string): 'jpeg' | 'png' | 'webp' | 'avif' {
+  private getOptimalFormat(): 'jpeg' | 'png' | 'webp' | 'avif' {
     // For now, default to WebP for best compression
     // In production, you might check browser support
     return 'webp';
@@ -334,7 +345,7 @@ export class ImageService {
   /**
    * Parse EXIF data
    */
-  private parseExif(exifBuffer: Buffer): Record<string, any> {
+  private parseExif(): Record<string, any> {
     // This would use an EXIF parser library
     // Placeholder implementation
     return {

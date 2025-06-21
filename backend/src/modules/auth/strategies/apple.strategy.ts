@@ -2,14 +2,30 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-apple';
 import { ConfigService } from '@nestjs/config';
+import { User } from '@prisma/client';
 
 import { AuthService } from '../auth.service';
+
+interface AppleIdToken {
+  id: string;
+  email: string;
+  name?: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
+interface AppleProfile {
+  id: string;
+  displayName: string;
+  emails: Array<{ value: string; verified: boolean }>;
+}
 
 @Injectable()
 export class AppleStrategy extends PassportStrategy(Strategy, 'apple') {
   constructor(
     private readonly authService: AuthService,
-    private readonly configService: ConfigService
+    configService: ConfigService
   ) {
     super({
       clientID: configService.get<string>('APPLE_CLIENT_ID'),
@@ -24,10 +40,11 @@ export class AppleStrategy extends PassportStrategy(Strategy, 'apple') {
   async validate(
     accessToken: string,
     refreshToken: string,
-    idToken: any,
-    profile: any
-  ): Promise<any> {
+    idToken: AppleIdToken,
+    profile: AppleProfile
+  ): Promise<User> {
     try {
+      console.log('Apple OAuth validation:', { accessToken: Boolean(accessToken), refreshToken: Boolean(refreshToken), profileId: profile.id });
       const { id, email, name } = idToken;
       
       const oauthUser = {
@@ -37,14 +54,8 @@ export class AppleStrategy extends PassportStrategy(Strategy, 'apple') {
         providerId: id,
       };
 
-      const tokens = await this.authService.handleOAuthLogin(oauthUser);
-      
-      const user = {
-        ...oauthUser,
-        tokens,
-      };
-
-      return user;
+      const result = await this.authService.handleOAuthLoginWithUser(oauthUser);
+      return result.user;
     } catch (error) {
       throw error;
     }

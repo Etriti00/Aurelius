@@ -71,6 +71,17 @@ export class InvoiceDto {
       end: Date;
     };
   }>;
+
+  constructor() {
+    this.id = '';
+    this.number = '';
+    this.status = InvoiceStatus.DRAFT;
+    this.amountDue = 0;
+    this.amountPaid = 0;
+    this.currency = 'usd';
+    this.created = new Date();
+    this.lines = [];
+  }
 }
 
 export class InvoiceListResponseDto {
@@ -82,4 +93,10 @@ export class InvoiceListResponseDto {
 
   @ApiPropertyOptional({ description: 'Total count' })
   totalCount: number;
+
+  constructor() {
+    this.data = [];
+    this.hasMore = false;
+    this.totalCount = 0;
+  }
 }

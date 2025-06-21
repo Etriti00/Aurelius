@@ -2,18 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
+import * as bcrypt from 'bcrypt';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { UnauthorizedException } from '../../common/exceptions/app.exception';
-
-interface JwtPayload {
-  sub: string;
-  email: string;
-  name?: string;
-  iat?: number;
-  exp?: number;
-}
+import { JwtPayload, RequestUser } from '../../common/interfaces/user.interface';
+import { User } from '@prisma/client';
 
 interface AuthTokens {
   accessToken: string;
@@ -41,11 +36,12 @@ export class AuthService {
     private readonly configService: ConfigService
   ) {}
 
-  async generateTokens(user: { id: string; email: string; name?: string }): Promise<AuthTokens> {
+  async generateTokens(user: { id: string; email: string; name?: string; roles?: string[] }): Promise<AuthTokens> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       name: user.name,
+      roles: user.roles || ['user'],
     };
 
     const accessToken = this.jwtService.sign(payload);
@@ -58,12 +54,47 @@ export class AuthService {
     };
   }
 
-  async validateUser(userId: string): Promise<any> {
+  async validateUser(userId: string): Promise<RequestUser> {
     const user = await this.usersService.findById(userId);
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-    return user;
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      roles: user.roles || ['user'],
+    };
+  }
+
+  async validateUserCredentials(email: string, password: string): Promise<User | null> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (!user || user.deletedAt) {
+        return null;
+      }
+
+      if (!user.passwordHash) {
+        return null; // OAuth-only user
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+      
+      if (!isPasswordValid) {
+        return null;
+      }
+
+      // Update last active time
+      await this.usersService.updateLastActive(user.id);
+      
+      return user;
+    } catch (error) {
+      this.logger.error('Credential validation failed', error);
+      return null;
+    }
   }
 
   async validateRefreshToken(refreshToken: string): Promise<any> {
@@ -124,6 +155,28 @@ export class AuthService {
     }
   }
 
+  async handleOAuthLoginWithUser(oauthUser: OAuthUser): Promise<{ user: User; tokens: AuthTokens }> {
+    try {
+      let user = await this.findUserByProvider(oauthUser.provider, oauthUser.providerId);
+
+      if (!user) {
+        // Create new user
+        user = await this.createUserFromOAuth(oauthUser);
+        this.logger.log(`New user created via ${oauthUser.provider}: ${user.email}`);
+      } else {
+        // Update last active time and sync profile data
+        await this.usersService.updateLastActive(user.id);
+        await this.syncOAuthProfile(user.id, oauthUser);
+      }
+
+      const tokens = await this.generateTokens(user);
+      return { user, tokens };
+    } catch (error) {
+      this.logger.error(`OAuth login failed for ${oauthUser.provider}`, error);
+      throw new UnauthorizedException('OAuth authentication failed');
+    }
+  }
+
   async revokeRefreshToken(refreshToken: string): Promise<void> {
     try {
       await this.prisma.refreshToken.update({
@@ -151,7 +204,15 @@ export class AuthService {
   }
 
   async validateApiKey(apiKey: string): Promise<any> {
-    // For future API key authentication
+    // Log the attempt for security monitoring
+    this.logger.warn(`API key authentication attempted: ${apiKey.substring(0, 8)}...`);
+    
+    // For future API key authentication - validate against database
+    // const apiKeyRecord = await this.prisma.apiKey.findUnique({ where: { key: apiKey } });
+    // if (!apiKeyRecord || !apiKeyRecord.isActive) {
+    //   throw new UnauthorizedException('Invalid API key');
+    // }
+    
     throw new UnauthorizedException('API key authentication not implemented');
   }
 

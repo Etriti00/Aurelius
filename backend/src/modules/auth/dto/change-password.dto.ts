@@ -4,7 +4,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export class ChangePasswordDto {
   @ApiProperty({ example: 'CurrentPassword123!' })
   @IsString()
-  currentPassword: string;
+  declare currentPassword: string;
 
   @ApiProperty({ example: 'NewStrongPassword123!' })
   @IsString()
@@ -16,7 +16,7 @@ export class ChangePasswordDto {
         'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
     },
   )
-  newPassword: string;
+  declare newPassword: string;
 }
 
 export class ChangePasswordResponseDto {
@@ -25,4 +25,9 @@ export class ChangePasswordResponseDto {
 
   @ApiProperty()
   message: string;
+
+  constructor(success: boolean = false, message: string = '') {
+    this.success = success;
+    this.message = message;
+  }
 }

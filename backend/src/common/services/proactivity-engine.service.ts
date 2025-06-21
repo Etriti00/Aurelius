@@ -210,6 +210,7 @@ export class ProactivityEngineService {
           data: {
             userId: trigger.userId,
             type: suggestion.type,
+            category: this.getCategoryFromType(suggestion.type),
             title: suggestion.title,
             description: suggestion.description,
             actionType: suggestion.actionType,
@@ -272,10 +273,11 @@ export class ProactivityEngineService {
       });
 
       // Notify user via WebSocket
-      this.webSocketGateway.sendToUser(suggestion.userId, {
-        type: 'suggestion:executed',
-        payload: { suggestion, result },
-      });
+      this.webSocketGateway.sendToUser(
+        suggestion.userId,
+        'suggestion:executed',
+        { suggestion, result }
+      );
 
       return { success: true, result };
     } catch (error) {
@@ -301,16 +303,16 @@ export class ProactivityEngineService {
           take: 10,
           orderBy: { updatedAt: 'desc' },
         },
-        calendarEvents: {
+        events: {
           where: {
             startTime: { gte: new Date() },
-            status: 'CONFIRMED',
+            status: 'confirmed',
           },
           take: 10,
           orderBy: { startTime: 'asc' },
         },
         integrations: {
-          where: { status: 'ACTIVE' },
+          where: { status: 'active' },
         },
       },
     });
@@ -323,7 +325,7 @@ export class ProactivityEngineService {
     const contextParts = [
       `User has ${user.tasks.length} active tasks`,
       `${user.emailThreads.length} unread emails`,
-      `${user.calendarEvents.length} upcoming events`,
+      `${user.events.length} upcoming events`,
       `${user.integrations.length} active integrations`,
     ];
 
@@ -336,7 +338,7 @@ export class ProactivityEngineService {
       workspace: {
         tasks: user.tasks,
         emails: user.emailThreads,
-        calendar: user.calendarEvents,
+        calendar: user.events,
         integrations: user.integrations,
       },
       patterns: {
@@ -525,5 +527,21 @@ Guidelines:
 - Ensure suggestions are actionable and specific
 
 Remember: Quality over quantity - better to suggest one great action than multiple mediocre ones.`;
+  }
+
+  private getCategoryFromType(type: string): string {
+    switch (type) {
+      case 'TASK_CREATE':
+      case 'CALENDAR_BLOCK':
+        return 'productivity';
+      case 'EMAIL_DRAFT':
+        return 'communication';
+      case 'MEETING_PREP':
+        return 'productivity';
+      case 'WORKFLOW_OPTIMIZE':
+        return 'analysis';
+      default:
+        return 'productivity';
+    }
   }
 }

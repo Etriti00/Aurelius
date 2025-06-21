@@ -9,7 +9,7 @@ import {
   IntegrationRegistryService,
   GoogleIntegrationService,
 } from './services';
-import { ConfigModule } from '../config/config.module';
+import { AppConfigModule } from '../config/config.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CacheModule } from '../cache/cache.module';
 import { QueueModule } from '../queue/queue.module';
@@ -20,7 +20,7 @@ import { SecurityModule } from '../security/security.module';
   imports: [
     HttpModule,
     ScheduleModule,
-    ConfigModule,
+    AppConfigModule,
     PrismaModule,
     CacheModule,
     QueueModule,

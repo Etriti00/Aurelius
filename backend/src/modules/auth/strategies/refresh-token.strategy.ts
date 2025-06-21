@@ -5,6 +5,7 @@ import { Request } from 'express';
 
 import { AuthService } from '../auth.service';
 import { UnauthorizedException } from '../../../common/exceptions/app.exception';
+import { JwtPayload, RequestUser } from '../../../common/interfaces/user.interface';
 
 @Injectable()
 export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
@@ -20,7 +21,10 @@ export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'jwt-refres
     });
   }
 
-  async validate(req: Request, payload: any): Promise<any> {
+  async validate(req: Request, payload: JwtPayload): Promise<RequestUser & { refreshToken: string }> {
+    // Log the JWT payload for debugging
+    console.log('Refresh token payload:', payload.sub);
+    
     const refreshToken = req.body?.refreshToken || req.query?.refreshToken;
     
     if (!refreshToken) {

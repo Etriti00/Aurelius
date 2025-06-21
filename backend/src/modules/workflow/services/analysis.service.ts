@@ -3,12 +3,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AIGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { SearchService } from '../../search/search.service';
 import { CacheService } from '../../cache/services/cache.service';
+import { CalendarEvent, Task } from '@prisma/client';
 import {
   WorkflowAnalysis,
   AnalysisContext,
   AnalysisInsight,
   InsightType,
-  WorkflowTrigger,
 } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 
@@ -99,7 +99,6 @@ export class AnalysisService {
     const [user, tasks, events, recentActivity] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
-        include: { preferences: true },
       }),
       this.prisma.task.count({
         where: { userId, status: { in: ['pending', 'in_progress'] } },
@@ -124,7 +123,7 @@ export class AnalysisService {
         currentTasks: tasks,
         upcomingEvents: events,
         recentActivity,
-        preferences: user?.preferences || {},
+        preferences: (user?.preferences as Record<string, any>) || {},
       },
       environmentContext: {
         timeOfDay: this.getTimeOfDay(now),
@@ -148,10 +147,10 @@ export class AnalysisService {
     const executions = await this.prisma.workflowExecution.findMany({
       where: {
         userId,
-        triggerId,
-        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, // Last 30 days
+        workflowId: triggerId, // assuming triggerId is actually workflowId
+        startedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, // Last 30 days
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { startedAt: 'desc' },
       take: 100,
     });
 
@@ -187,17 +186,25 @@ export class AnalysisService {
       };
 
       // Get AI insights
-      const aiResponse = await this.aiGateway.generateResponse(
-        this.buildAIPrompt(aiContext),
-        {
-          model: 'claude-3-haiku',
-          maxTokens: 1000,
-          temperature: 0.7,
-        },
-      );
+      const user = await this.prisma.user.findUnique({
+        where: { id: context.userId },
+        include: { subscription: true },
+      });
+      
+      if (!user || !user.subscription) {
+        throw new Error('User or subscription not found');
+      }
+
+      const aiResponse = await this.aiGateway.processRequest({
+        prompt: this.buildAIPrompt(aiContext),
+        userId: context.userId,
+        action: 'workflow-analysis',
+        userSubscription: { tier: user.subscription.tier },
+        metadata: { type: 'analysis' },
+      });
 
       // Parse AI insights
-      const parsedInsights = this.parseAIInsights(aiResponse.content);
+      const parsedInsights = this.parseAIInsights(aiResponse.text);
       insights.push(...parsedInsights);
 
       // Search for similar past scenarios
@@ -347,6 +354,7 @@ export class AnalysisService {
 
     confidence += (insights.length * 0.02); // More insights = higher confidence
     confidence -= (criticalInsights * 0.05); // Critical issues reduce confidence
+    confidence += (highInsights * 0.03); // High importance insights boost confidence
 
     return Math.max(0.1, Math.min(0.95, confidence));
   }
@@ -357,7 +365,7 @@ export class AnalysisService {
   private async getRecentActivity(userId: string): Promise<any[]> {
     const activities = await this.prisma.activityLog.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { timestamp: 'desc' },
       take: 10,
     });
     return activities;
@@ -478,14 +486,35 @@ Format as JSON array with: type, title, description, importance`;
     return typeMap[type.toLowerCase()] || InsightType.RECOMMENDATION;
   }
 
-  private async checkSchedulingConflicts(userId: string): Promise<any[]> {
-    // Implementation would check for overlapping events
-    return [];
+  private async checkSchedulingConflicts(userId: string): Promise<CalendarEvent[]> {
+    // Check for overlapping events in the next 7 days
+    const startDate = new Date();
+    const endDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    
+    const events = await this.prisma.calendarEvent.findMany({
+      where: {
+        userId,
+        startTime: { gte: startDate },
+        endTime: { lte: endDate },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+    
+    return events;
   }
 
-  private async findSimilarTasks(userId: string): Promise<any[]> {
-    // Implementation would find tasks with similar titles/content
-    return [];
+  private async findSimilarTasks(userId: string): Promise<Task[]> {
+    // Find recently created tasks for pattern analysis
+    const recentTasks = await this.prisma.task.findMany({
+      where: {
+        userId,
+        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    
+    return recentTasks;
   }
 
   private async cacheAnalysis(analysis: WorkflowAnalysis): Promise<void> {

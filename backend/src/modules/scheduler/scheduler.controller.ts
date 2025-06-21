@@ -21,17 +21,16 @@ import {
 } from '@nestjs/swagger';
 import { SchedulerService } from './scheduler.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { GetUser } from '../auth/decorators/get-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
+import { AuthRolesGuard } from '../auth/guards/roles.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CustomThrottleGuard } from '../../common/guards/throttle.guard';
 import {
   CreateJobDto,
   UpdateJobDto,
   CreateFromTemplateDto,
   JobFilterDto,
   BulkOperationDto,
-  ExecuteJobDto,
   TemplateFilterDto,
 } from './dto';
 import {
@@ -45,7 +44,7 @@ import {
 @ApiTags('Scheduler')
 @ApiBearerAuth()
 @Controller('scheduler')
-@UseGuards(JwtAuthGuard, RolesGuard, RateLimitGuard)
+@UseGuards(JwtAuthGuard, AuthRolesGuard, CustomThrottleGuard)
 export class SchedulerController {
   constructor(private readonly schedulerService: SchedulerService) {}
 
@@ -54,7 +53,7 @@ export class SchedulerController {
   @ApiResponse({ status: 201, description: 'Job created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid request' })
   async createJob(
-    @GetUser('id') userId: string,
+    @CurrentUser('id') userId: string,
     @Body() createJobDto: CreateJobDto,
   ): Promise<ScheduledJob> {
     return this.schedulerService.createJob(
@@ -72,7 +71,7 @@ export class SchedulerController {
   @ApiResponse({ status: 201, description: 'Job created successfully' })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async createFromTemplate(
-    @GetUser('id') userId: string,
+    @CurrentUser('id') userId: string,
     @Body() dto: CreateFromTemplateDto,
   ): Promise<ScheduledJob> {
     return this.schedulerService.createFromTemplate(
@@ -90,7 +89,7 @@ export class SchedulerController {
   @ApiOperation({ summary: 'Get user scheduled jobs' })
   @ApiResponse({ status: 200, description: 'List of scheduled jobs' })
   async getUserJobs(
-    @GetUser('id') userId: string,
+    @CurrentUser('id') userId: string,
     @Query() filter: JobFilterDto,
   ): Promise<ScheduledJob[]> {
     return this.schedulerService.getUserJobs(userId, {
@@ -107,7 +106,7 @@ export class SchedulerController {
   @ApiResponse({ status: 200, description: 'Job details' })
   @ApiResponse({ status: 404, description: 'Job not found' })
   async getJob(
-    @GetUser('id') userId: string,
+    @CurrentUser('id') userId: string,
     @Param('id') jobId: string,
   ): Promise<ScheduledJob> {
     const job = await this.schedulerService.getJob(jobId, userId);
@@ -123,7 +122,7 @@ export class SchedulerController {
   @ApiResponse({ status: 200, description: 'Job updated successfully' })
   @ApiResponse({ status: 404, description: 'Job not found' })
   async updateJob(
-    @GetUser('id') userId: string,
+    @CurrentUser('id') userId: string,
     @Param('id') jobId: string,
     @Body() updateJobDto: UpdateJobDto,
   ): Promise<ScheduledJob> {
@@ -137,7 +136,7 @@ export class SchedulerController {
   @ApiResponse({ status: 404, description: 'Job not found' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteJob(
-    @GetUser('id') userId: string,
+    @CurrentUser('id') userId: string,
     @Param('id') jobId: string,
   ): Promise<void> {
     await this.schedulerService.deleteJob(jobId, userId);
@@ -149,9 +148,8 @@ export class SchedulerController {
   @ApiResponse({ status: 200, description: 'Job execution started' })
   @ApiResponse({ status: 404, description: 'Job not found' })
   async executeJob(
-    @GetUser('id') userId: string,
+    @CurrentUser('id') userId: string,
     @Param('id') jobId: string,
-    @Body() dto: ExecuteJobDto,
   ): Promise<JobExecution> {
     return this.schedulerService.executeJob(jobId, userId);
   }
@@ -160,7 +158,7 @@ export class SchedulerController {
   @ApiOperation({ summary: 'Perform bulk operation on jobs' })
   @ApiResponse({ status: 200, description: 'Bulk operation completed' })
   async bulkOperation(
-    @GetUser('id') userId: string,
+    @CurrentUser('id') userId: string,
     @Body() dto: BulkOperationDto,
   ): Promise<{ affected: number }> {
     return this.schedulerService.bulkOperation(userId, {
@@ -176,7 +174,7 @@ export class SchedulerController {
   @ApiResponse({ status: 200, description: 'List of job executions' })
   @ApiResponse({ status: 404, description: 'Job not found' })
   async getJobExecutions(
-    @GetUser('id') userId: string,
+    @CurrentUser('id') userId: string,
     @Param('id') jobId: string,
     @Query('limit') limit?: number,
   ): Promise<JobExecution[]> {
@@ -193,7 +191,7 @@ export class SchedulerController {
   @ApiResponse({ status: 200, description: 'Job statistics' })
   @ApiResponse({ status: 404, description: 'Job not found' })
   async getJobStatistics(
-    @GetUser('id') userId: string,
+    @CurrentUser('id') userId: string,
     @Param('id') jobId: string,
   ): Promise<JobStatistics> {
     return this.schedulerService.getJobStatistics(jobId, userId);

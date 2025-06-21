@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '../../config/config.service';
 import { CacheService } from '../../cache/services/cache.service';
-import { EncryptionService } from '../../security/services/encryption.service';
 import { firstValueFrom } from 'rxjs';
 import { URLSearchParams } from 'url';
 import {
@@ -11,6 +10,7 @@ import {
   OAuthTokens,
   OAuthTokenResponse,
   OAuthUserInfo,
+  OAuthStateData,
 } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 import { v4 as uuidv4 } from 'uuid';
@@ -24,7 +24,6 @@ export class OAuthService {
     private httpService: HttpService,
     private configService: ConfigService,
     private cacheService: CacheService,
-    private encryptionService: EncryptionService,
   ) {
     this.initializeProviders();
   }
@@ -41,7 +40,7 @@ export class OAuthService {
       authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
       tokenUrl: 'https://oauth2.googleapis.com/token',
       userInfoUrl: 'https://www.googleapis.com/oauth2/v2/userinfo',
-      scopes: [
+      scope: [
         'https://www.googleapis.com/auth/userinfo.email',
         'https://www.googleapis.com/auth/userinfo.profile',
         'https://www.googleapis.com/auth/gmail.readonly',
@@ -60,7 +59,7 @@ export class OAuthService {
       authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
       tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
       userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
-      scopes: [
+      scope: [
         'openid',
         'profile',
         'email',
@@ -82,7 +81,7 @@ export class OAuthService {
       authorizationUrl: 'https://slack.com/oauth/v2/authorize',
       tokenUrl: 'https://slack.com/api/oauth.v2.access',
       userInfoUrl: 'https://slack.com/api/users.identity',
-      scopes: [
+      scope: [
         'channels:read',
         'chat:write',
         'files:read',
@@ -123,7 +122,7 @@ export class OAuthService {
       client_id: config.clientId,
       redirect_uri: config.redirectUri,
       response_type: 'code',
-      scope: config.scopes.join(' '),
+      scope: config.scope.join(' '),
       state,
       access_type: 'offline',
       prompt: 'consent',
@@ -143,7 +142,7 @@ export class OAuthService {
   ): Promise<{ tokens: OAuthTokens; userId: string }> {
     try {
       // Verify state
-      const stateData = await this.cacheService.get(`oauth:state:${state}`);
+      const stateData = await this.cacheService.get<OAuthStateData>(`oauth:state:${state}`);
       if (!stateData || stateData.provider !== provider) {
         throw new BusinessException('Invalid OAuth state', 'INVALID_OAUTH_STATE');
       }
@@ -182,7 +181,7 @@ export class OAuthService {
           Date.now() + (response.data.expires_in || 3600) * 1000,
         ),
         tokenType: response.data.token_type || 'Bearer',
-        scope: response.data.scope,
+        scope: this.convertScopeToArray(response.data.scope),
       };
 
       return {
@@ -238,7 +237,7 @@ export class OAuthService {
           Date.now() + (response.data.expires_in || 3600) * 1000,
         ),
         tokenType: response.data.token_type || 'Bearer',
-        scope: response.data.scope,
+        scope: this.convertScopeToArray(response.data.scope),
       };
     } catch (error: any) {
       this.logger.error(`Failed to refresh token: ${error.message}`);
@@ -359,7 +358,7 @@ export class OAuthService {
           email: data.email,
           name: data.name,
           picture: data.picture,
-          provider,
+          provider: provider,
         };
 
       case OAuthProvider.MICROSOFT:
@@ -368,7 +367,7 @@ export class OAuthService {
           email: data.mail || data.userPrincipalName,
           name: data.displayName,
           picture: undefined, // Microsoft requires separate API call for photo
-          provider,
+          provider: provider,
         };
 
       case OAuthProvider.SLACK:
@@ -377,7 +376,7 @@ export class OAuthService {
           email: data.user?.email,
           name: data.user?.name,
           picture: data.user?.image_512,
-          provider,
+          provider: provider,
         };
 
       default:
@@ -424,5 +423,18 @@ export class OAuthService {
         },
       ),
     );
+  }
+
+  /**
+   * Convert scope to array format
+   */
+  private convertScopeToArray(scope: string | undefined): string[] | undefined {
+    if (!scope) {
+      return undefined;
+    }
+    if (typeof scope === 'string') {
+      return scope.split(' ');
+    }
+    return scope;
   }
 }

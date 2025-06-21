@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNumber, IsOptional, IsEnum, Min, Max, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -106,6 +106,10 @@ export class ImageTransformDto {
   @Min(-360)
   @Max(360)
   rotate?: number;
+
+  constructor() {
+    // All properties are optional, no initialization needed
+  }
 }
 
 export class ImageUrlResponseDto {
@@ -117,4 +121,11 @@ export class ImageUrlResponseDto {
 
   @ApiProperty({ description: 'Transformation parameters applied' })
   transformations: ImageTransformDto;
+
+  constructor(
+    url: string = ''
+  ) {
+    this.url = url;
+    this.transformations = new ImageTransformDto();
+  }
 }

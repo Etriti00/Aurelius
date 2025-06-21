@@ -21,7 +21,12 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
   private readonly logger: Logger = new Logger('AppWebSocketGateway');
   private readonly userSockets = new Map<string, string>(); // userId -> socketId
 
+  constructor() {
+    this.server = new Server();
+  }
+
   afterInit(server: Server): void {
+    this.server = server;
     this.logger.log('WebSocket Gateway initialized');
   }
 

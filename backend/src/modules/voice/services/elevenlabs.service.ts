@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject } from '@nestjs/common';
 import { Cache } from 'cache-manager';
-import * as fs from 'fs';
 import { createHash } from 'crypto';
 
 import { AIServiceException } from '../../../common/exceptions/app.exception';

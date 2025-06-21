@@ -10,6 +10,10 @@ export class CreateBillingPortalDto {
   @IsString()
   @IsOptional()
   configurationId?: string;
+
+  constructor() {
+    this.returnUrl = '';
+  }
 }
 
 export class BillingPortalResponseDto {
@@ -24,4 +28,11 @@ export class BillingPortalResponseDto {
 
   @ApiProperty({ description: 'Session created timestamp' })
   created: Date;
+
+  constructor() {
+    this.id = '';
+    this.url = '';
+    this.returnUrl = '';
+    this.created = new Date();
+  }
 }

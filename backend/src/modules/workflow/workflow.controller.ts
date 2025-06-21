@@ -214,15 +214,7 @@ export class WorkflowController {
       dto,
     );
 
-    // Fetch full workflow data
-    const workflows = await this.workflowService.getUserWorkflows(user.id);
-    const workflow = workflows.find(w => w.id === workflowId);
-
-    if (!workflow) {
-      throw new Error('Workflow not found');
-    }
-
-    return workflow;
+    return updated;
   }
 
   @Delete(':id')

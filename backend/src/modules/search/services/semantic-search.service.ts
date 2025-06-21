@@ -74,7 +74,7 @@ export class SemanticSearchService {
 
       // Rerank results if requested
       if (context.rerank && results.length > 0) {
-        results = await this.rerankResults(query, results);
+        results = await this.rerankResults(results);
       }
 
       // Get total count
@@ -287,7 +287,7 @@ export class SemanticSearchService {
       // Add filters
       let filterQuery = searchQuery;
       if (options.filters && options.filters.length > 0) {
-        const filterClauses = options.filters.map((filter, index) => {
+        const filterClauses = options.filters.map((filter) => {
           params.push(filter.value);
           return `"${filter.field}" = $${params.length}`;
         }).join(' AND ');
@@ -356,7 +356,6 @@ export class SemanticSearchService {
    * Rerank results using a more sophisticated model
    */
   private async rerankResults(
-    query: string,
     results: SearchResult[],
   ): Promise<SearchResult[]> {
     // In a production system, this would use a specialized reranking model
@@ -468,7 +467,7 @@ export class SemanticSearchService {
 
     // Delete matching cache keys
     for (const pattern of patterns) {
-      await this.cacheService.deletePattern(pattern);
+      await this.cacheService.delByPattern(pattern);
     }
   }
 }

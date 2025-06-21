@@ -24,6 +24,14 @@ export class SearchResultDto {
     type: [String]
   })
   highlights?: string[];
+
+  constructor() {
+    this.id = '';
+    this.score = 0;
+    this.data = {
+      content: ''
+    };
+  }
 }
 
 export class SearchResponseDto {
@@ -47,6 +55,12 @@ export class SearchResponseDto {
     type: [String]
   })
   suggestions?: string[];
+
+  constructor() {
+    this.results = [];
+    this.total = 0;
+    this.took = 0;
+  }
 }
 
 export class SuggestionsResponseDto {
@@ -55,4 +69,8 @@ export class SuggestionsResponseDto {
     type: [String]
   })
   suggestions: string[];
+
+  constructor() {
+    this.suggestions = [];
+  }
 }

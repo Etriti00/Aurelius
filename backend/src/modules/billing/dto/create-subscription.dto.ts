@@ -22,6 +22,10 @@ export class CreateSubscriptionDto {
   @IsObject()
   @IsOptional()
   metadata?: Record<string, any>;
+
+  constructor() {
+    this.priceId = '';
+  }
 }
 
 export class SubscriptionResponseDto {
@@ -52,4 +56,12 @@ export class SubscriptionResponseDto {
 
   @ApiProperty({ description: 'Client secret for payment intent' })
   clientSecret?: string;
+
+  constructor() {
+    this.id = '';
+    this.status = '';
+    this.currentPeriodStart = new Date();
+    this.currentPeriodEnd = new Date();
+    this.items = [];
+  }
 }

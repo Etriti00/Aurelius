@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, Min, IsDate, IsEnum } from 'class-validator';
+import { IsNumber, IsOptional, Min, IsDate, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -30,6 +30,10 @@ export class RecordUsageDto {
   @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsOptional()
   metadata?: Record<string, any>;
+
+  constructor() {
+    this.action = UsageAction.AI_REQUEST;
+  }
 }
 
 export class UsageResponseDto {
@@ -53,6 +57,18 @@ export class UsageResponseDto {
     start: Date;
     end: Date;
   };
+
+  constructor() {
+    this.id = '';
+    this.userId = '';
+    this.action = UsageAction.AI_REQUEST;
+    this.quantity = 0;
+    this.timestamp = new Date();
+    this.billingPeriod = {
+      start: new Date(),
+      end: new Date(),
+    };
+  }
 }
 
 export class UsageSummaryDto {
@@ -88,4 +104,19 @@ export class UsageSummaryDto {
 
   @ApiProperty({ description: 'Remaining allowance' })
   remaining: number;
+
+  constructor() {
+    this.userId = '';
+    this.period = {
+      start: new Date(),
+      end: new Date(),
+    };
+    this.totalAiRequests = 0;
+    this.totalEmailsProcessed = 0;
+    this.totalTasksAutomated = 0;
+    this.usageByAction = {};
+    this.dailyUsage = [];
+    this.percentageUsed = 0;
+    this.remaining = 0;
+  }
 }

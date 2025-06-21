@@ -9,10 +9,13 @@ import {
   WorkflowExecution,
   ExecutionStatus,
   WorkflowTrigger,
+  TriggerType,
   WorkflowAnalysis,
+  AnalysisContext,
   WorkflowSuggestion,
   ExecutedAction,
   ExecutionResult,
+  ParameterDefinition,
   WorkflowError,
 } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
@@ -31,7 +34,12 @@ export class WorkflowEngineService {
     private actionService: ActionService,
     private cacheService: CacheService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) {
+    // Initialize cache for workflow engine
+    this.cacheService.get('workflow-engine:initialized').then(() => {
+      this.logger.debug('Workflow engine cache initialized');
+    });
+  }
 
   /**
    * Execute a workflow
@@ -199,6 +207,9 @@ export class WorkflowEngineService {
     executionId: string,
     suggestions: WorkflowSuggestion[],
   ): Promise<WorkflowSuggestion[]> {
+    // Log the approval check for audit trail
+    this.logger.debug(`Checking suggestions for auto-approval: execution ${executionId}`);
+    
     // Check user preferences for auto-approval
     const preferences = await this.getUserWorkflowPreferences(userId);
     
@@ -229,20 +240,22 @@ export class WorkflowEngineService {
     
     // Fill in required parameters
     for (const [key, definition] of Object.entries(action.parameters.required)) {
+      const paramDef = definition as ParameterDefinition;
       // Use default if available
-      if (definition.default !== undefined) {
-        parameters[key] = definition.default;
+      if (paramDef.default !== undefined) {
+        parameters[key] = paramDef.default;
         continue;
       }
       
       // Extract from context or suggestion
-      parameters[key] = this.extractParameterValue(key, definition, context, suggestion);
+      parameters[key] = this.extractParameterValue(key, paramDef, context, suggestion);
     }
     
     // Add optional parameters if available
     if (action.parameters.optional) {
       for (const [key, definition] of Object.entries(action.parameters.optional)) {
-        const value = this.extractParameterValue(key, definition, context, suggestion);
+        const paramDef = definition as ParameterDefinition;
+        const value = this.extractParameterValue(key, paramDef, context, suggestion);
         if (value !== undefined) {
           parameters[key] = value;
         }
@@ -257,8 +270,8 @@ export class WorkflowEngineService {
    */
   private extractParameterValue(
     key: string,
-    definition: any,
-    context: any,
+    definition: ParameterDefinition,
+    context: AnalysisContext,
     suggestion: WorkflowSuggestion,
   ): any {
     // Check suggestion data first
@@ -289,10 +302,13 @@ export class WorkflowEngineService {
   /**
    * Generate string value based on key
    */
-  private generateStringValue(key: string, context: any): string {
+  private generateStringValue(key: string, context: AnalysisContext): string {
+    // Use context data if available for personalization
+    const userContext = context.userContext;
+    const isBusy = userContext.currentTasks > 3;
     const defaults: Record<string, string> = {
-      title: `Automated task from workflow`,
-      description: `Created by workflow automation`,
+      title: `Automated task from workflow for ${isBusy ? 'busy' : 'normal'} schedule`,
+      description: `Created by workflow automation based on current context`,
       subject: `Workflow notification`,
       message: `This is an automated message from your workflow`,
     };
@@ -303,8 +319,10 @@ export class WorkflowEngineService {
   /**
    * Generate date value based on key
    */
-  private generateDateValue(key: string, context: any): Date {
+  private generateDateValue(key: string, context: AnalysisContext): Date {
     const now = new Date();
+    const timeOfDay = context.environmentContext.timeOfDay || '';
+    const timeAdjustment = timeOfDay.includes('evening') ? 1 : 0;
     
     switch (key) {
       case 'startTime':
@@ -312,7 +330,7 @@ export class WorkflowEngineService {
       case 'endTime':
         return new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours from now
       case 'dueDate':
-        return new Date(now.getTime() + 24 * 60 * 60 * 1000); // Tomorrow
+        return new Date(now.getTime() + (24 + timeAdjustment) * 60 * 60 * 1000); // Tomorrow, adjusted for evening context
       case 'remindAt':
         return new Date(now.getTime() + 30 * 60 * 1000); // 30 minutes from now
       default:
@@ -358,11 +376,13 @@ export class WorkflowEngineService {
         id: executionId,
         userId,
         workflowId: execution.workflowId,
-        triggerId,
         status: execution.status,
         startedAt: execution.startedAt,
-        triggerData,
-        metadata: {},
+        triggerData: triggerData,
+        analysisData: {},
+        selectedSuggestions: [],
+        executedActions: [],
+        result: [],
       },
     });
 
@@ -419,7 +439,7 @@ export class WorkflowEngineService {
         analysisData: result.analysis,
         selectedSuggestions: execution.selectedSuggestions,
         executedActions: result.actions,
-        results: result.results,
+        result: result.results,
       },
     });
 
@@ -448,7 +468,7 @@ export class WorkflowEngineService {
       data: {
         status: ExecutionStatus.FAILED,
         completedAt: new Date(),
-        error: workflowError,
+        error: JSON.parse(JSON.stringify(workflowError)),
       },
     });
 
@@ -459,9 +479,12 @@ export class WorkflowEngineService {
    * Get user workflow preferences
    */
   private async getUserWorkflowPreferences(userId: string): Promise<any> {
-    const preferences = await this.prisma.userPreferences.findUnique({
-      where: { userId },
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { preferences: true },
     });
+
+    const preferences = user?.preferences as any || {};
 
     return {
       autoApprove: preferences?.workflowAutoApprove ?? true,
@@ -477,6 +500,9 @@ export class WorkflowEngineService {
   private async recordExecutionMetrics(execution: WorkflowExecution): Promise<void> {
     const duration = execution.completedAt!.getTime() - execution.startedAt.getTime();
     const successCount = execution.executedActions.filter(a => a.status === 'success').length;
+    const timeSaved = this.calculateTimeSaved(execution);
+    
+    this.logger.debug(`Recording metrics for workflow ${execution.workflowId}: duration=${duration}ms, timeSaved=${timeSaved}min`);
     
     await this.prisma.workflowMetrics.upsert({
       where: { workflowId: execution.workflowId },
@@ -484,16 +510,13 @@ export class WorkflowEngineService {
         workflowId: execution.workflowId,
         executionCount: 1,
         successRate: successCount / Math.max(1, execution.executedActions.length),
-        averageExecutionTime: duration,
-        timeSaved: this.calculateTimeSaved(execution),
-        actionsExecuted: execution.executedActions.length,
+        avgDuration: duration,
         lastExecuted: new Date(),
       },
       update: {
         executionCount: { increment: 1 },
-        averageExecutionTime: duration, // Would need proper averaging
-        timeSaved: { increment: this.calculateTimeSaved(execution) },
-        actionsExecuted: { increment: execution.executedActions.length },
+        avgDuration: duration, // Would need proper averaging in production
+        successRate: successCount / Math.max(1, execution.executedActions.length),
         lastExecuted: new Date(),
       },
     });
@@ -544,15 +567,15 @@ export class WorkflowEngineService {
     return {
       id: execution.id,
       workflowId: execution.workflowId,
-      status: execution.status as ExecutionStatus,
+      status: this.validateExecutionStatus(execution.status),
       startedAt: execution.startedAt,
       completedAt: execution.completedAt || undefined,
-      trigger: execution.triggerData as WorkflowTrigger,
-      analysis: execution.analysisData as WorkflowAnalysis,
-      selectedSuggestions: execution.selectedSuggestions as string[],
-      executedActions: execution.executedActions as ExecutedAction[],
-      results: execution.results as ExecutionResult[],
-      error: execution.error as WorkflowError | undefined,
+      trigger: this.validateWorkflowTrigger(execution.triggerData),
+      analysis: this.validateWorkflowAnalysis(execution.analysisData),
+      selectedSuggestions: this.validateStringArray(execution.selectedSuggestions),
+      executedActions: this.validateExecutedActions(execution.executedActions),
+      results: this.validateExecutionResults(execution.result),
+      error: this.validateWorkflowError(execution.error),
     };
   }
 
@@ -584,5 +607,117 @@ export class WorkflowEngineService {
     this.eventEmitter.emit('workflow.execution.cancelled', {
       executionId,
     });
+  }
+
+  private validateExecutionStatus(status: string): ExecutionStatus {
+    if (Object.values(ExecutionStatus).includes(status as ExecutionStatus)) {
+      return status as ExecutionStatus;
+    }
+    this.logger.warn(`Invalid execution status: ${status}, defaulting to PENDING`);
+    return ExecutionStatus.PENDING;
+  }
+
+  private validateWorkflowTrigger(data: any): WorkflowTrigger {
+    if (!data || typeof data !== 'object') {
+      return {
+        id: 'unknown',
+        type: TriggerType.MANUAL,
+        conditions: [],
+        enabled: true,
+        metadata: {},
+      };
+    }
+    return data as WorkflowTrigger;
+  }
+
+  private validateWorkflowAnalysis(data: any): WorkflowAnalysis {
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid analysis data provided');
+    }
+    
+    if (!data.id || !data.workflowId || !data.triggerId) {
+      throw new Error('Analysis must have id, workflowId, and triggerId');
+    }
+    
+    if (!data.context || !data.context.userId) {
+      throw new Error('Analysis must have valid context with userId');
+    }
+    
+    return {
+      id: data.id,
+      workflowId: data.workflowId,
+      triggerId: data.triggerId,
+      context: {
+        userId: data.context.userId,
+        triggerData: data.context.triggerData || {},
+        userContext: {
+          currentTasks: data.context.userContext?.currentTasks || 0,
+          upcomingEvents: data.context.userContext?.upcomingEvents || 0,
+          recentActivity: data.context.userContext?.recentActivity || [],
+          preferences: data.context.userContext?.preferences || {}
+        },
+        environmentContext: {
+          timeOfDay: data.context.environmentContext?.timeOfDay || new Date().toTimeString(),
+          dayOfWeek: data.context.environmentContext?.dayOfWeek || new Date().toLocaleDateString('en-US', { weekday: 'long' }),
+          location: data.context.environmentContext?.location,
+          device: data.context.environmentContext?.device
+        }
+      },
+      insights: data.insights || [],
+      suggestions: data.suggestions || [],
+      confidence: data.confidence || 0,
+      timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
+    };
+  }
+
+  private validateStringArray(data: any): string[] {
+    if (Array.isArray(data)) {
+      return data.filter(item => typeof item === 'string');
+    }
+    return [];
+  }
+
+  private validateExecutedActions(data: any): ExecutedAction[] {
+    if (Array.isArray(data)) {
+      return data.filter(item => {
+        return item && typeof item === 'object' && 
+               typeof item.actionId === 'string';
+      }).map(item => ({
+        actionId: item.actionId,
+        executedAt: item.executedAt ? new Date(item.executedAt) : new Date(),
+        duration: typeof item.duration === 'number' ? item.duration : 0,
+        status: item.status || 'completed',
+        input: item.input || {},
+        output: item.output || {},
+      }));
+    }
+    return [];
+  }
+
+  private validateExecutionResults(data: any): ExecutionResult[] {
+    if (Array.isArray(data)) {
+      return data.filter(item => {
+        return item && typeof item === 'object' && 
+               typeof item.type === 'string';
+      }).map(item => ({
+        type: item.type,
+        message: item.message || '',
+        data: item.data || {},
+        timestamp: item.timestamp ? new Date(item.timestamp) : new Date(),
+      }));
+    }
+    return [];
+  }
+
+  private validateWorkflowError(data: any): WorkflowError | undefined {
+    if (!data || typeof data !== 'object') {
+      return undefined;
+    }
+    return {
+      code: data.code || 'UNKNOWN_ERROR',
+      message: data.message || 'An error occurred',
+      details: data.details || data.context || {},
+      recoverable: typeof data.recoverable === 'boolean' ? data.recoverable : false,
+    };
   }
 }

@@ -25,6 +25,12 @@ export class CreateWorkflowDto {
   @IsObject()
   @IsOptional()
   metadata?: Record<string, any>;
+
+  constructor() {
+    this.name = '';
+    this.description = '';
+    this.triggers = [];
+  }
 }
 
 export class CreateFromTemplateDto {
@@ -39,4 +45,8 @@ export class CreateFromTemplateDto {
     triggers?: Record<string, any>;
     actions?: Record<string, any>;
   };
+
+  constructor() {
+    this.templateId = '';
+  }
 }

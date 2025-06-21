@@ -16,9 +16,13 @@ export class CdnService {
     private configService: ConfigService,
     private cacheService: CacheService,
   ) {
-    this.cdnBaseUrl = this.configService.get<string>('CDN_BASE_URL', 'https://cdn.aurelius.ai');
-    this.cdnSecret = this.configService.get<string>('CDN_SECRET', '');
-    this.cdnEnabled = this.configService.get<boolean>('CDN_ENABLED', false);
+    const baseUrl = this.configService.getOptional<string>('CDN_BASE_URL');
+    const secret = this.configService.getOptional<string>('CDN_SECRET');
+    const enabled = this.configService.getOptional<boolean>('CDN_ENABLED');
+    
+    this.cdnBaseUrl = baseUrl !== undefined ? baseUrl : 'https://cdn.aurelius.ai';
+    this.cdnSecret = secret !== undefined ? secret : '';
+    this.cdnEnabled = enabled !== undefined ? enabled : false;
   }
 
   /**

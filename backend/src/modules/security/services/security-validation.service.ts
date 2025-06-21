@@ -1,7 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as validator from 'validator';
-import { BusinessException } from '../../../common/exceptions';
 
 interface ValidationResult {
   isValid: boolean;
@@ -11,7 +10,6 @@ interface ValidationResult {
 
 @Injectable()
 export class SecurityValidationService {
-  private readonly logger = new Logger(SecurityValidationService.name);
   private readonly maxInputLength: number;
   private readonly allowedDomains: string[];
 
@@ -142,7 +140,7 @@ export class SecurityValidationService {
   /**
    * Sanitize HTML input
    */
-  sanitizeHtml(html: string, options?: { allowedTags?: string[]; allowedAttributes?: Record<string, string[]> }): string {
+  sanitizeHtml(html: string): string {
     // Remove all HTML tags by default
     let sanitized = html.replace(/<[^>]*>?/gm, '');
 

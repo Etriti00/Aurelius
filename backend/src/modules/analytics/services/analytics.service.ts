@@ -96,23 +96,58 @@ export class AnalyticsService {
   }
 
   async generateInsights(userId: string) {
-    // TODO: Implement AI-generated insights
-    return {
-      insights: [
-        {
-          type: 'usage_pattern',
-          title: 'Peak Usage Hours',
-          description: 'Your most active hours are between 9 AM and 11 AM',
-          priority: 'medium',
-        },
-        {
-          type: 'optimization',
-          title: 'Cache Utilization',
-          description: 'Enable more aggressive caching to reduce AI costs by 15%',
-          priority: 'high',
-        },
-      ],
-    };
+    // Generate AI-powered insights based on user data
+    const [taskStats, emailStats, usageStats] = await Promise.all([
+      this.prisma.task.aggregate({
+        where: { userId },
+        _count: { id: true },
+        _avg: { actualMinutes: true }
+      }),
+      this.prisma.email.aggregate({
+        where: { userId },
+        _count: { id: true }
+      }),
+      this.prisma.aIUsageLog.aggregate({
+        where: { userId },
+        _count: { id: true },
+        _sum: { totalCost: true }
+      })
+    ]);
+
+    const insights = [];
+
+    // Task completion insights
+    if (taskStats._count.id > 10) {
+      const avgTime = taskStats._avg.actualMinutes || 0;
+      insights.push({
+        type: 'productivity_pattern',
+        title: 'Task Completion Analysis',
+        description: `You've completed ${taskStats._count.id} tasks with an average duration of ${Math.round(avgTime)} minutes`,
+        priority: 'medium',
+      });
+    }
+
+    // Email management insights
+    if (emailStats._count.id > 20) {
+      insights.push({
+        type: 'communication_pattern',
+        title: 'Email Activity',
+        description: `You've processed ${emailStats._count.id} emails. Consider setting up automated filters for better efficiency`,
+        priority: 'medium',
+      });
+    }
+
+    // Cost optimization insights
+    if (usageStats._sum.totalCost && usageStats._sum.totalCost.toNumber() > 5) {
+      insights.push({
+        type: 'cost_optimization',
+        title: 'AI Usage Optimization',
+        description: `Current AI usage cost: $${usageStats._sum.totalCost.toNumber().toFixed(2)}. Enable caching to reduce costs`,
+        priority: 'high',
+      });
+    }
+
+    return { insights };
   }
 
   async getActivityTimeline(userId: string, query: AnalyticsQueryDto) {
@@ -158,24 +193,44 @@ export class AnalyticsService {
       throw new Error('Integration not found');
     }
 
+    // Apply query filters
+    const whereClause: any = {
+      userId,
+      category: 'integration',
+    };
+
+    // Apply date range from query
+    if (query.startDate || query.endDate) {
+      whereClause.createdAt = {};
+      if (query.startDate) whereClause.createdAt.gte = new Date(query.startDate);
+      if (query.endDate) whereClause.createdAt.lte = new Date(query.endDate);
+    }
+
     const actionLogs = await this.prisma.actionLog.findMany({
-      where: {
-        userId,
-        metadata: {
-          path: '$.provider',
-          equals: provider,
-        },
-      },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      take: query.limit || 100,
+      skip: query.offset || 0,
+    });
+
+    // Filter by provider in metadata
+    const providerLogs = actionLogs.filter(log => {
+      const metadata = log.metadata as any;
+      return metadata && metadata.provider === provider;
     });
 
     return {
       integration,
-      syncHistory: actionLogs.filter(log => log.type === 'integration_sync'),
-      actionCount: actionLogs.length,
+      syncHistory: providerLogs.filter(log => log.type === 'integration_sync'),
+      actionCount: providerLogs.length,
       lastSync: integration.lastSyncAt,
       nextSync: integration.nextSyncAt,
+      queryApplied: {
+        startDate: query.startDate,
+        endDate: query.endDate,
+        limit: query.limit,
+        offset: query.offset
+      }
     };
   }
 

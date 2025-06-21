@@ -1,6 +1,6 @@
-import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
+import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { AuditLogService, AuditAction, AuditSeverity } from '../services/audit-log.service';
+import { AuditLogService, AuditAction } from '../services/audit-log.service';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -11,13 +11,12 @@ interface AuthenticatedRequest extends Request {
 
 @Injectable()
 export class AuditLogMiddleware implements NestMiddleware {
-  private readonly logger = new Logger(AuditLogMiddleware.name);
-
   constructor(private auditLogService: AuditLogService) {}
 
   use(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     const startTime = Date.now();
     const requestId = this.generateRequestId();
+    const auditLogService = this.auditLogService;
     
     // Add request ID to headers
     req.headers['x-request-id'] = requestId;
@@ -46,7 +45,7 @@ export class AuditLogMiddleware implements NestMiddleware {
         setImmediate(() => {
           try {
             auditLogService.logApiRequest({
-              userId: req.user?.id,
+              userId: req.user ? req.user.id : undefined,
               method: req.method,
               path: req.path,
               statusCode: res.statusCode,
@@ -134,12 +133,9 @@ AuditLogService.prototype.logApiRequest = async function(data) {
                 data.method === 'DELETE' ? AuditAction.DATA_DELETE :
                 AuditAction.API_ACCESS;
 
-  const severity = data.success ? AuditSeverity.INFO : AuditSeverity.WARNING;
-
   await this.log({
     userId: data.userId,
     action,
-    severity,
     resource: data.path,
     details: {
       method: data.method,
@@ -150,8 +146,6 @@ AuditLogService.prototype.logApiRequest = async function(data) {
     },
     ipAddress: data.ipAddress,
     userAgent: data.userAgent,
-    requestId: data.requestId,
     success: data.success,
-    error: data.success ? undefined : `HTTP ${data.statusCode}`,
   });
 };

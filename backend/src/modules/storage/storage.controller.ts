@@ -218,6 +218,9 @@ export class StorageController {
     @Param('id') fileId: string,
     @Query() query: ImageTransformDto,
   ): Promise<ImageUrlResponseDto> {
+    // Verify user owns the file
+    await this.storageService.getFile(fileId, user.id);
+    
     const url = await this.storageService.getImageUrl(fileId, {
       width: query.width,
       height: query.height,

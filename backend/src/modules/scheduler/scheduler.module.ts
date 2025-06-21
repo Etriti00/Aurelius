@@ -7,7 +7,7 @@ import { JobSchedulerService } from './services/job-scheduler.service';
 import { RecurringJobService } from './services/recurring-job.service';
 import { JobExecutorService } from './services/job-executor.service';
 import { SchedulerMonitorService } from './services/scheduler-monitor.service';
-import { ConfigModule } from '../config/config.module';
+import { AppConfigModule } from '../config/config.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CacheModule } from '../cache/cache.module';
 import { QueueModule } from '../queue/queue.module';
@@ -19,7 +19,7 @@ import { EmailModule } from '../email/email.module';
   imports: [
     ScheduleModule.forRoot(),
     HttpModule,
-    ConfigModule,
+    AppConfigModule,
     PrismaModule,
     CacheModule,
     QueueModule,

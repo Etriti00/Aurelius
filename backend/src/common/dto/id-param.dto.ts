@@ -5,6 +5,10 @@ export class IdParamDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID('4')
   id: string;
+
+  constructor() {
+    this.id = '';
+  }
 }
 
 export class OptionalIdParamDto {

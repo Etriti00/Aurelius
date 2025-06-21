@@ -174,6 +174,7 @@ export class ConfigService {
   }
 
   getOptional<T>(key: string, defaultValue?: T): T | undefined {
-    return this.configService.get<T>(key, defaultValue);
+    const value = this.configService.get<T>(key);
+    return value !== undefined ? value : defaultValue;
   }
 }

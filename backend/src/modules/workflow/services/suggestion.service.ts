@@ -330,13 +330,26 @@ export class SuggestionService {
     try {
       const prompt = this.buildSuggestionPrompt(analysis);
       
-      const response = await this.aiGateway.generateResponse(prompt, {
-        model: 'claude-3-haiku',
-        maxTokens: 1500,
-        temperature: 0.8,
+      // Get user subscription info
+      const user = await this.prisma.user.findUnique({
+        where: { id: analysis.context.userId },
+        include: { subscription: true },
+      });
+      
+      if (!user || !user.subscription) {
+        this.logger.warn(`User or subscription not found for AI suggestions: ${analysis.context.userId}`);
+        return [];
+      }
+      
+      const response = await this.aiGateway.processRequest({
+        prompt,
+        userId: analysis.context.userId,
+        action: 'workflow-suggestions',
+        userSubscription: { tier: user.subscription.tier },
+        metadata: { type: 'suggestions' },
       });
 
-      return this.parseAISuggestions(response.content, analysis);
+      return this.parseAISuggestions(response.text, analysis);
     } catch (error) {
       this.logger.warn(`AI suggestion generation failed: ${error}`);
       return [];
@@ -522,23 +535,124 @@ Format as JSON array with: type, title, description, priority (1-10), estimatedT
       if (!jsonMatch) return [];
 
       const suggestions = JSON.parse(jsonMatch[0]);
-      return suggestions.map((sug: any) => ({
+      return suggestions.map((sugData: { 
+        type?: string; 
+        title?: string; 
+        description?: string; 
+        priority?: number; 
+        estimatedTimeSaved?: number; 
+        reasoning?: string; 
+      }) => ({
         id: `sug-ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        type: this.mapToSuggestionType(sug.type),
-        title: sug.title,
-        description: sug.description,
-        actions: [], // AI suggestions don't include specific actions
-        priority: sug.priority || 5,
+        type: this.mapToSuggestionType(sugData.type || 'general'),
+        title: sugData.title || 'AI Generated Suggestion',
+        description: sugData.description || 'Generated based on workflow analysis',
+        actions: this.generateActionsForSuggestion(sugData, analysis),
+        priority: sugData.priority || 5,
         estimatedImpact: {
-          timeSaved: sug.estimatedTimeSaved || 0,
+          timeSaved: sugData.estimatedTimeSaved || 0,
         },
-        reasoning: sug.reasoning,
-        confidence: 0.7, // Default confidence for AI suggestions
+        reasoning: sugData.reasoning || 'AI-generated suggestion based on current context',
+        confidence: 0.7,
       }));
     } catch (error) {
       this.logger.warn(`Failed to parse AI suggestions: ${error}`);
       return [];
     }
+  }
+
+  private generateActionsForSuggestion(
+    sugData: { type?: string; title?: string; description?: string },
+    analysis: WorkflowAnalysis,
+  ): WorkflowAction[] {
+    // Generate appropriate actions based on suggestion type and analysis context
+    const actions: WorkflowAction[] = [];
+    const suggestionType = sugData.type || 'general';
+    
+    switch (suggestionType.toLowerCase()) {
+      case 'task':
+        actions.push(this.createAction(
+          ActionType.CREATE_TASK,
+          'Create suggested task',
+          {
+            required: {
+              title: {
+                type: 'string',
+                description: 'Task title',
+                default: sugData.title || 'AI Suggested Task',
+              },
+              description: {
+                type: 'string',
+                description: 'Task description',
+                default: sugData.description || 'Generated from workflow analysis',
+              },
+            },
+          },
+        ));
+        break;
+      case 'email':
+        actions.push(this.createAction(
+          ActionType.SEND_EMAIL,
+          'Send suggested email',
+          {
+            required: {
+              to: {
+                type: 'string',
+                description: 'Email recipient',
+                default: analysis.context.triggerData.email || '',
+              },
+              subject: {
+                type: 'string',
+                description: 'Email subject',
+                default: sugData.title || 'Follow-up',
+              },
+            },
+          },
+        ));
+        break;
+      case 'notification':
+        actions.push(this.createAction(
+          ActionType.NOTIFY_USER,
+          'Send notification',
+          {
+            required: {
+              title: {
+                type: 'string',
+                description: 'Notification title',
+                default: sugData.title || 'Workflow Update',
+              },
+              message: {
+                type: 'string',
+                description: 'Notification message',
+                default: sugData.description || 'Automated workflow notification',
+              },
+            },
+          },
+        ));
+        break;
+      default:
+        // For general suggestions, create a generic action
+        actions.push(this.createAction(
+          ActionType.NOTIFY_USER,
+          'Execute suggestion',
+          {
+            required: {
+              title: {
+                type: 'string',
+                description: 'Action title',
+                default: sugData.title || 'Execute AI Suggestion',
+              },
+              message: {
+                type: 'string',
+                description: 'Action description',
+                default: sugData.description || 'Execute the AI-generated suggestion',
+              },
+            },
+          },
+        ));
+    }
+    
+    return actions;
   }
 
   private mapToSuggestionType(type: string): SuggestionType {

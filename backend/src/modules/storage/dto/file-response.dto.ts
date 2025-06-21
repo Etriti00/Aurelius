@@ -39,6 +39,28 @@ export class FileResponseDto {
 
   @ApiPropertyOptional({ description: 'Image variants (for images only)' })
   variants?: Record<string, string>;
+
+  constructor(
+    id: string = '',
+    filename: string = '',
+    originalName: string = '',
+    mimeType: string = '',
+    size: number = 0,
+    url: string = '',
+    bucket: string = '',
+    key: string = '',
+    uploadedAt: Date = new Date()
+  ) {
+    this.id = id;
+    this.filename = filename;
+    this.originalName = originalName;
+    this.mimeType = mimeType;
+    this.size = size;
+    this.url = url;
+    this.bucket = bucket;
+    this.key = key;
+    this.uploadedAt = uploadedAt;
+  }
 }
 
 export class FileListResponseDto {
@@ -56,4 +78,11 @@ export class FileListResponseDto {
 
   @ApiProperty({ description: 'Total count of files' })
   totalCount: number;
+
+  constructor() {
+    this.files = [];
+    this.folders = [];
+    this.isTruncated = false;
+    this.totalCount = 0;
+  }
 }

@@ -5,14 +5,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 
 import { AuthService } from '../auth.service';
 import { UnauthorizedException } from '../../../common/exceptions/app.exception';
-
-interface JwtPayload {
-  sub: string;
-  email: string;
-  name?: string;
-  iat: number;
-  exp: number;
-}
+import { JwtPayload, RequestUser } from '../../../common/interfaces/user.interface';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -20,7 +13,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
   constructor(
     private readonly authService: AuthService,
-    private readonly configService: ConfigService
+    configService: ConfigService
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -31,7 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  async validate(payload: JwtPayload): Promise<any> {
+  async validate(payload: JwtPayload): Promise<RequestUser> {
     try {
       const user = await this.authService.validateUser(payload.sub);
       if (!user) {
@@ -39,8 +32,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       }
       return user;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Validation failed';
       this.logger.warn('JWT validation failed', { 
-        error: error.message, 
+        error: errorMessage, 
         payload: payload.sub 
       });
       throw new UnauthorizedException('Invalid token');

@@ -67,10 +67,12 @@ export class LRUCacheService {
       size: cache.size,
       calculatedSize: cache.calculatedSize,
       maxSize: cache.max,
-      disposed: cache.disposed,
-      hits: cache.hits,
-      misses: cache.misses,
-      hitRate: cache.hits / (cache.hits + cache.misses) || 0,
+      // Note: LRU cache v10+ doesn't expose these stats directly
+      // These would need to be tracked manually if needed
+      disposed: 0,
+      hits: 0,
+      misses: 0,
+      hitRate: 0,
     };
   }
 

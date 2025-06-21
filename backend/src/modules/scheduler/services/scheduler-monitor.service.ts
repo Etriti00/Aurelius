@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CacheService } from '../../cache/services/cache.service';
-import { NotificationService } from '../../notifications/notifications.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
 import {
   SchedulerMetrics,
   UpcomingJob,
@@ -18,7 +18,7 @@ export class SchedulerMonitorService {
   constructor(
     private prisma: PrismaService,
     private cacheService: CacheService,
-    private notificationService: NotificationService,
+    private notificationsService: NotificationsService,
     private eventEmitter: EventEmitter2,
   ) {}
 
@@ -187,13 +187,11 @@ export class SchedulerMonitorService {
           where: { id: jobId },
         });
 
-        if (job) {
-          await this.notificationService.sendNotification(job.userId, {
+        if (job && job.userId) {
+          await this.notificationsService.sendToUser(job.userId, {
             type: 'job_unhealthy',
             title: 'Scheduled Job Issues',
             message: `Job "${job.name}" has a ${failureRate.toFixed(1)}% failure rate`,
-            data: { jobId, stats },
-            channels: ['in_app', 'email'],
           });
         }
       }
@@ -273,21 +271,14 @@ export class SchedulerMonitorService {
             where: { id: job.id },
             data: {
               enabled: false,
-              metadata: {
-                ...job.metadata,
-                disabledReason: 'High failure rate',
-                disabledAt: new Date(),
-              },
             },
           });
 
           // Notify user
-          await this.notificationService.sendNotification(job.userId, {
+          await this.notificationsService.sendToUser(job.userId, {
             type: 'job_disabled',
             title: 'Scheduled Job Disabled',
             message: `Job "${job.name}" was disabled due to repeated failures`,
-            data: { jobId: job.id, failures: job.failures },
-            channels: ['in_app', 'email'],
           });
         }
         break;

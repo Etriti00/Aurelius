@@ -6,7 +6,7 @@ import { JobSchedule, JobAction } from '../interfaces';
 export class CreateFromTemplateDto {
   @ApiProperty({ description: 'Template ID to use' })
   @IsString()
-  templateId: string;
+  templateId: string = '';
 
   @ApiPropertyOptional({ description: 'Custom job name' })
   @IsOptional()
@@ -26,4 +26,8 @@ export class CreateFromTemplateDto {
   @ValidateNested()
   @Type(() => Object)
   action?: Partial<JobAction>;
+
+  constructor(partial: Partial<CreateFromTemplateDto> = {}) {
+    Object.assign(this, partial);
+  }
 }

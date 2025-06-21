@@ -1,11 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotFoundException } from '../../common/exceptions/app.exception';
 
 @Injectable()
 export class TasksService {
-  private readonly logger = new Logger(TasksService.name);
-
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(userId: string, filters?: any): Promise<any[]> {

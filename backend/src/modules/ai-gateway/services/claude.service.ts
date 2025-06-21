@@ -156,7 +156,11 @@ export class ClaudeService {
   }
 
   private calculateCost(model: string, usage: { input_tokens: number; output_tokens: number }): number {
-    const costs = this.configService.get('ai.models');
+    const costs = this.configService.get('ai.models') as Record<string, { costPer1kTokens: number }> | undefined;
+    if (!costs) {
+      this.logger.warn('AI model costs configuration not found');
+      return 0;
+    }
     const modelCost = costs[model];
     
     if (!modelCost) {

@@ -68,23 +68,21 @@ export class AnthropicService {
         content = `Context: ${request.context}\n\nRequest: ${request.prompt}`;
       }
 
-      const response = await this.anthropic.messages.create({
+      // Build prompt in the old Anthropic format
+      const systemPrompt = request.systemPrompt || this.getDefaultSystemPrompt();
+      const prompt = `${systemPrompt}\n\n${Anthropic.HUMAN_PROMPT} ${content}${Anthropic.AI_PROMPT}`;
+      
+      const response = await this.anthropic.completions.create({
         model: request.model,
-        max_tokens: request.maxTokens,
+        max_tokens_to_sample: request.maxTokens,
         temperature: request.temperature,
-        system: request.systemPrompt || this.getDefaultSystemPrompt(),
-        messages: [
-          {
-            role: 'user',
-            content,
-          },
-        ],
+        prompt,
       });
 
       const result: AnthropicResponse = {
-        text: this.extractTextFromResponse(response),
-        inputTokens: response.usage.input_tokens,
-        outputTokens: response.usage.output_tokens,
+        text: response.completion,
+        inputTokens: this.estimateTokens(prompt),
+        outputTokens: this.estimateTokens(response.completion),
         model: request.model,
         duration: Date.now() - startTime,
         cacheHit: false,
@@ -103,14 +101,20 @@ export class AnthropicService {
     } catch (error) {
       this.logger.error('Anthropic API call failed', error);
       
-      if (error.status === 429) {
-        throw new AIServiceException('Rate limit exceeded - please try again later');
-      } else if (error.status === 401) {
-        throw new AIServiceException('Invalid API key');
-      } else if (error.status >= 500) {
-        throw new AIServiceException('Anthropic service temporarily unavailable');
-      } else {
+      if (error instanceof Anthropic.APIError) {
+        if (error.status === 429) {
+          throw new AIServiceException('Rate limit exceeded - please try again later');
+        } else if (error.status === 401) {
+          throw new AIServiceException('Invalid API key');
+        } else if (typeof error.status === 'number' && error.status >= 500) {
+          throw new AIServiceException('Anthropic service temporarily unavailable');
+        } else {
+          throw new AIServiceException(`AI request failed: ${error.message}`);
+        }
+      } else if (error instanceof Error) {
         throw new AIServiceException(`AI request failed: ${error.message}`);
+      } else {
+        throw new AIServiceException('AI request failed: Unknown error');
       }
     }
   }
@@ -118,6 +122,7 @@ export class AnthropicService {
   async generateEmbedding(text: string): Promise<number[]> {
     // Note: Anthropic doesn't provide embeddings, we'll need to use a different service
     // For now, return a placeholder - this should be implemented with OpenAI or similar
+    this.logger.debug(`Embedding generation requested for text length: ${text.length}`);
     throw new AIServiceException('Embedding generation not implemented');
   }
 
@@ -136,14 +141,9 @@ export class AnthropicService {
     return `anthropic:${hash}`;
   }
 
-  private extractTextFromResponse(response: any): string {
-    if (response.content && response.content.length > 0) {
-      return response.content
-        .filter((block: any) => block.type === 'text')
-        .map((block: any) => block.text)
-        .join('\n');
-    }
-    return '';
+  private estimateTokens(text: string): number {
+    // Rough estimation: 1 token ≈ 4 characters
+    return Math.ceil(text.length / 4);
   }
 
   private getDefaultSystemPrompt(): string {
@@ -171,17 +171,67 @@ Always provide:
 Remember: You are not just an assistant, you are a digital chief of staff focused on execution and results.`;
   }
 
+  // Legacy API compatibility methods for older code
+  async createMessage(params: {
+    model: string;
+    messages: Array<{ role: string; content: string }>;
+    system?: string;
+    max_tokens: number;
+    temperature?: number;
+    top_p?: number;
+    stop_sequences?: string[];
+  }): Promise<{
+    content: Array<{ text: string }>;
+    usage: { input_tokens: number; output_tokens: number };
+    id: string;
+  }> {
+    // Convert messages to a single prompt
+    const userMessages = params.messages.filter(m => m.role === 'user').map(m => m.content);
+    const prompt = userMessages.join('\n\n');
+    
+    const response = await this.generateResponse({
+      prompt,
+      model: params.model,
+      maxTokens: params.max_tokens,
+      temperature: params.temperature || 0.7,
+      systemPrompt: params.system,
+    });
+    
+    return {
+      content: [{ text: response.text }],
+      usage: {
+        input_tokens: response.inputTokens,
+        output_tokens: response.outputTokens,
+      },
+      id: `msg-${Date.now()}`,
+    };
+  }
+
+  async createMessageStream(params: {
+    model: string;
+    messages: Array<{ role: string; content: string }>;
+    system?: string;
+    max_tokens: number;
+    temperature?: number;
+    top_p?: number;
+    stop_sequences?: string[];
+  }): Promise<any> {
+    // For now, just return the non-streaming response
+    // In a real implementation, this would need proper streaming support
+    const response = await this.createMessage(params);
+    return {
+      content: response.content,
+      usage: response.usage,
+      id: response.id,
+    };
+  }
+
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await this.anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 10,
-        messages: [
-          {
-            role: 'user',
-            content: 'ping',
-          },
-        ],
+      const response = await this.anthropic.completions.create({
+        model: 'claude-instant-1',
+        max_tokens_to_sample: 10,
+        prompt: `${Anthropic.HUMAN_PROMPT} ping${Anthropic.AI_PROMPT}`,
       });
       
       return !!response;

@@ -12,6 +12,7 @@ async function main() {
     create: {
       email: 'demo@aurelius.ai',
       name: 'Demo User',
+      roles: ['user', 'admin'],
       avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
       voiceId: 'rachel',
       voiceSpeed: 1.0,
@@ -39,11 +40,16 @@ async function main() {
         create: {
           tier: 'PRO',
           status: 'ACTIVE',
+          stripeCustomerId: 'cus_demo_user',
+          stripeSubscriptionId: 'sub_demo_subscription',
+          stripePriceId: 'price_demo_professional',
           currentPeriodStart: new Date(),
           currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-          aiActionsPerMonth: 1000,
-          aiActionsUsed: 47,
-          integrationsAllowed: 3,
+          monthlyActionLimit: 1000,
+          integrationLimit: 10,
+          aiModelAccess: ['claude-3-haiku', 'claude-3-5-sonnet'],
+          monthlyPrice: 50.0,
+          overageRate: 0.10,
         },
       },
     },
@@ -191,19 +197,17 @@ async function main() {
     },
   ];
 
-  for (const emailThread of sampleEmailThreads) {
-    await prisma.emailThread.create({
-      data: {
-        ...emailThread,
-        userId: demoUser.id,
-      },
-      include: {
-        messages: true,
-      },
-    });
-  }
+  // Note: Email sample data structure needs to be updated to match Email model
+  // for (const emailThread of sampleEmailThreads) {
+  //   await prisma.email.create({
+  //     data: {
+  //       ...emailThread,
+  //       userId: demoUser.id,
+  //     },
+  //   });
+  // }
 
-  console.log('📧 Created sample email threads');
+  console.log('📧 Skipped sample emails (data structure needs update)');
 
   // Create sample calendar events
   const sampleEvents = [
@@ -296,16 +300,17 @@ async function main() {
     },
   ];
 
-  for (const suggestion of sampleSuggestions) {
-    await prisma.aISuggestion.create({
-      data: {
-        ...suggestion,
-        userId: demoUser.id,
-      },
-    });
-  }
+  // Note: aISuggestion model not implemented yet, skipping AI suggestions
+  // for (const suggestion of sampleSuggestions) {
+  //   await prisma.aISuggestion.create({
+  //     data: {
+  //       ...suggestion,
+  //       userId: demoUser.id,
+  //     },
+  //   });
+  // }
 
-  console.log('🤖 Created sample AI suggestions');
+  console.log('🤖 Skipped AI suggestions (model not implemented)');
 
   // Create sample integrations
   const sampleIntegrations = [
@@ -383,10 +388,19 @@ async function main() {
   ];
 
   for (const usageLog of sampleUsageLogs) {
-    await prisma.aIUsageLog.create({
+    await prisma.actionLog.create({
       data: {
-        ...usageLog,
+        type: 'ai_action',
+        category: 'ai',
+        model: usageLog.model,
+        input: usageLog.action,
+        promptTokens: usageLog.inputTokens,
+        completionTokens: usageLog.outputTokens,
+        cost: usageLog.totalCost,
+        duration: usageLog.duration,
+        cacheHit: usageLog.cacheHit,
         userId: demoUser.id,
+        createdAt: usageLog.createdAt,
       },
     });
   }
@@ -417,16 +431,17 @@ async function main() {
     },
   ];
 
-  for (const voiceInteraction of sampleVoiceInteractions) {
-    await prisma.voiceInteraction.create({
-      data: {
-        ...voiceInteraction,
-        userId: demoUser.id,
-      },
-    });
-  }
+  // Note: voiceInteraction model not implemented yet, skipping voice interactions  
+  // for (const voiceInteraction of sampleVoiceInteractions) {
+  //   await prisma.voiceInteraction.create({
+  //     data: {
+  //       ...voiceInteraction,
+  //       userId: demoUser.id,
+  //     },
+  //   });
+  // }
 
-  console.log('🎤 Created sample voice interactions');
+  console.log('🎤 Skipped voice interactions (model not implemented)');
 
   console.log('✅ Database seed completed successfully!');
   console.log('\n📋 Summary:');

@@ -36,7 +36,6 @@ import {
   AddPaymentMethodDto,
   PaymentMethodDto,
   ListPaymentMethodsResponseDto,
-  RemovePaymentMethodDto,
 } from './dto';
 
 @ApiTags('billing')

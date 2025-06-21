@@ -42,6 +42,37 @@ export class CalendarService {
     return this.getEvents(userId, startOfDay, endOfDay);
   }
 
+  async createEvent(userId: string, eventData: {
+    title: string;
+    description?: string;
+    startTime: Date;
+    endTime: Date;
+    location?: string;
+    attendees?: string[];
+  }): Promise<{ id: string; title: string; startTime: Date; endTime: Date }> {
+    this.logger.log(`Creating calendar event for user ${userId}: ${eventData.title}`);
+    
+    const event = await this.prisma.calendarEvent.create({
+      data: {
+        userId,
+        title: eventData.title,
+        description: eventData.description,
+        startTime: eventData.startTime,
+        endTime: eventData.endTime,
+        location: eventData.location,
+        attendees: eventData.attendees || [],
+        status: 'confirmed',
+      },
+    });
+
+    return {
+      id: event.id,
+      title: event.title,
+      startTime: event.startTime,
+      endTime: event.endTime,
+    };
+  }
+
   async getAnalytics(userId: string): Promise<any> {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
