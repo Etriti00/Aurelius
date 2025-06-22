@@ -14,9 +14,33 @@ import {
   useTaskStats,
   useEmailStats,
   useCalendarAnalytics,
-  useBillingUsage 
+  useBillingUsage,
+  UsageMetrics,
+  BillingUsageDto 
 } from '@/lib/api'
 import { useWebSocketUpdates, useWebSocketNotifications } from '@/lib/websocket/websocket.service'
+
+// Transform BillingUsageDto to UsageMetrics for dashboard compatibility
+const transformBillingUsageToMetrics = (billingUsage: BillingUsageDto): UsageMetrics => {
+  const subscription = billingUsage.subscription
+  
+  // Determine integration limits based on subscription tier
+  let integrationsLimit = 3 // PRO default
+  if (subscription.tier === 'MAX' || subscription.tier === 'TEAMS') {
+    integrationsLimit = -1 // unlimited
+  }
+  
+  return {
+    aiActionsUsed: billingUsage.usage.aiActions,
+    aiActionsLimit: billingUsage.usage.aiActionsLimit,
+    integrationsUsed: 0, // This would need to come from integrations API
+    integrationsLimit,
+    periodStart: billingUsage.currentPeriod.start.toISOString(),
+    periodEnd: billingUsage.currentPeriod.end.toISOString(),
+    isAtLimit: billingUsage.usage.aiActions >= billingUsage.usage.aiActionsLimit,
+    warningThreshold: 0.8
+  }
+}
 
 export default function DashboardPage() {
   const { data: session } = useSession()
@@ -52,8 +76,9 @@ export default function DashboardPage() {
     }
   }, [subscribeToTaskUpdates, subscribeToEmailUpdates, subscribeToCalendarUpdates, refreshTasks, refreshEmails, refreshCalendar])
 
-  // Generate dashboard cards from real data
-  const dashboardCards = generateDashboardCards(taskStats, emailStats, calendarStats, usageMetrics)
+  // Transform billing usage to metrics format and generate dashboard cards
+  const transformedUsageMetrics = usageMetrics ? transformBillingUsageToMetrics(usageMetrics) : undefined
+  const dashboardCards = generateDashboardCards(taskStats, emailStats, calendarStats, transformedUsageMetrics)
 
   const welcomeMessage = () => {
     const hour = new Date().getHours()

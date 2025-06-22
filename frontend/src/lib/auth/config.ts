@@ -1,56 +1,29 @@
 import { NextAuthConfig } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
+import AzureAD from 'next-auth/providers/azure-ad'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { JWT } from 'next-auth/jwt'
 
-// Refresh token function
-async function refreshAccessToken(token: JWT): Promise<JWT> {
-  try {
-    const url = `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        refreshToken: token.refreshToken,
-      }),
-    })
-
-    const refreshedTokens = await response.json()
-    
-    if (!response.ok) {
-      throw refreshedTokens
-    }
-    
-    // Handle standardized API response
-    const tokenData = refreshedTokens.success ? refreshedTokens.data : refreshedTokens
-
-    return {
-      ...token,
-      accessToken: tokenData.accessToken,
-      accessTokenExpires: Date.now() + 15 * 60 * 1000, // 15 minutes
-      refreshToken: tokenData.refreshToken ?? token.refreshToken, // Fall back to old refresh token
-    }
-  } catch (error) {
-    console.error('Token refresh error:', error)
-    
-    return {
-      ...token,
-      error: 'RefreshAccessTokenError',
-    }
-  }
-}
+// Note: Token refresh is handled by marking expired tokens with error flag
+// The client can then redirect to sign in when it detects this error
 
 export const authConfig: NextAuthConfig = {
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.AUTH_GOOGLE_ID as string,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET as string,
       authorization: {
         params: {
           scope: 'openid email profile https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar',
+        },
+      },
+    }),
+    AzureAD({
+      clientId: process.env.AUTH_AZURE_AD_CLIENT_ID as string,
+      clientSecret: process.env.AUTH_AZURE_AD_CLIENT_SECRET as string,
+      tenantId: process.env.AUTH_AZURE_AD_TENANT_ID,
+      authorization: {
+        params: {
+          scope: 'openid email profile https://graph.microsoft.com/mail.read https://graph.microsoft.com/calendars.readwrite https://graph.microsoft.com/files.read',
         },
       },
     }),
@@ -110,13 +83,14 @@ export const authConfig: NextAuthConfig = {
     error: '/auth/error',
   },
   callbacks: {
-    async jwt({ token, user, account }) {
-      // Initial sign in
+    jwt({ token, user, account }) {
+      // Initial sign in - modify token in place and return it
       if (account && user) {
         token.accessToken = account.access_token
         token.refreshToken = account.refresh_token
         token.userId = user.id
-        token.accessTokenExpires = Date.now() + (account.expires_in ? account.expires_in * 1000 : 15 * 60 * 1000) // 15 minutes default
+        token.accessTokenExpires = Date.now() + (account.expires_in ? account.expires_in * 1000 : 15 * 60 * 1000)
+        return token
       }
 
       // Credentials provider sign in
@@ -124,7 +98,8 @@ export const authConfig: NextAuthConfig = {
         token.accessToken = user.accessToken
         token.refreshToken = user.refreshToken
         token.userId = user.id
-        token.accessTokenExpires = Date.now() + 15 * 60 * 1000 // 15 minutes
+        token.accessTokenExpires = Date.now() + 15 * 60 * 1000
+        return token
       }
 
       // Check if access token has expired
@@ -133,7 +108,11 @@ export const authConfig: NextAuthConfig = {
       }
 
       // Access token has expired, try to refresh it
-      return await refreshAccessToken(token)
+      // For non-async callback, return the token with error flag instead of refreshing
+      return {
+        ...token,
+        error: 'RefreshAccessTokenError',
+      }
     },
     async session({ session, token }) {
       if (token) {

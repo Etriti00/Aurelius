@@ -67,6 +67,7 @@ export interface EmailThread {
   threadId: string
   messageCount: number
   lastMessageAt: string
+  isStarred?: boolean
   metadata?: Record<string, unknown>
   createdAt: string
   updatedAt: string

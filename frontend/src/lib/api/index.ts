@@ -6,6 +6,8 @@ export * from './email'
 export * from './calendar'
 export * from './ai'
 export * from './voice'
+export * from './billing'
+export * from './integrations'
 export * from './dashboard'
 
 // Re-export commonly used hooks and functions
@@ -58,10 +60,44 @@ export {
   useDashboardOverview,
   useDashboardOverviewOptimized,
   useUserProfile,
-  useBillingUsage,
   generateDashboardCards,
   getQuickStats,
 } from './dashboard'
+
+export {
+  // Billing
+  useCurrentSubscription,
+  useUsageSummary,
+  useBillingUsage,
+  useInvoices,
+  usePaymentMethods,
+  useBillingOperations,
+  formatCurrency,
+  formatSubscriptionStatus,
+  formatSubscriptionTier,
+  calculateUsagePercentage,
+  getUsageColor,
+  isUsageNearLimit,
+  isUsageAtLimit,
+  PRICING_PLANS,
+} from './billing'
+
+export {
+  // Integrations
+  useUserIntegrations,
+  useIntegrationStatus,
+  useAvailableIntegrations,
+  useIntegrationOperations,
+  useOAuthFlow,
+  formatIntegrationStatus,
+  getIntegrationIcon,
+  getIntegrationDisplayName,
+  getCategoryDisplayName,
+  formatLastSync,
+  isIntegrationHealthy,
+  getIntegrationHealthStatus,
+  AVAILABLE_INTEGRATIONS,
+} from './integrations'
 
 export {
   // Voice
@@ -81,4 +117,6 @@ export { emailApi } from './email'
 export { calendarApi } from './calendar'
 export { aiApi } from './ai'
 export { voiceApi } from './voice'
+export { billingApi } from './billing'
+export { integrationsApi } from './integrations'
 export { dashboardApi } from './dashboard'

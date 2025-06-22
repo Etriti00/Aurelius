@@ -219,13 +219,14 @@ export class ApiClient {
     }
   }
 
-  async delete<T>(endpoint: string): Promise<T> {
+  async delete<T, D = Record<string, unknown>>(endpoint: string, data?: D): Promise<T> {
     const headers = await this.getAuthHeaders()
     
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
         method: 'DELETE',
         headers,
+        body: data ? JSON.stringify(data) : undefined,
       })
 
       return await this.handleResponse<T>(response)
@@ -236,6 +237,7 @@ export class ApiClient {
         const retryResponse = await fetch(`${this.baseURL}${endpoint}`, {
           method: 'DELETE',
           headers: newHeaders,
+          body: data ? JSON.stringify(data) : undefined,
         })
         return await this.handleResponse<T>(retryResponse, false)
       }

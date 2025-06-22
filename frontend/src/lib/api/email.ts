@@ -40,6 +40,10 @@ export const emailApi = {
   markThreadAsRead: (threadId: string) => 
     apiClient.patch(`${EMAIL_ENDPOINT}/threads/${threadId}/read`),
 
+  // Archive thread
+  archiveThread: (threadId: string) => 
+    apiClient.patch(`${EMAIL_ENDPOINT}/threads/${threadId}/archive`),
+
   // Get thread analysis with AI insights
   getThreadAnalysis: (threadId: string) =>
     apiClient.get(`${EMAIL_ENDPOINT}/threads/${threadId}/analysis`),
@@ -173,6 +177,15 @@ export const useEmailMutations = () => {
     }
   }
 
+  const archiveThread = async (threadId: string) => {
+    try {
+      await emailApi.archiveThread(threadId)
+    } catch (error) {
+      console.error('Failed to archive thread:', error)
+      throw error
+    }
+  }
+
   const generateResponse = async (threadId: string, context?: string) => {
     try {
       const response = await emailApi.generateResponse(threadId, context)
@@ -186,6 +199,7 @@ export const useEmailMutations = () => {
   return {
     markAsRead,
     markThreadAsRead,
+    archiveThread,
     generateResponse,
   }
 }
