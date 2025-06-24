@@ -19,9 +19,9 @@ export class SearchResultDto {
     updatedAt?: Date;
   };
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Highlighted snippets',
-    type: [String]
+    type: [String],
   })
   highlights?: string[];
 
@@ -29,15 +29,15 @@ export class SearchResultDto {
     this.id = '';
     this.score = 0;
     this.data = {
-      content: ''
+      content: '',
     };
   }
 }
 
 export class SearchResponseDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Search results',
-    type: [SearchResultDto]
+    type: [SearchResultDto],
   })
   results: SearchResultDto[];
 
@@ -50,9 +50,9 @@ export class SearchResponseDto {
   @ApiPropertyOptional({ description: 'Search facets/aggregations' })
   facets?: Record<string, any>;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Query suggestions',
-    type: [String]
+    type: [String],
   })
   suggestions?: string[];
 
@@ -64,9 +64,9 @@ export class SearchResponseDto {
 }
 
 export class SuggestionsResponseDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Search suggestions',
-    type: [String]
+    type: [String],
   })
   suggestions: string[];
 

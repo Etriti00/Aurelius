@@ -34,31 +34,31 @@ import * as Joi from 'joi';
           .valid('development', 'production', 'test', 'staging')
           .default('development'),
         PORT: Joi.number().default(3001),
-        
+
         // Database Configuration
         DATABASE_URL: Joi.string().required(),
-        
+
         // Redis Configuration
         REDIS_HOST: Joi.string().default('localhost'),
         REDIS_PORT: Joi.number().default(6379),
-        
+
         // JWT Configuration
         JWT_ACCESS_SECRET: Joi.string().required(),
         JWT_REFRESH_SECRET: Joi.string().required(),
-        
+
         // AI Configuration
         ANTHROPIC_API_KEY: Joi.string().required(),
-        
+
         // OAuth Configuration
         GOOGLE_CLIENT_ID: Joi.string().required(),
         GOOGLE_CLIENT_SECRET: Joi.string().required(),
         MICROSOFT_CLIENT_ID: Joi.string().required(),
         MICROSOFT_CLIENT_SECRET: Joi.string().required(),
-        
+
         // Stripe Configuration
         STRIPE_SECRET_KEY: Joi.string().required(),
         STRIPE_WEBHOOK_SECRET: Joi.string().required(),
-        
+
         // SendGrid Configuration
         SENDGRID_API_KEY: Joi.string().required(),
       }),

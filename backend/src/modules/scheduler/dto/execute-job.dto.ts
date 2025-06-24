@@ -2,9 +2,9 @@ import { IsObject, IsOptional } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ExecuteJobDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Optional parameters to override for this execution',
-    type: Object
+    type: Object,
   })
   @IsOptional()
   @IsObject()

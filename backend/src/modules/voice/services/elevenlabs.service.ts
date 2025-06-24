@@ -59,7 +59,7 @@ export class ElevenLabsService {
 
   async generateAudio(request: GenerateAudioRequest): Promise<GenerateAudioResponse> {
     const cacheKey = this.generateTTSCacheKey(request);
-    
+
     // Check cache first
     const cached = await this.cacheManager.get<Buffer>(cacheKey);
     if (cached) {
@@ -68,32 +68,29 @@ export class ElevenLabsService {
     }
 
     try {
-      const response = await fetch(
-        `${this.config.baseUrl}/text-to-speech/${request.voiceId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Accept': 'audio/mpeg',
-            'Content-Type': 'application/json',
-            'xi-api-key': this.config.apiKey,
+      const response = await fetch(`${this.config.baseUrl}/text-to-speech/${request.voiceId}`, {
+        method: 'POST',
+        headers: {
+          Accept: 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': this.config.apiKey,
+        },
+        body: JSON.stringify({
+          text: this.optimizeTextForSpeech(request.text),
+          model_id: request.modelId || 'eleven_monolingual_v1',
+          voice_settings: request.voiceSettings || {
+            stability: 0.75,
+            similarity_boost: 0.75,
+            style: 0.5,
+            use_speaker_boost: true,
           },
-          body: JSON.stringify({
-            text: this.optimizeTextForSpeech(request.text),
-            model_id: request.modelId || 'eleven_monolingual_v1',
-            voice_settings: request.voiceSettings || {
-              stability: 0.75,
-              similarity_boost: 0.75,
-              style: 0.5,
-              use_speaker_boost: true,
-            },
-          }),
-        }
-      );
+        }),
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
         this.logger.error(`ElevenLabs TTS API error: ${response.status} - ${errorText}`);
-        
+
         if (response.status === 401) {
           throw new AIServiceException('Invalid ElevenLabs API key');
         } else if (response.status === 429) {
@@ -104,7 +101,7 @@ export class ElevenLabsService {
       }
 
       const audioBuffer = Buffer.from(await response.arrayBuffer());
-      
+
       // Cache the audio for 7 days
       await this.cacheManager.set(cacheKey, audioBuffer, 604800);
 
@@ -115,15 +112,15 @@ export class ElevenLabsService {
       return { audioBuffer };
     } catch (error) {
       this.logger.error('ElevenLabs TTS generation failed', error);
-      throw error instanceof AIServiceException 
-        ? error 
+      throw error instanceof AIServiceException
+        ? error
         : new AIServiceException('TTS generation failed');
     }
   }
 
   async transcribeAudio(request: TranscribeRequest): Promise<string> {
     const cacheKey = this.generateSTTCacheKey(request.audioBuffer);
-    
+
     // Check cache first
     const cached = await this.cacheManager.get<string>(cacheKey);
     if (cached) {
@@ -135,17 +132,17 @@ export class ElevenLabsService {
       // Note: ElevenLabs doesn't provide STT directly
       // This is a placeholder for implementing with another service like OpenAI Whisper
       // For now, we'll return a placeholder implementation
-      
+
       // In a real implementation, you would:
       // 1. Convert audio to the required format
       // 2. Send to Whisper API or similar service
       // 3. Return the transcription
-      
+
       const formData = new FormData();
       const audioBlob = new Blob([request.audioBuffer], { type: 'audio/wav' });
       formData.append('file', audioBlob, 'audio.wav');
       formData.append('model', request.model || 'whisper-1');
-      
+
       if (request.language) {
         formData.append('language', request.language);
       }
@@ -161,10 +158,10 @@ export class ElevenLabsService {
 
       // For now, return placeholder
       const transcript = 'Audio transcription not yet implemented';
-      
+
       // Cache for 24 hours
       await this.cacheManager.set(cacheKey, transcript, 86400);
-      
+
       return transcript;
     } catch (error) {
       this.logger.error('Audio transcription failed', error);
@@ -174,7 +171,7 @@ export class ElevenLabsService {
 
   async getAvailableVoices(): Promise<any[]> {
     const cacheKey = 'elevenlabs:voices';
-    
+
     // Check cache first (cache for 1 hour)
     const cached = await this.cacheManager.get<any[]>(cacheKey);
     if (cached) {
@@ -194,10 +191,10 @@ export class ElevenLabsService {
 
       const data = await response.json();
       const voices = data.voices || [];
-      
+
       // Cache for 1 hour
       await this.cacheManager.set(cacheKey, voices, 3600);
-      
+
       return voices;
     } catch (error) {
       this.logger.error('Failed to fetch available voices', error);
@@ -225,19 +222,21 @@ export class ElevenLabsService {
   }
 
   private optimizeTextForSpeech(text: string): string {
-    return text
-      // Remove markdown formatting
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      .replace(/\*(.*?)\*/g, '$1')
-      .replace(/`(.*?)`/g, '$1')
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      // Remove extra whitespace
-      .replace(/\s+/g, ' ')
-      .trim()
-      // Add pauses for better speech flow
-      .replace(/\. /g, '. ')
-      .replace(/\? /g, '? ')
-      .replace(/! /g, '! ');
+    return (
+      text
+        // Remove markdown formatting
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/`(.*?)`/g, '$1')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        // Remove extra whitespace
+        .replace(/\s+/g, ' ')
+        .trim()
+        // Add pauses for better speech flow
+        .replace(/\. /g, '. ')
+        .replace(/\? /g, '? ')
+        .replace(/! /g, '! ')
+    );
   }
 
   private generateTTSCacheKey(request: GenerateAudioRequest): string {
@@ -247,19 +246,15 @@ export class ElevenLabsService {
       modelId: request.modelId,
       voiceSettings: request.voiceSettings,
     };
-    
-    const hash = createHash('sha256')
-      .update(JSON.stringify(keyData))
-      .digest('hex');
-    
+
+    const hash = createHash('sha256').update(JSON.stringify(keyData)).digest('hex');
+
     return `elevenlabs:tts:${hash}`;
   }
 
   private generateSTTCacheKey(audioBuffer: Buffer): string {
-    const hash = createHash('sha256')
-      .update(audioBuffer)
-      .digest('hex');
-    
+    const hash = createHash('sha256').update(audioBuffer).digest('hex');
+
     return `elevenlabs:stt:${hash}`;
   }
 
@@ -270,7 +265,7 @@ export class ElevenLabsService {
           'xi-api-key': this.config.apiKey,
         },
       });
-      
+
       return response.ok;
     } catch (error) {
       this.logger.error('ElevenLabs health check failed', error);

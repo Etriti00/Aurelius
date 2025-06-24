@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { QueueService } from '../../queue/services/queue.service';
-import { CreateNotificationDto, NotificationType, NotificationPriority } from '../dto/create-notification.dto';
+import {
+  CreateNotificationDto,
+  NotificationType,
+  NotificationPriority,
+} from '../dto/create-notification.dto';
 import { UpdateNotificationDto } from '../dto/update-notification.dto';
 import { NotificationQueryDto } from '../dto/notification-query.dto';
 
@@ -9,7 +13,7 @@ import { NotificationQueryDto } from '../dto/notification-query.dto';
 export class NotificationsService {
   constructor(
     private prisma: PrismaService,
-    private queueService: QueueService,
+    private queueService: QueueService
   ) {}
 
   async create(data: CreateNotificationDto) {
@@ -19,7 +23,7 @@ export class NotificationsService {
         type: data.type,
         title: data.title,
         message: data.message,
-        priority: data.priority || 'medium',
+        priority: data.priority ?? 'medium',
       },
     });
 
@@ -35,11 +39,11 @@ export class NotificationsService {
 
   async getUserNotifications(userId: string, query: NotificationQueryDto) {
     const where: any = { userId };
-    
-    if (query.type) {
+
+    if (query.type != null) {
       where.type = query.type;
     }
-    
+
     if (query.unreadOnly) {
       where.readAt = null;
     }
@@ -123,13 +127,16 @@ export class NotificationsService {
     });
   }
 
-  async sendToUser(userId: string, notification: {
-    type: string;
-    title: string;
-    message: string;
-    metadata?: any;
-    priority?: string;
-  }) {
+  async sendToUser(
+    userId: string,
+    notification: {
+      type: string;
+      title: string;
+      message: string;
+      metadata?: any;
+      priority?: string;
+    }
+  ) {
     // Create notification in database
     const created = await this.create({
       userId,
@@ -141,17 +148,20 @@ export class NotificationsService {
 
     // Send real-time notification via WebSocket
     // This will be handled by WebSocket gateway
-    
+
     return created;
   }
 
-  async sendToMultipleUsers(userIds: string[], notification: {
-    type: string;
-    title: string;
-    message: string;
-    metadata?: any;
-    priority?: string;
-  }) {
+  async sendToMultipleUsers(
+    userIds: string[],
+    notification: {
+      type: string;
+      title: string;
+      message: string;
+      metadata?: any;
+      priority?: string;
+    }
+  ) {
     const notifications = await this.prisma.notification.createMany({
       data: userIds.map(userId => ({
         userId,
@@ -179,7 +189,9 @@ export class NotificationsService {
     return NotificationType.INFO;
   }
 
-  private validateNotificationPriority(priority: string | undefined): NotificationPriority | undefined {
+  private validateNotificationPriority(
+    priority: string | undefined
+  ): NotificationPriority | undefined {
     if (!priority) {
       return undefined;
     }

@@ -41,7 +41,7 @@ export class StorageService {
     private s3Service: S3Service,
     private cdnService: CdnService,
     private imageService: ImageService,
-    private cacheService: CacheService,
+    private cacheService: CacheService
   ) {}
 
   /**
@@ -52,7 +52,7 @@ export class StorageService {
     filename: string,
     buffer: Buffer,
     mimeType: string,
-    options: UploadOptions = {},
+    options: UploadOptions = {}
   ): Promise<StorageFile> {
     try {
       // Validate file
@@ -108,12 +108,7 @@ export class StorageService {
       return file;
     } catch (error: any) {
       this.logger.error(`Failed to upload file: ${error.message}`);
-      throw new BusinessException(
-        'Failed to upload file',
-        'FILE_UPLOAD_FAILED',
-        undefined,
-        error,
-      );
+      throw new BusinessException('Failed to upload file', 'FILE_UPLOAD_FAILED', undefined, error);
     }
   }
 
@@ -122,7 +117,7 @@ export class StorageService {
    */
   async getFile(fileId: string, userId?: string): Promise<StorageFile | null> {
     const cacheKey = `file:${fileId}`;
-    
+
     // Check cache
     const cached = await this.cacheService.get<StorageFile>(cacheKey);
     if (cached) {
@@ -207,12 +202,9 @@ export class StorageService {
   /**
    * List user files
    */
-  async listFiles(
-    userId: string,
-    options: StorageListOptions = {},
-  ): Promise<StorageListResult> {
+  async listFiles(userId: string, options: StorageListOptions = {}): Promise<StorageListResult> {
     const limit = options.maxKeys || 20;
-    const offset = options.continuationToken 
+    const offset = options.continuationToken
       ? parseInt(Buffer.from(options.continuationToken, 'base64').toString())
       : 0;
 
@@ -272,7 +264,7 @@ export class StorageService {
   async getSignedUrl(
     fileId: string,
     userId: string,
-    options: SignedUrlOptions = {},
+    options: SignedUrlOptions = {}
   ): Promise<string> {
     const file = await this.getFile(fileId, userId);
     if (!file) {
@@ -285,10 +277,7 @@ export class StorageService {
   /**
    * Get image URL with transformations
    */
-  async getImageUrl(
-    fileId: string,
-    options: ImageTransformOptions = {},
-  ): Promise<string> {
+  async getImageUrl(fileId: string, options: ImageTransformOptions = {}): Promise<string> {
     const file = await this.getFile(fileId);
     if (!file) {
       throw new BusinessException('File not found', 'FILE_NOT_FOUND');
@@ -322,7 +311,7 @@ export class StorageService {
 
     for (const file of files) {
       stats.totalSize += Number(file.size);
-      
+
       const type = this.getFileType(file.mimeType);
       if (!stats.byType[type]) {
         stats.byType[type] = { count: 0, size: 0 };
@@ -341,12 +330,10 @@ export class StorageService {
     // Check file size
     const maxSize = 50 * 1024 * 1024; // 50MB
     if (buffer.length > maxSize) {
-      throw new BusinessException(
-        'File too large',
-        'FILE_TOO_LARGE',
-        HttpStatus.BAD_REQUEST,
-        { size: buffer.length, maxSize },
-      );
+      throw new BusinessException('File too large', 'FILE_TOO_LARGE', HttpStatus.BAD_REQUEST, {
+        size: buffer.length,
+        maxSize,
+      });
     }
 
     // Check mime type
@@ -355,15 +342,23 @@ export class StorageService {
         'File type not allowed',
         'INVALID_FILE_TYPE',
         HttpStatus.BAD_REQUEST,
-        { mimeType },
+        { mimeType }
       );
     }
 
     // Validate filename
     if (!filename || filename.length > 255) {
+      throw new BusinessException('Invalid filename', 'INVALID_FILENAME');
+    }
+
+    // Sanitize filename to prevent path traversal
+    const sanitizedFilename = this.sanitizeFilename(filename);
+    if (sanitizedFilename !== filename) {
       throw new BusinessException(
-        'Invalid filename',
-        'INVALID_FILENAME',
+        'Invalid filename: contains unsafe characters',
+        'UNSAFE_FILENAME',
+        HttpStatus.BAD_REQUEST,
+        { filename }
       );
     }
   }
@@ -372,16 +367,52 @@ export class StorageService {
    * Generate unique file key
    */
   private generateFileKey(userId: string, filename: string): string {
+    // Sanitize filename first
+    const safeFilename = this.sanitizeFilename(filename);
+
     const timestamp = Date.now();
-    const hash = crypto.createHash('sha256')
-      .update(`${userId}-${filename}-${timestamp}`)
+    const hash = crypto
+      .createHash('sha256')
+      .update(`${userId}-${safeFilename}-${timestamp}`)
       .digest('hex')
       .substring(0, 8);
-    
-    const ext = path.extname(filename);
-    const name = path.basename(filename, ext);
-    
+
+    const ext = path.extname(safeFilename);
+    const name = path.basename(safeFilename, ext);
+
+    // Use sanitized filename parts
     return `users/${userId}/files/${timestamp}-${hash}/${name}${ext}`;
+  }
+
+  /**
+   * Sanitize filename to prevent path traversal attacks
+   */
+  private sanitizeFilename(filename: string): string {
+    // Remove any directory traversal patterns
+    let sanitized = filename.replace(/\.\./g, '');
+    sanitized = sanitized.replace(/[\/\\]/g, '');
+
+    // Remove any null bytes
+    sanitized = sanitized.replace(/\0/g, '');
+
+    // Remove any control characters
+    sanitized = sanitized.replace(/[\x00-\x1f\x80-\x9f]/g, '');
+
+    // Ensure filename only contains safe characters
+    // Allow: alphanumeric, dash, underscore, dot, space
+    sanitized = sanitized.replace(/[^a-zA-Z0-9\-_\. ]/g, '');
+
+    // Ensure it doesn't start with a dot (hidden file)
+    if (sanitized.startsWith('.')) {
+      sanitized = sanitized.substring(1);
+    }
+
+    // Ensure it has a valid length
+    if (sanitized.length === 0) {
+      sanitized = 'unnamed';
+    }
+
+    return sanitized;
   }
 
   /**
@@ -411,12 +442,12 @@ export class StorageService {
   private async generateImageVariantsAsync(
     fileId: string,
     buffer: Buffer,
-    baseKey: string,
+    baseKey: string
   ): Promise<void> {
     try {
       const variants = await this.imageService.generateResponsiveVariants(
         buffer,
-        baseKey.replace(/\.[^.]+$/, ''), // Remove extension
+        baseKey.replace(/\.[^.]+$/, '') // Remove extension
       );
 
       // Store variants in metadata since variants field doesn't exist in model
@@ -424,7 +455,7 @@ export class StorageService {
         where: { id: fileId },
         select: { metadata: true },
       });
-      
+
       const metadataValue = currentFile && currentFile.metadata ? currentFile.metadata : null;
       const existingMetadata = this.convertMetadata(metadataValue);
       const updatedMetadata = {
@@ -476,7 +507,11 @@ export class StorageService {
       result.encoding = metadata.encoding;
     }
 
-    if (metadata.variants && typeof metadata.variants === 'object' && !Array.isArray(metadata.variants)) {
+    if (
+      metadata.variants &&
+      typeof metadata.variants === 'object' &&
+      !Array.isArray(metadata.variants)
+    ) {
       const variants: Record<string, string> = {};
       const variantsObj = metadata.variants as Record<string, JsonValue>;
       for (const [key, value] of Object.entries(variantsObj)) {
@@ -487,7 +522,11 @@ export class StorageService {
       result.variants = variants;
     }
 
-    if (metadata.customProperties && typeof metadata.customProperties === 'object' && !Array.isArray(metadata.customProperties)) {
+    if (
+      metadata.customProperties &&
+      typeof metadata.customProperties === 'object' &&
+      !Array.isArray(metadata.customProperties)
+    ) {
       const customProperties: Record<string, string | number | boolean> = {};
       const customObj = metadata.customProperties as Record<string, JsonValue>;
       for (const [key, value] of Object.entries(customObj)) {

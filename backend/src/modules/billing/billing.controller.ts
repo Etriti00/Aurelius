@@ -14,13 +14,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiBody,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -55,7 +49,8 @@ export class BillingController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Create Stripe checkout session',
-    description: 'Create a new Stripe checkout session for subscription or one-time payments. Returns a secure checkout URL for the user to complete payment.',
+    description:
+      'Create a new Stripe checkout session for subscription or one-time payments. Returns a secure checkout URL for the user to complete payment.',
   })
   @ApiBody({
     type: CreateCheckoutDto,
@@ -70,8 +65,8 @@ export class BillingController {
           cancelUrl: 'https://app.aurelius.ai/billing/cancel',
           metadata: {
             plan: 'pro',
-            source: 'upgrade_prompt'
-          }
+            source: 'upgrade_prompt',
+          },
         },
       },
       oneTime: {
@@ -81,7 +76,7 @@ export class BillingController {
           mode: 'payment',
           quantity: 1,
           successUrl: 'https://app.aurelius.ai/billing/success',
-          cancelUrl: 'https://app.aurelius.ai/billing/cancel'
+          cancelUrl: 'https://app.aurelius.ai/billing/cancel',
         },
       },
     },
@@ -103,7 +98,7 @@ export class BillingController {
   })
   async createCheckout(
     @CurrentUser() user: any,
-    @Body() dto: CreateCheckoutDto,
+    @Body() dto: CreateCheckoutDto
   ): Promise<CheckoutResponseDto> {
     return this.billingService.createCheckoutSession(user.id, dto);
   }
@@ -115,7 +110,7 @@ export class BillingController {
   @ApiResponse({ status: 201, type: SubscriptionResponseDto })
   async createSubscription(
     @CurrentUser() user: any,
-    @Body() dto: CreateSubscriptionDto,
+    @Body() dto: CreateSubscriptionDto
   ): Promise<SubscriptionResponseDto> {
     return this.billingService.createSubscription(user.id, dto);
   }
@@ -125,7 +120,8 @@ export class BillingController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get current subscription details',
-    description: 'Retrieve comprehensive details about the user\'s current subscription including plan, status, usage limits, billing cycle, and renewal information.',
+    description:
+      "Retrieve comprehensive details about the user's current subscription including plan, status, usage limits, billing cycle, and renewal information.",
   })
   @ApiResponse({
     status: 200,
@@ -153,7 +149,7 @@ export class BillingController {
   @ApiResponse({ status: 200, type: SubscriptionResponseDto })
   async updateSubscription(
     @CurrentUser() user: any,
-    @Body() dto: UpdateSubscriptionDto,
+    @Body() dto: UpdateSubscriptionDto
   ): Promise<SubscriptionResponseDto> {
     return this.billingService.updateSubscription(user.id, dto);
   }
@@ -165,7 +161,7 @@ export class BillingController {
   @ApiResponse({ status: 200, type: SubscriptionResponseDto })
   async cancelSubscription(
     @CurrentUser() user: any,
-    @Body() dto: CancelSubscriptionDto,
+    @Body() dto: CancelSubscriptionDto
   ): Promise<SubscriptionResponseDto> {
     return this.billingService.cancelSubscription(user.id, dto);
   }
@@ -177,7 +173,7 @@ export class BillingController {
   @ApiResponse({ status: 201, type: BillingPortalResponseDto })
   async createBillingPortal(
     @CurrentUser() user: any,
-    @Body() dto: CreateBillingPortalDto,
+    @Body() dto: CreateBillingPortalDto
   ): Promise<BillingPortalResponseDto> {
     return this.billingService.createBillingPortalSession(user.id, dto);
   }
@@ -189,7 +185,7 @@ export class BillingController {
   @ApiResponse({ status: 201, type: UsageResponseDto })
   async recordUsage(
     @CurrentUser() user: any,
-    @Body() dto: RecordUsageDto,
+    @Body() dto: RecordUsageDto
   ): Promise<UsageResponseDto> {
     return this.billingService.recordUsage(user.id, dto);
   }
@@ -210,7 +206,7 @@ export class BillingController {
   @ApiResponse({ status: 200, type: InvoiceListResponseDto })
   async listInvoices(
     @CurrentUser() user: any,
-    @Query() query: ListInvoicesDto,
+    @Query() query: ListInvoicesDto
   ): Promise<InvoiceListResponseDto> {
     return this.billingService.listInvoices(user.id, query);
   }
@@ -231,7 +227,7 @@ export class BillingController {
   @ApiResponse({ status: 201, type: PaymentMethodDto })
   async addPaymentMethod(
     @CurrentUser() user: any,
-    @Body() dto: AddPaymentMethodDto,
+    @Body() dto: AddPaymentMethodDto
   ): Promise<PaymentMethodDto> {
     return this.billingService.addPaymentMethod(user.id, dto);
   }
@@ -244,7 +240,7 @@ export class BillingController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async removePaymentMethod(
     @CurrentUser() user: any,
-    @Param('id') paymentMethodId: string,
+    @Param('id') paymentMethodId: string
   ): Promise<void> {
     await this.billingService.removePaymentMethod(user.id, paymentMethodId);
   }
@@ -254,13 +250,13 @@ export class BillingController {
   @ApiResponse({ status: 200 })
   async handleWebhook(
     @Headers('stripe-signature') signature: string,
-    @Req() request: RawBodyRequest<Request>,
+    @Req() request: RawBodyRequest<Request>
   ): Promise<{ received: boolean }> {
     const rawBody = request.rawBody;
     if (!rawBody) {
       throw new Error('No raw body available');
     }
-    
+
     await this.billingService.handleWebhook(rawBody, signature);
     return { received: true };
   }

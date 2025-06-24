@@ -4,15 +4,8 @@ import { QueueService } from '../../queue/services/queue.service';
 import { TasksService } from '../../tasks/tasks.service';
 import { EmailService } from '../../email/email.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
-import {
-  ScheduledJob,
-  JobAction,
-  ActionType,
-  ExecutionStatus,
-  JobError,
-} from '../interfaces';
+import { ScheduledJob, JobAction, ActionType, ExecutionStatus, JobError } from '../interfaces';
 import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class JobExecutorService {
@@ -24,7 +17,7 @@ export class JobExecutorService {
     private tasksService: TasksService,
     private emailService: EmailService,
     private notificationsService: NotificationsService,
-    private httpService: HttpService,
+    private httpService: HttpService
   ) {}
 
   /**
@@ -48,7 +41,7 @@ export class JobExecutorService {
       this.logger.log(`Job ${job.id} completed successfully`);
     } catch (error: any) {
       this.logger.error(`Job ${job.id} failed: ${error.message}`);
-      
+
       const jobError: JobError = {
         code: error.code || 'EXECUTION_ERROR',
         message: error.message,
@@ -73,39 +66,39 @@ export class JobExecutorService {
   private async executeAction(
     action: JobAction,
     userId: string,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, any>
   ): Promise<any> {
     switch (action.type) {
       case ActionType.TASK_CREATE:
         return this.executeTaskCreate(userId, action.parameters);
-      
+
       case ActionType.TASK_UPDATE:
         return this.executeTaskUpdate(userId, action.parameters);
-      
+
       case ActionType.EMAIL_SEND:
         return this.executeEmailSend(userId, action.parameters);
-      
+
       case ActionType.NOTIFICATION_SEND:
         return this.executeNotificationSend(userId, action.parameters);
-      
+
       case ActionType.REPORT_GENERATE:
         return this.executeReportGenerate(userId, action.parameters);
-      
+
       case ActionType.DATA_CLEANUP:
         return this.executeDataCleanup(userId, action.parameters);
-      
+
       case ActionType.SYNC_INTEGRATION:
         return this.executeSyncIntegration(userId, action.parameters);
-      
+
       case ActionType.WEBHOOK_CALL:
         return this.executeWebhookCall(action.parameters);
-      
+
       case ActionType.WORKFLOW_TRIGGER:
         return this.executeWorkflowTrigger(userId, action.parameters);
-      
+
       case ActionType.CUSTOM_FUNCTION:
         return this.executeCustomFunction(action.parameters, metadata);
-      
+
       default:
         throw new Error(`Unknown action type: ${action.type}`);
     }
@@ -114,10 +107,7 @@ export class JobExecutorService {
   /**
    * Action executors
    */
-  private async executeTaskCreate(
-    userId: string,
-    parameters?: Record<string, any>,
-  ): Promise<any> {
+  private async executeTaskCreate(userId: string, parameters?: Record<string, any>): Promise<any> {
     const task = await this.tasksService.create(userId, {
       title: parameters?.title || 'Scheduled Task',
       description: parameters?.description,
@@ -137,10 +127,7 @@ export class JobExecutorService {
     };
   }
 
-  private async executeTaskUpdate(
-    userId: string,
-    parameters?: Record<string, any>,
-  ): Promise<any> {
+  private async executeTaskUpdate(userId: string, parameters?: Record<string, any>): Promise<any> {
     if (!parameters?.taskId && !parameters?.taskIds) {
       throw new Error('Task ID(s) required for update');
     }
@@ -165,10 +152,7 @@ export class JobExecutorService {
     return { updatedTasks: results };
   }
 
-  private async executeEmailSend(
-    userId: string,
-    parameters?: Record<string, any>,
-  ): Promise<any> {
+  private async executeEmailSend(userId: string, parameters?: Record<string, any>): Promise<any> {
     if (!parameters?.to || !parameters?.subject) {
       throw new Error('Email recipient and subject required');
     }
@@ -193,7 +177,7 @@ export class JobExecutorService {
 
   private async executeNotificationSend(
     userId: string,
-    parameters?: Record<string, any>,
+    parameters?: Record<string, any>
   ): Promise<any> {
     const notification = await this.notificationsService.sendToUser(userId, {
       type: parameters?.type || 'scheduled',
@@ -210,7 +194,7 @@ export class JobExecutorService {
 
   private async executeReportGenerate(
     userId: string,
-    parameters?: Record<string, any>,
+    parameters?: Record<string, any>
   ): Promise<any> {
     const reportType = parameters?.reportType || 'summary';
     const timeRange = parameters?.timeRange || '7d';
@@ -232,10 +216,7 @@ export class JobExecutorService {
     };
   }
 
-  private async executeDataCleanup(
-    userId: string,
-    parameters?: Record<string, any>,
-  ): Promise<any> {
+  private async executeDataCleanup(userId: string, parameters?: Record<string, any>): Promise<any> {
     const olderThan = parameters?.olderThanDays || 30;
     const cutoffDate = new Date(Date.now() - olderThan * 24 * 60 * 60 * 1000);
 
@@ -285,7 +266,7 @@ export class JobExecutorService {
 
   private async executeSyncIntegration(
     userId: string,
-    parameters?: Record<string, any>,
+    parameters?: Record<string, any>
   ): Promise<any> {
     const integrationId = parameters?.integrationId;
     if (!integrationId) {
@@ -314,15 +295,13 @@ export class JobExecutorService {
       throw new Error('Webhook URL required');
     }
 
-    const response = await firstValueFrom(
-      this.httpService.request({
-        method: parameters.method || 'POST',
-        url: parameters.url,
-        headers: parameters.headers,
-        data: parameters.data,
-        timeout: parameters.timeout || 30000,
-      }),
-    );
+    const response = await this.httpService.axiosRef.request({
+      method: parameters.method || 'POST',
+      url: parameters.url,
+      headers: parameters.headers,
+      data: parameters.data,
+      timeout: parameters.timeout || 30000,
+    });
 
     return {
       status: response.status,
@@ -334,7 +313,7 @@ export class JobExecutorService {
 
   private async executeWorkflowTrigger(
     userId: string,
-    parameters?: Record<string, any>,
+    parameters?: Record<string, any>
   ): Promise<any> {
     const triggerId = parameters?.triggerId;
     if (!triggerId) {
@@ -358,7 +337,7 @@ export class JobExecutorService {
 
   private async executeCustomFunction(
     parameters?: Record<string, any>,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, any>
   ): Promise<any> {
     // Custom function execution would be implemented based on specific needs
     // For now, just log and return parameters
@@ -375,10 +354,7 @@ export class JobExecutorService {
   /**
    * Update execution status
    */
-  private async updateExecutionStatus(
-    executionId: string,
-    status: ExecutionStatus,
-  ): Promise<void> {
+  private async updateExecutionStatus(executionId: string, status: ExecutionStatus): Promise<void> {
     await this.prisma.jobExecution.update({
       where: { id: executionId },
       data: { status },
@@ -391,7 +367,7 @@ export class JobExecutorService {
   private async completeExecution(
     executionId: string,
     result: any,
-    duration: number,
+    duration: number
   ): Promise<void> {
     await this.prisma.jobExecution.update({
       where: { id: executionId },
@@ -410,7 +386,7 @@ export class JobExecutorService {
   private async failExecution(
     executionId: string,
     error: JobError,
-    duration: number,
+    duration: number
   ): Promise<void> {
     await this.prisma.jobExecution.update({
       where: { id: executionId },
@@ -430,10 +406,7 @@ export class JobExecutorService {
   /**
    * Schedule retry
    */
-  private async scheduleRetry(
-    job: ScheduledJob,
-    executionId: string,
-  ): Promise<void> {
+  private async scheduleRetry(job: ScheduledJob, executionId: string): Promise<void> {
     const execution = await this.prisma.jobExecution.findUnique({
       where: { id: executionId },
     });
@@ -452,7 +425,7 @@ export class JobExecutorService {
           executionId,
           retryCount: execution.retryCount + 1,
         },
-        { delay },
+        { delay }
       );
 
       await this.prisma.jobExecution.update({
@@ -480,7 +453,8 @@ export class JobExecutorService {
     }
 
     // Database errors
-    if (error.code === 'P2024') { // Prisma timeout
+    if (error.code === 'P2024') {
+      // Prisma timeout
       return true;
     }
 

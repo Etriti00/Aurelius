@@ -3,12 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CacheService } from '../../cache/services/cache.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
-import {
-  SchedulerMetrics,
-  UpcomingJob,
-  JobStatistics,
-  ExecutionStatus,
-} from '../interfaces';
+import { SchedulerMetrics, UpcomingJob, JobStatistics, ExecutionStatus } from '../interfaces';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
@@ -19,7 +14,7 @@ export class SchedulerMonitorService {
     private prisma: PrismaService,
     private cacheService: CacheService,
     private notificationsService: NotificationsService,
-    private eventEmitter: EventEmitter2,
+    private eventEmitter: EventEmitter2
   ) {}
 
   /**
@@ -29,10 +24,10 @@ export class SchedulerMonitorService {
   async monitorJobHealth(): Promise<void> {
     try {
       const unhealthyJobs = await this.findUnhealthyJobs();
-      
+
       if (unhealthyJobs.length > 0) {
         this.logger.warn(`Found ${unhealthyJobs.length} unhealthy jobs`);
-        
+
         for (const job of unhealthyJobs) {
           await this.handleUnhealthyJob(job);
         }
@@ -52,7 +47,7 @@ export class SchedulerMonitorService {
   async cleanupStuckExecutions(): Promise<void> {
     try {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      
+
       // Find executions stuck in running state
       const stuckExecutions = await this.prisma.jobExecution.findMany({
         where: {
@@ -94,21 +89,15 @@ export class SchedulerMonitorService {
       return cached;
     }
 
-    const [
-      totalJobs,
-      activeJobs,
-      pausedJobs,
-      executionsToday,
-      successfulToday,
-      upcomingJobs,
-    ] = await Promise.all([
-      this.prisma.scheduledJob.count(),
-      this.prisma.scheduledJob.count({ where: { enabled: true } }),
-      this.prisma.scheduledJob.count({ where: { enabled: false } }),
-      this.getExecutionsToday(),
-      this.getSuccessfulExecutionsToday(),
-      this.getUpcomingJobs(10),
-    ]);
+    const [totalJobs, activeJobs, pausedJobs, executionsToday, successfulToday, upcomingJobs] =
+      await Promise.all([
+        this.prisma.scheduledJob.count(),
+        this.prisma.scheduledJob.count({ where: { enabled: true } }),
+        this.prisma.scheduledJob.count({ where: { enabled: false } }),
+        this.getExecutionsToday(),
+        this.getSuccessfulExecutionsToday(),
+        this.getUpcomingJobs(10),
+      ]);
 
     const metrics: SchedulerMetrics = {
       totalJobs,
@@ -117,7 +106,8 @@ export class SchedulerMonitorService {
       executionsToday,
       successRate: executionsToday > 0 ? (successfulToday / executionsToday) * 100 : 100,
       averageExecutionTime: await this.getAverageExecutionTime(),
-      failureRate: executionsToday > 0 ? ((executionsToday - successfulToday) / executionsToday) * 100 : 0,
+      failureRate:
+        executionsToday > 0 ? ((executionsToday - successfulToday) / executionsToday) * 100 : 0,
       upcomingJobs,
     };
 
@@ -131,23 +121,18 @@ export class SchedulerMonitorService {
    * Get job statistics
    */
   async getJobStatistics(jobId: string): Promise<JobStatistics> {
-    const [
-      totalExecutions,
-      successfulExecutions,
-      failedExecutions,
-      avgDuration,
-      lastExecution,
-    ] = await Promise.all([
-      this.prisma.jobExecution.count({ where: { jobId } }),
-      this.prisma.jobExecution.count({
-        where: { jobId, status: ExecutionStatus.COMPLETED },
-      }),
-      this.prisma.jobExecution.count({
-        where: { jobId, status: ExecutionStatus.FAILED },
-      }),
-      this.getAverageJobDuration(jobId),
-      this.getLastExecution(jobId),
-    ]);
+    const [totalExecutions, successfulExecutions, failedExecutions, avgDuration, lastExecution] =
+      await Promise.all([
+        this.prisma.jobExecution.count({ where: { jobId } }),
+        this.prisma.jobExecution.count({
+          where: { jobId, status: ExecutionStatus.COMPLETED },
+        }),
+        this.prisma.jobExecution.count({
+          where: { jobId, status: ExecutionStatus.FAILED },
+        }),
+        this.getAverageJobDuration(jobId),
+        this.getLastExecution(jobId),
+      ]);
 
     const job = await this.prisma.scheduledJob.findUnique({
       where: { id: jobId },
@@ -170,11 +155,11 @@ export class SchedulerMonitorService {
    */
   async monitorJobPerformance(jobId: string): Promise<void> {
     const stats = await this.getJobStatistics(jobId);
-    
+
     // Check failure rate
     if (stats.totalExecutions > 10) {
       const failureRate = (stats.failedExecutions / stats.totalExecutions) * 100;
-      
+
       if (failureRate > 20) {
         this.eventEmitter.emit('scheduler.job.unhealthy', {
           jobId,
@@ -198,7 +183,8 @@ export class SchedulerMonitorService {
     }
 
     // Check execution time
-    if (stats.averageDuration > 300000) { // 5 minutes
+    if (stats.averageDuration > 300000) {
+      // 5 minutes
       this.logger.warn(`Job ${jobId} average execution time is ${stats.averageDuration}ms`);
     }
   }

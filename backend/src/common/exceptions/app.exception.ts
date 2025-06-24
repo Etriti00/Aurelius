@@ -20,11 +20,7 @@ export class AppException extends HttpException {
 
 export class ValidationException extends AppException {
   constructor(message: string, errors?: Record<string, string[]>) {
-    super(
-      message,
-      HttpStatus.BAD_REQUEST,
-      'VALIDATION_ERROR'
-    );
+    super(message, HttpStatus.BAD_REQUEST, 'VALIDATION_ERROR');
     if (errors) {
       (this.getResponse() as Record<string, unknown>).errors = errors;
     }
@@ -72,11 +68,7 @@ export class AIServiceException extends AppException {
 
 export class IntegrationException extends AppException {
   constructor(provider: string, message: string = 'Integration error') {
-    super(
-      `${provider} integration error: ${message}`,
-      HttpStatus.BAD_GATEWAY,
-      'INTEGRATION_ERROR'
-    );
+    super(`${provider} integration error: ${message}`, HttpStatus.BAD_GATEWAY, 'INTEGRATION_ERROR');
     (this.getResponse() as Record<string, unknown>).provider = provider;
   }
 }

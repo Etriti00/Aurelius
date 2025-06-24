@@ -1,16 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 @Injectable()
 export class PushNotificationService {
+  private readonly logger = new Logger(PushNotificationService.name);
+
   async sendPushNotification(
     userId: string,
     notification: {
       title: string;
       message: string;
       data?: any;
-    },
+    }
   ) {
     // TODO: Implement push notification logic
-    console.log(`Sending push notification to user ${userId}:`, notification);
+    this.logger.log(`Sending push notification to user ${userId}:`, notification);
   }
 }

@@ -28,7 +28,7 @@ export class BillingService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService
   ) {
     const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     if (!stripeSecretKey) {
@@ -36,16 +36,19 @@ export class BillingService {
     }
 
     this.stripe = new Stripe(stripeSecretKey, {
-      apiVersion: '2023-10-16',
+      apiVersion: '2025-05-28.basil',
     });
   }
 
-  async createCheckoutSession(userId: string, dto: CreateCheckoutDto): Promise<CheckoutResponseDto> {
+  async createCheckoutSession(
+    userId: string,
+    dto: CreateCheckoutDto
+  ): Promise<CheckoutResponseDto> {
     try {
       this.logger.log(`Creating checkout session for user ${userId} with price ${dto.priceId}`);
-      
+
       // Get or create Stripe customer
-      let customer = await this.getOrCreateStripeCustomer(userId);
+      const customer = await this.getOrCreateStripeCustomer(userId);
 
       // Create checkout session
       const session = await this.stripe.checkout.sessions.create({
@@ -58,7 +61,9 @@ export class BillingService {
           },
         ],
         mode: 'subscription',
-        success_url: `${this.configService.get('FRONTEND_URL')}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${this.configService.get(
+          'FRONTEND_URL'
+        )}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${this.configService.get('FRONTEND_URL')}/billing/cancelled`,
         metadata: {
           userId,
@@ -76,14 +81,21 @@ export class BillingService {
       };
     } catch (error) {
       this.logger.error(`Failed to create checkout session for user ${userId}`, error);
-      throw new Error(`Failed to create checkout session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create checkout session: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
   }
 
-  async createSubscription(userId: string, dto: CreateSubscriptionDto): Promise<SubscriptionResponseDto> {
+  async createSubscription(
+    userId: string,
+    dto: CreateSubscriptionDto
+  ): Promise<SubscriptionResponseDto> {
     try {
       this.logger.log(`Creating subscription for user ${userId}`);
-      
+
       // Get or create Stripe customer
       const customer = await this.getOrCreateStripeCustomer(userId);
 
@@ -105,20 +117,23 @@ export class BillingService {
         },
       });
 
+      // Retrieve the full subscription to get all fields
+      const fullSubscription = await this.stripe.subscriptions.retrieve(stripeSubscription.id);
+
       // Map price ID to tier
       const tier = this.getTierFromPriceId(dto.priceId);
-      
+
       // Create local subscription record
       const subscription = await this.prisma.subscription.create({
         data: {
           userId,
           tier,
-          status: this.mapStripeStatusToLocal(stripeSubscription.status),
+          status: this.mapStripeStatusToLocal(fullSubscription.status),
           stripeCustomerId: customer.id,
-          stripeSubscriptionId: stripeSubscription.id,
+          stripeSubscriptionId: fullSubscription.id,
           stripePriceId: dto.priceId,
-          currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
-          currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+          currentPeriodStart: new Date(fullSubscription.created * 1000),
+          currentPeriodEnd: new Date((fullSubscription.created + 2592000) * 1000), // 30 days from creation
           monthlyActionLimit: this.getActionLimit(tier),
           integrationLimit: this.getIntegrationLimit(tier),
           aiModelAccess: this.getAIModelAccess(tier),
@@ -140,7 +155,9 @@ export class BillingService {
       };
     } catch (error) {
       this.logger.error(`Failed to create subscription for user ${userId}`, error);
-      throw new Error(`Failed to create subscription: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create subscription: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -163,14 +180,17 @@ export class BillingService {
           id: `si_${Date.now()}`,
           priceId: subscription.stripePriceId,
           quantity: 1,
-        }
+        },
       ],
     };
   }
 
-  async updateSubscription(userId: string, dto: UpdateSubscriptionDto): Promise<SubscriptionResponseDto> {
+  async updateSubscription(
+    userId: string,
+    dto: UpdateSubscriptionDto
+  ): Promise<SubscriptionResponseDto> {
     const updateData: Record<string, any> = {};
-    
+
     if (dto.priceId) {
       const tier = this.getTierFromPriceId(dto.priceId);
       updateData.tier = tier;
@@ -181,7 +201,7 @@ export class BillingService {
       updateData.monthlyPrice = this.getMonthlyPrice(tier);
       updateData.overageRate = this.getOverageRate(tier);
     }
-    
+
     if (dto.cancelAtPeriodEnd !== undefined) {
       updateData.cancelAtPeriodEnd = dto.cancelAtPeriodEnd;
     }
@@ -201,12 +221,15 @@ export class BillingService {
           id: `si_${Date.now()}`,
           priceId: subscription.stripePriceId,
           quantity: 1,
-        }
+        },
       ],
     };
   }
 
-  async cancelSubscription(userId: string, dto: CancelSubscriptionDto): Promise<SubscriptionResponseDto> {
+  async cancelSubscription(
+    userId: string,
+    dto: CancelSubscriptionDto
+  ): Promise<SubscriptionResponseDto> {
     const subscription = await this.prisma.subscription.update({
       where: { userId },
       data: {
@@ -226,14 +249,19 @@ export class BillingService {
           id: `si_${Date.now()}`,
           priceId: subscription.stripePriceId,
           quantity: 1,
-        }
+        },
       ],
     };
   }
 
-  async createBillingPortalSession(userId: string, dto: CreateBillingPortalDto): Promise<BillingPortalResponseDto> {
-    this.logger.log(`Creating billing portal session for user ${userId} with return URL ${dto.returnUrl}`);
-    
+  async createBillingPortalSession(
+    userId: string,
+    dto: CreateBillingPortalDto
+  ): Promise<BillingPortalResponseDto> {
+    this.logger.log(
+      `Creating billing portal session for user ${userId} with return URL ${dto.returnUrl}`
+    );
+
     // In a real implementation, this would create a Stripe billing portal session
     const sessionId = `bps_${Date.now()}`;
     return {
@@ -246,13 +274,13 @@ export class BillingService {
 
   async recordUsage(userId: string, dto: RecordUsageDto): Promise<UsageResponseDto> {
     const timestamp = dto.timestamp || new Date();
-    
+
     // Get user's current billing period
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { subscription: true },
     });
-    
+
     if (!user || !user.subscription) {
       throw new Error('User or subscription not found');
     }
@@ -311,7 +339,7 @@ export class BillingService {
 
     usageLogs.forEach(log => {
       usageByAction[log.type] = (usageByAction[log.type] || 0) + 1;
-      
+
       switch (log.type) {
         case 'AI_REQUEST':
           totalAiRequests++;
@@ -330,7 +358,11 @@ export class BillingService {
     const percentageUsed = (totalUsage / subscription.monthlyActionLimit) * 100;
 
     // Generate daily usage trend (simplified)
-    const dailyUsage = this.generateDailyUsageTrend(usageLogs, subscription.currentPeriodStart, subscription.currentPeriodEnd);
+    const dailyUsage = this.generateDailyUsageTrend(
+      usageLogs,
+      subscription.currentPeriodStart,
+      subscription.currentPeriodEnd
+    );
 
     return {
       userId,
@@ -350,7 +382,7 @@ export class BillingService {
 
   async listInvoices(userId: string, query: ListInvoicesDto): Promise<InvoiceListResponseDto> {
     this.logger.log(`Listing invoices for user ${userId} with limit ${query.limit}`);
-    
+
     // In a real implementation, this would fetch from Stripe
     return {
       data: [],
@@ -361,7 +393,7 @@ export class BillingService {
 
   async listPaymentMethods(userId: string): Promise<ListPaymentMethodsResponseDto> {
     this.logger.log(`Listing payment methods for user ${userId}`);
-    
+
     // In a real implementation, this would fetch from Stripe
     return {
       data: [],
@@ -371,7 +403,7 @@ export class BillingService {
 
   async addPaymentMethod(userId: string, dto: AddPaymentMethodDto): Promise<PaymentMethodDto> {
     this.logger.log(`Adding payment method ${dto.paymentMethodId} for user ${userId}`);
-    
+
     // In a real implementation, this would create a payment method in Stripe
     return {
       id: dto.paymentMethodId,
@@ -389,19 +421,19 @@ export class BillingService {
 
   async removePaymentMethod(userId: string, paymentMethodId: string): Promise<void> {
     this.logger.log(`Removing payment method ${paymentMethodId} for user ${userId}`);
-    
+
     // In a real implementation, this would remove the payment method from Stripe
     // For now, we just log the operation
   }
 
   async handleWebhook(rawBody: Buffer, signature: string): Promise<void> {
     this.logger.log(`Processing webhook with signature ${signature.substring(0, 10)}...`);
-    
+
     // In a real implementation, this would verify the webhook signature
     // and process the event from Stripe
     const bodyString = rawBody.toString();
     this.logger.debug(`Webhook body length: ${bodyString.length} bytes`);
-    
+
     // Process the webhook event here
     // This is where you would handle subscription updates, payment confirmations, etc.
   }
@@ -449,46 +481,66 @@ export class BillingService {
 
   private getActionLimit(tier: string): number {
     switch (tier) {
-      case 'PRO': return 1000;
-      case 'MAX': return 3000;
-      case 'TEAMS': return 2000;
-      default: return 1000;
+      case 'PRO':
+        return 1000;
+      case 'MAX':
+        return 3000;
+      case 'TEAMS':
+        return 2000;
+      default:
+        return 1000;
     }
   }
 
   private getIntegrationLimit(tier: string): number {
     switch (tier) {
-      case 'PRO': return 3;
-      case 'MAX': return -1; // unlimited
-      case 'TEAMS': return -1; // unlimited
-      default: return 3;
+      case 'PRO':
+        return 3;
+      case 'MAX':
+        return -1; // unlimited
+      case 'TEAMS':
+        return -1; // unlimited
+      default:
+        return 3;
     }
   }
 
   private getAIModelAccess(tier: string): string[] {
     switch (tier) {
-      case 'PRO': return ['claude-3-haiku'];
-      case 'MAX': return ['claude-3-haiku', 'claude-3-5-sonnet'];
-      case 'TEAMS': return ['claude-3-haiku', 'claude-3-5-sonnet', 'claude-3-opus'];
-      default: return ['claude-3-haiku'];
+      case 'PRO':
+        return ['claude-3-haiku'];
+      case 'MAX':
+        return ['claude-3-haiku', 'claude-3-5-sonnet'];
+      case 'TEAMS':
+        return ['claude-3-haiku', 'claude-3-5-sonnet', 'claude-3-opus'];
+      default:
+        return ['claude-3-haiku'];
     }
   }
 
   private getMonthlyPrice(tier: string): number {
     switch (tier) {
-      case 'PRO': return 50;
-      case 'MAX': return 100;
-      case 'TEAMS': return 70;
-      default: return 50;
+      case 'PRO':
+        return 50;
+      case 'MAX':
+        return 100;
+      case 'TEAMS':
+        return 70;
+      default:
+        return 50;
     }
   }
 
   private getOverageRate(tier: string): number {
     switch (tier) {
-      case 'PRO': return 0.06;
-      case 'MAX': return 0.066;
-      case 'TEAMS': return 0.10;
-      default: return 0.06;
+      case 'PRO':
+        return 0.06;
+      case 'MAX':
+        return 0.066;
+      case 'TEAMS':
+        return 0.1;
+      default:
+        return 0.06;
     }
   }
 
@@ -502,12 +554,16 @@ export class BillingService {
     } else if (priceId.includes('team') || priceId.includes('enterprise')) {
       return 'TEAMS';
     }
-    
+
     // Default to PRO tier
     return 'PRO';
   }
 
-  private generateDailyUsageTrend(usageLogs: any[], periodStart: Date, periodEnd: Date): Array<{ date: Date; count: number }> {
+  private generateDailyUsageTrend(
+    usageLogs: any[],
+    periodStart: Date,
+    periodEnd: Date
+  ): Array<{ date: Date; count: number }> {
     const dailyUsage: Array<{ date: Date; count: number }> = [];
     const usageByDate: Record<string, number> = {};
 
@@ -552,12 +608,16 @@ export class BillingService {
       if (existingSubscription?.stripeCustomerId) {
         // Verify customer exists in Stripe
         try {
-          const customer = await this.stripe.customers.retrieve(existingSubscription.stripeCustomerId);
+          const customer = await this.stripe.customers.retrieve(
+            existingSubscription.stripeCustomerId
+          );
           if (!customer.deleted) {
             return customer as Stripe.Customer;
           }
         } catch (error) {
-          this.logger.warn(`Stripe customer ${existingSubscription.stripeCustomerId} not found, creating new one`);
+          this.logger.warn(
+            `Stripe customer ${existingSubscription.stripeCustomerId} not found, creating new one`
+          );
         }
       }
 
@@ -574,11 +634,15 @@ export class BillingService {
       return customer;
     } catch (error) {
       this.logger.error(`Failed to get or create Stripe customer for user ${userId}`, error);
-      throw new Error(`Failed to create customer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create customer: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
-  private mapStripeStatusToLocal(stripeStatus: string): 'ACTIVE' | 'CANCELED' | 'PAST_DUE' | 'TRIALING' | 'PAUSED' {
+  private mapStripeStatusToLocal(
+    stripeStatus: string
+  ): 'ACTIVE' | 'CANCELED' | 'PAST_DUE' | 'TRIALING' | 'PAUSED' {
     switch (stripeStatus) {
       case 'active':
         return 'ACTIVE';

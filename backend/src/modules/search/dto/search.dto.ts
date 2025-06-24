@@ -8,11 +8,11 @@ export class SearchDto {
   @IsString()
   query: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Number of results to return',
     minimum: 1,
     maximum: 100,
-    default: 20
+    default: 20,
   })
   @IsNumber()
   @Type(() => Number)
@@ -21,9 +21,9 @@ export class SearchDto {
   @Max(100)
   limit?: number = 20;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Offset for pagination',
-    minimum: 0
+    minimum: 0,
   })
   @IsNumber()
   @Type(() => Number)
@@ -31,11 +31,11 @@ export class SearchDto {
   @Min(0)
   offset?: number = 0;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Minimum similarity threshold',
     minimum: 0,
     maximum: 1,
-    default: 0.7
+    default: 0.7,
   })
   @IsNumber()
   @Type(() => Number)
@@ -60,9 +60,9 @@ export class SearchDto {
 }
 
 export class SearchByTypeDto extends SearchDto {
-  @ApiProperty({ 
+  @ApiProperty({
     enum: SearchableType,
-    description: 'Content type to search'
+    description: 'Content type to search',
   })
   @IsEnum(SearchableType)
   type: SearchableType;
@@ -78,11 +78,11 @@ export class SearchSuggestionsDto {
   @IsString()
   query: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Number of suggestions',
     minimum: 1,
     maximum: 10,
-    default: 5
+    default: 5,
   })
   @IsNumber()
   @Type(() => Number)

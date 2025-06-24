@@ -5,11 +5,7 @@ import { AIGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { EmailService } from '../../email/email.service';
 import { TasksService } from '../../tasks/tasks.service';
 import { CalendarService } from '../../calendar/calendar.service';
-import {
-  WorkflowAction,
-  ActionType,
-  ExecutedAction,
-} from '../interfaces';
+import { WorkflowAction, ActionType, ExecutedAction } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -25,7 +21,7 @@ export class ActionService {
     private emailService: EmailService,
     private tasksService: TasksService,
     private calendarService: CalendarService,
-    private eventEmitter: EventEmitter2,
+    private eventEmitter: EventEmitter2
   ) {
     this.registerActionHandlers();
   }
@@ -36,10 +32,10 @@ export class ActionService {
   async executeAction(
     userId: string,
     action: WorkflowAction,
-    parameters: Record<string, any>,
+    parameters: Record<string, any>
   ): Promise<ExecutedAction> {
     const startTime = Date.now();
-    
+
     try {
       // Validate parameters
       this.validateParameters(action, parameters);
@@ -77,7 +73,7 @@ export class ActionService {
       return executedAction;
     } catch (error: any) {
       this.logger.error(`Action execution failed: ${error.message}`);
-      
+
       const executedAction: ExecutedAction = {
         actionId: action.id,
         executedAt: new Date(),
@@ -103,7 +99,7 @@ export class ActionService {
    */
   async executeActions(
     userId: string,
-    actions: Array<{ action: WorkflowAction; parameters: Record<string, any> }>,
+    actions: Array<{ action: WorkflowAction; parameters: Record<string, any> }>
   ): Promise<ExecutedAction[]> {
     const results: ExecutedAction[] = [];
 
@@ -139,10 +135,7 @@ export class ActionService {
   /**
    * Action handlers
    */
-  private async handleCreateTask(
-    userId: string,
-    parameters: Record<string, any>,
-  ): Promise<any> {
+  private async handleCreateTask(userId: string, parameters: Record<string, any>): Promise<any> {
     const task = await this.tasksService.create(userId, {
       title: parameters.title,
       description: parameters.description,
@@ -158,12 +151,9 @@ export class ActionService {
     };
   }
 
-  private async handleUpdateTask(
-    userId: string,
-    parameters: Record<string, any>,
-  ): Promise<any> {
+  private async handleUpdateTask(userId: string, parameters: Record<string, any>): Promise<any> {
     const updates: any = {};
-    
+
     if (parameters.status) updates.status = parameters.status;
     if (parameters.priority) updates.priority = parameters.priority;
     if (parameters.dueDate) updates.dueDate = new Date(parameters.dueDate);
@@ -181,10 +171,7 @@ export class ActionService {
     return { results };
   }
 
-  private async handleSendEmail(
-    userId: string,
-    parameters: Record<string, any>,
-  ): Promise<any> {
+  private async handleSendEmail(userId: string, parameters: Record<string, any>): Promise<any> {
     // Generate email content if needed
     let content = parameters.content;
     if (parameters.generateContent) {
@@ -193,11 +180,11 @@ export class ActionService {
         where: { id: userId },
         include: { subscription: true },
       });
-      
+
       if (!user || !user.subscription) {
         throw new Error('User or subscription not found for AI content generation');
       }
-      
+
       const generated = await this.aiGateway.processRequest({
         prompt: `Write a professional email with subject: ${parameters.subject}\nContext: ${parameters.context}`,
         userId,
@@ -222,10 +209,7 @@ export class ActionService {
     };
   }
 
-  private async handleScheduleEvent(
-    userId: string,
-    parameters: Record<string, any>,
-  ): Promise<any> {
+  private async handleScheduleEvent(userId: string, parameters: Record<string, any>): Promise<any> {
     const event = await this.calendarService.createEvent(userId, {
       title: parameters.title,
       description: parameters.description,
@@ -244,7 +228,7 @@ export class ActionService {
 
   private async handleCreateReminder(
     userId: string,
-    parameters: Record<string, any>,
+    parameters: Record<string, any>
   ): Promise<any> {
     // Create a scheduled notification as a reminder
     const reminder = await this.prisma.notification.create({
@@ -275,17 +259,20 @@ export class ActionService {
 
   private async handleExecuteIntegration(
     userId: string,
-    parameters: Record<string, any>,
+    parameters: Record<string, any>
   ): Promise<any> {
     // This would call the appropriate integration service
     const integration = parameters.integration;
     const action = parameters.action;
 
     // Queue integration execution
-    const job = await this.queueService.addIntegrationSyncJob({ integrationId: integration, userId, action }, {
-      removeOnComplete: true,
-      removeOnFail: false,
-    });
+    const job = await this.queueService.addIntegrationSyncJob(
+      { integrationId: integration, userId, action },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+      }
+    );
 
     return {
       jobId: job.id,
@@ -297,10 +284,10 @@ export class ActionService {
 
   private async handleTriggerWorkflow(
     userId: string,
-    parameters: Record<string, any>,
+    parameters: Record<string, any>
   ): Promise<any> {
     const workflowId = parameters.workflowId || parameters.workflowType;
-    
+
     // Queue workflow execution
     const job = await this.queueService.addWorkflowJob({
       userId,
@@ -317,26 +304,26 @@ export class ActionService {
 
   private async handleGenerateContent(
     userId: string,
-    parameters: Record<string, any>,
+    parameters: Record<string, any>
   ): Promise<any> {
     const prompt = parameters.prompt || this.buildContentPrompt(parameters);
-    
+
     // Get user subscription info for AI gateway
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { subscription: true },
     });
-    
+
     if (!user || !user.subscription) {
       throw new Error('User or subscription not found for content generation');
     }
-    
+
     const response = await this.aiGateway.processRequest({
       prompt,
       userId,
       action: 'content-generation',
       userSubscription: { tier: user.subscription.tier },
-      metadata: { 
+      metadata: {
         type: 'content-generation',
       },
     });
@@ -366,16 +353,17 @@ export class ActionService {
     };
   }
 
-  private async handleAnalyzeData(
-    userId: string,
-    parameters: Record<string, any>,
-  ): Promise<any> {
+  private async handleAnalyzeData(userId: string, parameters: Record<string, any>): Promise<any> {
     const dataType = parameters.dataType;
     const timeRange = parameters.timeRange || '7d';
     const metricsRequested = parameters.metrics || [];
 
     // Log the metrics requested for potential future use
-    this.logger.debug(`Analyzing data for type ${dataType}, timeRange ${timeRange}, metrics: ${metricsRequested.join(', ')}`);
+    this.logger.debug(
+      `Analyzing data for type ${dataType}, timeRange ${timeRange}, metrics: ${metricsRequested.join(
+        ', '
+      )}`
+    );
 
     // Gather data based on type
     let data: any;
@@ -400,10 +388,7 @@ export class ActionService {
     };
   }
 
-  private async handleNotifyUser(
-    userId: string,
-    parameters: Record<string, any>,
-  ): Promise<any> {
+  private async handleNotifyUser(userId: string, parameters: Record<string, any>): Promise<any> {
     const notification = await this.prisma.notification.create({
       data: {
         userId,
@@ -433,28 +418,19 @@ export class ActionService {
   /**
    * Helper methods
    */
-  private validateParameters(
-    action: WorkflowAction,
-    parameters: Record<string, any>,
-  ): void {
+  private validateParameters(action: WorkflowAction, parameters: Record<string, any>): void {
     const required = action.parameters.required;
-    
+
     for (const [key, definition] of Object.entries(required)) {
       if (!(key in parameters)) {
-        throw new BusinessException(
-          `Missing required parameter: ${key}`,
-          'MISSING_PARAMETER',
-        );
+        throw new BusinessException(`Missing required parameter: ${key}`, 'MISSING_PARAMETER');
       }
 
       const value = parameters[key];
-      
+
       // Type validation
       if (definition.type === 'array' && !Array.isArray(value)) {
-        throw new BusinessException(
-          `Parameter ${key} must be an array`,
-          'INVALID_PARAMETER_TYPE',
-        );
+        throw new BusinessException(`Parameter ${key} must be an array`, 'INVALID_PARAMETER_TYPE');
       }
 
       // Additional validation
@@ -464,7 +440,7 @@ export class ActionService {
           if (!pattern.test(String(value))) {
             throw new BusinessException(
               `Parameter ${key} does not match required pattern`,
-              'INVALID_PARAMETER_PATTERN',
+              'INVALID_PARAMETER_PATTERN'
             );
           }
         }
@@ -472,24 +448,21 @@ export class ActionService {
         if (definition.validation.min !== undefined && Number(value) < definition.validation.min) {
           throw new BusinessException(
             `Parameter ${key} is below minimum value`,
-            'PARAMETER_BELOW_MIN',
+            'PARAMETER_BELOW_MIN'
           );
         }
 
         if (definition.validation.max !== undefined && Number(value) > definition.validation.max) {
           throw new BusinessException(
             `Parameter ${key} exceeds maximum value`,
-            'PARAMETER_EXCEEDS_MAX',
+            'PARAMETER_EXCEEDS_MAX'
           );
         }
       }
     }
   }
 
-  private async checkRequirements(
-    userId: string,
-    action: WorkflowAction,
-  ): Promise<void> {
+  private async checkRequirements(userId: string, action: WorkflowAction): Promise<void> {
     for (const requirement of action.requires) {
       switch (requirement.type) {
         case 'permission':
@@ -514,10 +487,7 @@ export class ActionService {
     this.logger.debug(`Checking permission for user ${userId} with scope ${scope}`);
     const hasPermission = true; // Placeholder
     if (!hasPermission) {
-      throw new BusinessException(
-        `User lacks required permission: ${scope}`,
-        'PERMISSION_DENIED',
-      );
+      throw new BusinessException(`User lacks required permission: ${scope}`, 'PERMISSION_DENIED');
     }
   }
 
@@ -533,7 +503,7 @@ export class ActionService {
     if (!integration) {
       throw new BusinessException(
         `Integration not connected: ${service}`,
-        'INTEGRATION_NOT_CONNECTED',
+        'INTEGRATION_NOT_CONNECTED'
       );
     }
   }
@@ -544,10 +514,7 @@ export class ActionService {
     this.logger.debug(`Checking data availability for user ${userId} with type ${dataType}`);
     const hasData = true; // Placeholder
     if (!hasData) {
-      throw new BusinessException(
-        `Required data not available: ${dataType}`,
-        'DATA_NOT_AVAILABLE',
-      );
+      throw new BusinessException(`Required data not available: ${dataType}`, 'DATA_NOT_AVAILABLE');
     }
   }
 
@@ -567,7 +534,7 @@ Additional requirements: ${parameters.requirements || 'None'}`;
 
   private async analyzeTaskData(userId: string, timeRange: string): Promise<any> {
     const startDate = this.getStartDate(timeRange);
-    
+
     const [total, completed, overdue] = await Promise.all([
       this.prisma.task.count({
         where: { userId, createdAt: { gte: startDate } },
@@ -594,7 +561,7 @@ Additional requirements: ${parameters.requirements || 'None'}`;
 
   private async analyzeEmailData(userId: string, timeRange: string): Promise<any> {
     const startDate = this.getStartDate(timeRange);
-    
+
     const [received, sent, threads] = await Promise.all([
       this.prisma.email.count({
         where: { userId, receivedAt: { gte: startDate } },
@@ -618,7 +585,7 @@ Additional requirements: ${parameters.requirements || 'None'}`;
   private async analyzeProductivityData(userId: string, timeRange: string): Promise<any> {
     const taskData = await this.analyzeTaskData(userId, timeRange);
     const emailData = await this.analyzeEmailData(userId, timeRange);
-    
+
     return {
       tasks: taskData,
       emails: emailData,
@@ -635,12 +602,12 @@ Additional requirements: ${parameters.requirements || 'None'}`;
   private getStartDate(timeRange: string): Date {
     const now = new Date();
     const match = timeRange.match(/(\d+)([dhwm])/);
-    
+
     if (!match) return now;
-    
+
     const [, value, unit] = match;
     const amount = parseInt(value);
-    
+
     switch (unit) {
       case 'd':
         return new Date(now.getTime() - amount * 24 * 60 * 60 * 1000);

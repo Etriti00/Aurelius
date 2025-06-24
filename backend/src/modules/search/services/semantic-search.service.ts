@@ -3,12 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { VectorService } from './vector.service';
 import { EmbeddingService } from './embedding.service';
 import { CacheService } from '../../cache/services/cache.service';
-import {
-  SearchResult,
-  VectorSearchOptions,
-  SearchResponse,
-  VectorDocument,
-} from '../interfaces';
+import { SearchResult, VectorSearchOptions, SearchResponse, VectorDocument } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 
 interface SemanticSearchContext {
@@ -29,7 +24,7 @@ export class SemanticSearchService {
     private prisma: PrismaService,
     private vectorService: VectorService,
     private embeddingService: EmbeddingService,
-    private cacheService: CacheService,
+    private cacheService: CacheService
   ) {}
 
   /**
@@ -38,7 +33,7 @@ export class SemanticSearchService {
   async search(
     query: string,
     context: SemanticSearchContext = {},
-    options: VectorSearchOptions = {},
+    options: VectorSearchOptions = {}
   ): Promise<SearchResponse> {
     const startTime = Date.now();
 
@@ -96,7 +91,7 @@ export class SemanticSearchService {
         'Semantic search failed',
         'SEMANTIC_SEARCH_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -109,7 +104,7 @@ export class SemanticSearchService {
     content: string,
     metadata: Record<string, any> = {},
     userId?: string,
-    type?: string,
+    type?: string
   ): Promise<void> {
     try {
       // Generate embedding
@@ -136,7 +131,7 @@ export class SemanticSearchService {
         'Failed to index content',
         'CONTENT_INDEX_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -151,7 +146,7 @@ export class SemanticSearchService {
       metadata?: Record<string, any>;
       userId?: string;
       type?: string;
-    }>,
+    }>
   ): Promise<void> {
     try {
       // Generate embeddings in batch
@@ -178,7 +173,7 @@ export class SemanticSearchService {
       // Invalidate caches
       const uniqueUsers = [...new Set(documents.map(d => d.userId).filter(Boolean))];
       const uniqueTypes = [...new Set(documents.map(d => d.type).filter(Boolean))];
-      
+
       for (const userId of uniqueUsers) {
         for (const type of uniqueTypes) {
           await this.invalidateSearchCaches(userId!, type!);
@@ -186,22 +181,14 @@ export class SemanticSearchService {
       }
     } catch (error: any) {
       this.logger.error(`Batch indexing failed: ${error.message}`);
-      throw new BusinessException(
-        'Batch indexing failed',
-        'BATCH_INDEX_FAILED',
-        undefined,
-        error,
-      );
+      throw new BusinessException('Batch indexing failed', 'BATCH_INDEX_FAILED', undefined, error);
     }
   }
 
   /**
    * Find similar documents
    */
-  async findSimilar(
-    documentId: string,
-    limit: number = 10,
-  ): Promise<SearchResult[]> {
+  async findSimilar(documentId: string, limit: number = 10): Promise<SearchResult[]> {
     try {
       // Get the document
       const document = await this.prisma.vectorEmbedding.findUnique({
@@ -213,15 +200,10 @@ export class SemanticSearchService {
       }
 
       // Search for similar documents
-      const results = await this.vectorService.searchSimilar(
-        document.embedding as number[],
-        {
-          limit: limit + 1, // +1 to exclude self
-          filters: [
-            { field: 'id', operator: 'neq' as any, value: documentId },
-          ],
-        },
-      );
+      const results = await this.vectorService.searchSimilar(document.embedding as number[], {
+        limit: limit + 1, // +1 to exclude self
+        filters: [{ field: 'id', operator: 'neq' as any, value: documentId }],
+      });
 
       return results.filter(r => r.id !== documentId).slice(0, limit);
     } catch (error: any) {
@@ -230,7 +212,7 @@ export class SemanticSearchService {
         'Failed to find similar documents',
         'FIND_SIMILAR_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -241,7 +223,7 @@ export class SemanticSearchService {
   private async hybridSearch(
     query: string,
     embedding: number[],
-    options: VectorSearchOptions,
+    options: VectorSearchOptions
   ): Promise<SearchResult[]> {
     // Perform vector search
     const vectorResults = await this.vectorService.searchSimilar(embedding, {
@@ -256,7 +238,7 @@ export class SemanticSearchService {
     const mergedResults = this.mergeSearchResults(
       vectorResults,
       keywordResults,
-      options.vectorWeight || this.hybridSearchWeight,
+      options.vectorWeight || this.hybridSearchWeight
     );
 
     return mergedResults.slice(0, options.limit || this.defaultSearchLimit);
@@ -267,7 +249,7 @@ export class SemanticSearchService {
    */
   private async keywordSearch(
     query: string,
-    options: VectorSearchOptions,
+    options: VectorSearchOptions
   ): Promise<SearchResult[]> {
     try {
       const searchQuery = `
@@ -287,10 +269,12 @@ export class SemanticSearchService {
       // Add filters
       let filterQuery = searchQuery;
       if (options.filters && options.filters.length > 0) {
-        const filterClauses = options.filters.map((filter) => {
-          params.push(filter.value);
-          return `"${filter.field}" = $${params.length}`;
-        }).join(' AND ');
+        const filterClauses = options.filters
+          .map(filter => {
+            params.push(filter.value);
+            return `"${filter.field}" = $${params.length}`;
+          })
+          .join(' AND ');
         filterQuery += ` AND ${filterClauses}`;
       }
 
@@ -321,7 +305,7 @@ export class SemanticSearchService {
   private mergeSearchResults(
     vectorResults: SearchResult[],
     keywordResults: SearchResult[],
-    vectorWeight: number,
+    vectorWeight: number
   ): SearchResult[] {
     const resultMap = new Map<string, SearchResult>();
     const keywordWeight = 1 - vectorWeight;
@@ -348,20 +332,17 @@ export class SemanticSearchService {
     }
 
     // Sort by combined score
-    return Array.from(resultMap.values())
-      .sort((a, b) => b.score - a.score);
+    return Array.from(resultMap.values()).sort((a, b) => b.score - a.score);
   }
 
   /**
    * Rerank results using a more sophisticated model
    */
-  private async rerankResults(
-    results: SearchResult[],
-  ): Promise<SearchResult[]> {
+  private async rerankResults(results: SearchResult[]): Promise<SearchResult[]> {
     // In a production system, this would use a specialized reranking model
     // For now, we'll just ensure the most relevant results are at the top
     // based on additional factors like recency, user interaction, etc.
-    
+
     return results.sort((a, b) => {
       // Prioritize by score
       let scoreA = a.score;
@@ -369,9 +350,11 @@ export class SemanticSearchService {
 
       // Boost recent content
       if (a.data.updatedAt && b.data.updatedAt) {
-        const daysSinceA = (Date.now() - new Date(a.data.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
-        const daysSinceB = (Date.now() - new Date(b.data.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
-        
+        const daysSinceA =
+          (Date.now() - new Date(a.data.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+        const daysSinceB =
+          (Date.now() - new Date(b.data.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+
         // Boost recent content (within 7 days)
         if (daysSinceA < 7) scoreA *= 1.1;
         if (daysSinceB < 7) scoreB *= 1.1;
@@ -437,7 +420,7 @@ export class SemanticSearchService {
   private generateCacheKey(
     query: string,
     context: SemanticSearchContext,
-    options: VectorSearchOptions,
+    options: VectorSearchOptions
   ): string {
     const key = {
       query,

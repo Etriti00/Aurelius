@@ -35,7 +35,7 @@ export class S3Service implements StorageProvider {
   constructor(private configService: ConfigService) {
     const awsRegion = this.configService.getOptional<string>('AWS_REGION');
     this.region = awsRegion !== undefined ? awsRegion : 'us-east-1';
-    
+
     const s3Bucket = this.configService.getOptional<string>('AWS_S3_BUCKET');
     this.defaultBucket = s3Bucket !== undefined ? s3Bucket : 'aurelius-storage';
 
@@ -48,11 +48,7 @@ export class S3Service implements StorageProvider {
     });
   }
 
-  async upload(
-    buffer: Buffer,
-    key: string,
-    options: UploadOptions = {},
-  ): Promise<StorageFile> {
+  async upload(buffer: Buffer, key: string, options: UploadOptions = {}): Promise<StorageFile> {
     try {
       const bucket = options.bucket || this.defaultBucket;
       const finalKey = this.buildKey(key, options);
@@ -95,7 +91,7 @@ export class S3Service implements StorageProvider {
         'Failed to upload file',
         'STORAGE_UPLOAD_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -103,7 +99,7 @@ export class S3Service implements StorageProvider {
   async uploadStream(
     stream: Readable,
     key: string,
-    options: UploadOptions = {},
+    options: UploadOptions = {}
   ): Promise<StorageFile> {
     try {
       const bucket = options.bucket || this.defaultBucket;
@@ -156,7 +152,7 @@ export class S3Service implements StorageProvider {
         'Failed to upload stream',
         'STORAGE_UPLOAD_STREAM_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -169,7 +165,7 @@ export class S3Service implements StorageProvider {
       });
 
       const response: GetObjectCommandOutput = await this.s3Client.send(command);
-      
+
       if (!response.Body) {
         throw new Error('Empty response body');
       }
@@ -179,7 +175,7 @@ export class S3Service implements StorageProvider {
       for await (const chunk of response.Body as any) {
         chunks.push(chunk);
       }
-      
+
       return Buffer.concat(chunks);
     } catch (error: any) {
       this.logger.error(`Failed to download file from S3: ${error.message}`);
@@ -187,7 +183,7 @@ export class S3Service implements StorageProvider {
         'Failed to download file',
         'STORAGE_DOWNLOAD_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -206,7 +202,7 @@ export class S3Service implements StorageProvider {
         'Failed to delete file',
         'STORAGE_DELETE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -228,10 +224,7 @@ export class S3Service implements StorageProvider {
     }
   }
 
-  async getSignedUrl(
-    key: string,
-    options: SignedUrlOptions = {},
-  ): Promise<string> {
+  async getSignedUrl(key: string, options: SignedUrlOptions = {}): Promise<string> {
     try {
       const command = new GetObjectCommand({
         Bucket: this.defaultBucket,
@@ -253,7 +246,7 @@ export class S3Service implements StorageProvider {
         'Failed to generate signed URL',
         'STORAGE_SIGNED_URL_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -269,7 +262,7 @@ export class S3Service implements StorageProvider {
       });
 
       const response = await this.s3Client.send(command);
-      
+
       const files: StorageFile[] = (response.Contents || []).map(item => ({
         id: uuidv4(),
         filename: item.Key?.split('/').pop() || '',
@@ -295,12 +288,7 @@ export class S3Service implements StorageProvider {
       };
     } catch (error: any) {
       this.logger.error(`Failed to list files from S3: ${error.message}`);
-      throw new BusinessException(
-        'Failed to list files',
-        'STORAGE_LIST_FAILED',
-        undefined,
-        error,
-      );
+      throw new BusinessException('Failed to list files', 'STORAGE_LIST_FAILED', undefined, error);
     }
   }
 
@@ -315,12 +303,7 @@ export class S3Service implements StorageProvider {
       await this.s3Client.send(command);
     } catch (error: any) {
       this.logger.error(`Failed to copy file in S3: ${error.message}`);
-      throw new BusinessException(
-        'Failed to copy file',
-        'STORAGE_COPY_FAILED',
-        undefined,
-        error,
-      );
+      throw new BusinessException('Failed to copy file', 'STORAGE_COPY_FAILED', undefined, error);
     }
   }
 
@@ -330,28 +313,23 @@ export class S3Service implements StorageProvider {
       await this.delete(sourceKey);
     } catch (error: any) {
       this.logger.error(`Failed to move file in S3: ${error.message}`);
-      throw new BusinessException(
-        'Failed to move file',
-        'STORAGE_MOVE_FAILED',
-        undefined,
-        error,
-      );
+      throw new BusinessException('Failed to move file', 'STORAGE_MOVE_FAILED', undefined, error);
     }
   }
 
   private buildKey(key: string, options: UploadOptions): string {
     const parts: string[] = [];
-    
+
     if (options.folder) {
       parts.push(options.folder.replace(/^\/|\/$/g, ''));
     }
-    
+
     if (options.filename) {
       parts.push(options.filename);
     } else {
       parts.push(key);
     }
-    
+
     return parts.join('/');
   }
 

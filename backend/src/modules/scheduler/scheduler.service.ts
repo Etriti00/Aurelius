@@ -27,7 +27,7 @@ export class SchedulerService {
     private prisma: PrismaService,
     private jobScheduler: JobSchedulerService,
     private jobExecutor: JobExecutorService,
-    private monitorService: SchedulerMonitorService,
+    private monitorService: SchedulerMonitorService
   ) {
     this.loadJobTemplates();
   }
@@ -41,7 +41,7 @@ export class SchedulerService {
     description: string,
     schedule: JobSchedule,
     action: JobAction,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, any>
   ): Promise<ScheduledJob> {
     try {
       const job: ScheduledJob = {
@@ -67,7 +67,7 @@ export class SchedulerService {
         'Failed to create scheduled job',
         'JOB_CREATE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -82,7 +82,7 @@ export class SchedulerService {
       name?: string;
       schedule?: Partial<JobSchedule>;
       action?: Partial<JobAction>;
-    },
+    }
   ): Promise<ScheduledJob> {
     const template = this.templates.get(templateId);
     if (!template) {
@@ -105,21 +105,18 @@ export class SchedulerService {
       template.description,
       schedule,
       action,
-      { templateId },
+      { templateId }
     );
   }
 
   /**
    * Get user jobs
    */
-  async getUserJobs(
-    userId: string,
-    filter?: JobFilter,
-  ): Promise<ScheduledJob[]> {
+  async getUserJobs(userId: string, filter?: JobFilter): Promise<ScheduledJob[]> {
     const jobs = await this.prisma.scheduledJob.findMany({
       where: {
         userId,
-        ...(filter?.type && { type: filter.type }),
+        ...(filter?.type != null && { type: filter.type }),
         ...(filter?.enabled !== undefined && { enabled: filter.enabled }),
         ...(filter?.startDate && { createdAt: { gte: filter.startDate } }),
         ...(filter?.endDate && { createdAt: { lte: filter.endDate } }),
@@ -157,7 +154,7 @@ export class SchedulerService {
       schedule?: JobSchedule;
       action?: JobAction;
       enabled?: boolean;
-    },
+    }
   ): Promise<ScheduledJob> {
     const job = await this.getJob(jobId, userId);
     if (!job) {
@@ -254,10 +251,7 @@ export class SchedulerService {
   /**
    * Bulk operation on jobs
    */
-  async bulkOperation(
-    userId: string,
-    operation: BulkJobOperation,
-  ): Promise<{ affected: number }> {
+  async bulkOperation(userId: string, operation: BulkJobOperation): Promise<{ affected: number }> {
     const jobs = await this.prisma.scheduledJob.findMany({
       where: {
         userId,
@@ -297,7 +291,7 @@ export class SchedulerService {
   async getJobExecutions(
     jobId: string,
     userId: string,
-    limit: number = 20,
+    limit: number = 20
   ): Promise<JobExecution[]> {
     // Verify job ownership
     const job = await this.getJob(jobId, userId);
@@ -349,11 +343,11 @@ export class SchedulerService {
    */
   getTemplates(category?: string): JobTemplate[] {
     const templates = Array.from(this.templates.values());
-    
+
     if (category) {
       return templates.filter(t => t.category === category);
     }
-    
+
     return templates;
   }
 
@@ -517,11 +511,13 @@ export class SchedulerService {
         method: 'execute',
       };
     }
-    return payload.action || {
-      type: 'custom_function' as any,
-      target: 'default',
-      method: 'execute',
-    };
+    return (
+      payload.action || {
+        type: 'custom_function' as any,
+        target: 'default',
+        method: 'execute',
+      }
+    );
   }
 
   private parseMetadata(payload: any): Record<string, any> {

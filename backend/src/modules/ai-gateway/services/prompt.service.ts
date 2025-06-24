@@ -39,7 +39,13 @@ Draft a complete email that:
         { name: 'recipient', type: 'string', required: true, description: 'Email recipient' },
         { name: 'subject', type: 'string', required: true, description: 'Email subject' },
         { name: 'context', type: 'string', required: true, description: 'Email context' },
-        { name: 'tone', type: 'string', required: false, defaultValue: 'professional', description: 'Email tone' },
+        {
+          name: 'tone',
+          type: 'string',
+          required: false,
+          defaultValue: 'professional',
+          description: 'Email tone',
+        },
       ],
       maxTokens: 500,
       temperature: 0.7,
@@ -104,7 +110,13 @@ Provide:
         { name: 'attendees', type: 'array', required: true, description: 'List of attendees' },
         { name: 'duration', type: 'string', required: true, description: 'Meeting duration' },
         { name: 'agenda', type: 'string', required: false, description: 'Meeting agenda' },
-        { name: 'recentInteractions', type: 'array', required: false, defaultValue: [], description: 'Recent interactions' },
+        {
+          name: 'recentInteractions',
+          type: 'array',
+          required: false,
+          defaultValue: [],
+          description: 'Recent interactions',
+        },
       ],
       maxTokens: 800,
       temperature: 0.6,
@@ -148,7 +160,12 @@ Provide:
         { name: 'completedTasks', type: 'array', required: true, description: 'Completed tasks' },
         { name: 'upcomingTasks', type: 'array', required: true, description: 'Upcoming tasks' },
         { name: 'meetings', type: 'array', required: true, description: 'Meetings attended' },
-        { name: 'emailCount', type: 'number', required: true, description: 'Number of emails processed' },
+        {
+          name: 'emailCount',
+          type: 'number',
+          required: true,
+          description: 'Number of emails processed',
+        },
       ],
       maxTokens: 1000,
       temperature: 0.7,
@@ -160,15 +177,13 @@ Provide:
   }
 
   async getTemplatesByCategory(category: PromptCategory): Promise<PromptTemplate[]> {
-    return Array.from(this.templates.values()).filter(
-      template => template.category === category,
-    );
+    return Array.from(this.templates.values()).filter(template => template.category === category);
   }
 
   async renderPrompt(
     templateId: string,
     variables: Record<string, any>,
-    context?: PromptContext,
+    context?: PromptContext
   ): Promise<string> {
     const template = await this.getTemplate(templateId);
     if (!template) {
@@ -186,7 +201,7 @@ Provide:
 
     // Simple template rendering (in production, use a proper template engine)
     let rendered = template.template;
-    
+
     // Replace variables
     Object.entries(data).forEach(([key, value]) => {
       const regex = new RegExp(`{{${key}}}`, 'g');
@@ -200,19 +215,21 @@ Provide:
       const arrayValue = data[arrayName as keyof typeof data];
       if (!Array.isArray(arrayValue)) return '';
       const array = arrayValue;
-      
-      return array.map(item => {
-        let itemContent = content;
-        if (typeof item === 'object') {
-          Object.entries(item).forEach(([key, value]) => {
-            const itemRegex = new RegExp(`{{this\.${key}}}`, 'g');
-            itemContent = itemContent.replace(itemRegex, String(value));
-          });
-        } else {
-          itemContent = itemContent.replace(/{{this}}/g, String(item));
-        }
-        return itemContent;
-      }).join('');
+
+      return array
+        .map(item => {
+          let itemContent = content;
+          if (typeof item === 'object') {
+            Object.entries(item).forEach(([key, value]) => {
+              const itemRegex = new RegExp(`{{this\.${key}}}`, 'g');
+              itemContent = itemContent.replace(itemRegex, String(value));
+            });
+          } else {
+            itemContent = itemContent.replace(/{{this}}/g, String(item));
+          }
+          return itemContent;
+        })
+        .join('');
     });
 
     return rendered;
@@ -220,16 +237,16 @@ Provide:
 
   async createCustomTemplate(
     userId: string,
-    template: Omit<PromptTemplate, 'id'>,
+    template: Omit<PromptTemplate, 'id'>
   ): Promise<PromptTemplate> {
     // Store custom templates in database
     this.logger.debug(`Creating custom template for user ${userId}`);
     const id = `custom-${userId}-${Date.now()}`;
     const newTemplate = { ...template, id };
-    
+
     // Store in memory
     this.templates.set(id, newTemplate);
-    
+
     // Store user activity in database for tracking
     try {
       await this.prisma.activityLog.create({
@@ -241,25 +258,26 @@ Provide:
           metadata: {
             templateId: id,
             category: template.category,
-            templateName: template.name
-          }
-        }
+            templateName: template.name,
+          },
+        },
       });
     } catch (error) {
       this.logger.warn('Failed to log template creation activity', error);
     }
-    
+
     return newTemplate;
   }
 
   async getUserTemplates(userId: string): Promise<PromptTemplate[]> {
     // Fetch user's custom templates from database
     this.logger.debug(`Fetching templates for user ${userId}`);
-    
+
     // Filter memory templates for this user
-    const userTemplates = Array.from(this.templates.values())
-      .filter(template => template.id.includes(`custom-${userId}-`));
-    
+    const userTemplates = Array.from(this.templates.values()).filter(template =>
+      template.id.includes(`custom-${userId}-`)
+    );
+
     // Log user activity for analytics
     try {
       await this.prisma.activityLog.create({
@@ -270,14 +288,14 @@ Provide:
           description: `Accessed prompt templates (${userTemplates.length} custom templates)`,
           metadata: {
             templateCount: userTemplates.length,
-            templateIds: userTemplates.map(t => t.id)
-          }
-        }
+            templateIds: userTemplates.map(t => t.id),
+          },
+        },
       });
     } catch (error) {
       this.logger.warn('Failed to log template access activity', error);
     }
-    
+
     return userTemplates;
   }
 }

@@ -36,7 +36,7 @@ export class VoiceAnalyticsService {
   constructor(
     private prisma: PrismaService,
     private cacheService: CacheService,
-    private eventEmitter: EventEmitter2,
+    private eventEmitter: EventEmitter2
   ) {}
 
   /**
@@ -44,10 +44,10 @@ export class VoiceAnalyticsService {
    */
   async getVoiceMetrics(
     userId: string,
-    timeRange: 'day' | 'week' | 'month' = 'week',
+    timeRange: 'day' | 'week' | 'month' = 'week'
   ): Promise<VoiceMetrics> {
     const cacheKey = `voice:metrics:${userId}:${timeRange}`;
-    
+
     const cached = await this.cacheService.get<VoiceMetrics>(cacheKey);
     if (cached) {
       return cached;
@@ -78,10 +78,7 @@ export class VoiceAnalyticsService {
   /**
    * Get voice insights
    */
-  async getVoiceInsights(
-    userId: string,
-    limit: number = 10,
-  ): Promise<VoiceInsights> {
+  async getVoiceInsights(userId: string, limit: number = 10): Promise<VoiceInsights> {
     try {
       const interactions = await this.prisma.voiceInteraction.findMany({
         where: { userId },
@@ -143,7 +140,7 @@ export class VoiceAnalyticsService {
       responseTime: number;
       success: boolean;
       error?: string;
-    },
+    }
   ): Promise<void> {
     try {
       // Emit event for real-time analytics
@@ -170,7 +167,7 @@ export class VoiceAnalyticsService {
    */
   async getCommandPatterns(
     userId: string,
-    days: number = 7,
+    days: number = 7
   ): Promise<Array<{ pattern: string; frequency: number; examples: string[] }>> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
@@ -189,7 +186,10 @@ export class VoiceAnalyticsService {
     // Group by intent and analyze patterns
     const patternsByIntent = new Map<string, string[]>();
     interactions.forEach(({ inputText, metadata }) => {
-      const intent = typeof metadata === 'object' && metadata !== null ? (metadata as any).intent : null;
+      const intent =
+        typeof metadata === 'object' && metadata !== null
+          ? (metadata as Record<string, string>).intent
+          : null;
       if (!intent || !inputText) return;
       if (!patternsByIntent.has(intent)) {
         patternsByIntent.set(intent, []);
@@ -214,11 +214,7 @@ export class VoiceAnalyticsService {
   /**
    * Generate voice usage report
    */
-  async generateUsageReport(
-    userId: string,
-    startDate: Date,
-    endDate: Date,
-  ): Promise<any> {
+  async generateUsageReport(userId: string, startDate: Date, endDate: Date): Promise<any> {
     const interactions = await this.prisma.voiceInteraction.findMany({
       where: {
         userId,
@@ -299,7 +295,7 @@ export class VoiceAnalyticsService {
       .map(h => h.hour);
 
     // Calculate satisfaction (based on confidence and success rate)
-    const successRate = 1 - (errorCount / interactions.length);
+    const successRate = 1 - errorCount / interactions.length;
     const avgConfidence = totalConfidence / interactions.length;
     const satisfactionScore = (successRate * 0.7 + avgConfidence * 0.3) * 100;
 
@@ -355,10 +351,7 @@ export class VoiceAnalyticsService {
 
   private calculateAverageLength(interactions: any[]): number {
     if (interactions.length === 0) return 0;
-    const totalLength = interactions.reduce(
-      (sum, i) => sum + (i.transcript?.length || 0),
-      0,
-    );
+    const totalLength = interactions.reduce((sum, i) => sum + (i.transcript?.length || 0), 0);
     return Math.round(totalLength / interactions.length);
   }
 
@@ -376,16 +369,16 @@ export class VoiceAnalyticsService {
       responseTimeImprovement: this.calculateImprovement(
         previousWeek.averageResponseTime,
         currentWeek.averageResponseTime,
-        true, // Lower is better
+        true // Lower is better
       ),
       confidenceImprovement: this.calculateImprovement(
         previousWeek.averageConfidence,
-        currentWeek.averageConfidence,
+        currentWeek.averageConfidence
       ),
       errorRateChange: this.calculateImprovement(
         previousWeek.errorRate,
         currentWeek.errorRate,
-        true, // Lower is better
+        true // Lower is better
       ),
     };
   }
@@ -393,18 +386,14 @@ export class VoiceAnalyticsService {
   private calculateImprovement(
     previous: number,
     current: number,
-    lowerIsBetter: boolean = false,
+    lowerIsBetter: boolean = false
   ): number {
     if (previous === 0) return 0;
     const change = ((current - previous) / previous) * 100;
     return lowerIsBetter ? -change : change;
   }
 
-  private async getMetricsForPeriod(
-    userId: string,
-    startDate: Date,
-    endDate: Date,
-  ): Promise<any> {
+  private async getMetricsForPeriod(userId: string, startDate: Date, endDate: Date): Promise<any> {
     const interactions = await this.prisma.voiceInteraction.findMany({
       where: {
         userId,
@@ -421,7 +410,7 @@ export class VoiceAnalyticsService {
   private extractCommonPhrases(transcripts: string[]): string[] {
     // Simple common phrase extraction
     const phraseCounts = new Map<string, number>();
-    
+
     transcripts.forEach(transcript => {
       // Extract 3-5 word phrases
       const words = transcript.toLowerCase().split(/\s+/);
@@ -442,7 +431,7 @@ export class VoiceAnalyticsService {
 
   private groupByDay(interactions: any[]): Record<string, number> {
     const groups: Record<string, number> = {};
-    
+
     interactions.forEach(interaction => {
       const date = new Date(interaction.createdAt).toISOString().split('T')[0];
       groups[date] = (groups[date] || 0) + 1;
@@ -453,7 +442,7 @@ export class VoiceAnalyticsService {
 
   private calculateHourlyDistribution(interactions: any[]): number[] {
     const hourCounts = new Array(24).fill(0);
-    
+
     interactions.forEach(interaction => {
       const hour = new Date(interaction.createdAt).getHours();
       hourCounts[hour]++;
@@ -465,7 +454,7 @@ export class VoiceAnalyticsService {
   private async getTopQueries(
     userId: string,
     startDate: Date,
-    endDate: Date,
+    endDate: Date
   ): Promise<Array<{ query: string; count: number }>> {
     const interactions = await this.prisma.voiceInteraction.findMany({
       where: {
@@ -508,25 +497,17 @@ export class VoiceAnalyticsService {
     }
   }
 
-  private async updateUserVoiceStats(
-    userId: string,
-    interaction: any,
-  ): Promise<void> {
+  private async updateUserVoiceStats(userId: string, interaction: any): Promise<void> {
     // Update user voice preferences based on usage patterns
     // This could include updating preferred voice settings, language, etc.
     this.logger.debug(`Updating voice stats for user ${userId} with interaction ${interaction.id}`);
-    
+
     // In a complete implementation, this would update user preferences
     // based on the interaction patterns, voice settings, language usage, etc.
   }
 
-  private async handleLowConfidenceInteraction(
-    userId: string,
-    interaction: any,
-  ): Promise<void> {
+  private async handleLowConfidenceInteraction(userId: string, interaction: any): Promise<void> {
     // Log and potentially notify about low confidence interactions
-    this.logger.warn(
-      `Low confidence interaction for user ${userId}: ${interaction.confidence}`,
-    );
+    this.logger.warn(`Low confidence interaction for user ${userId}: ${interaction.confidence}`);
   }
 }

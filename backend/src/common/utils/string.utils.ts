@@ -25,7 +25,7 @@ export class StringUtils {
    * Convert camelCase to snake_case
    */
   static camelToSnake(str: string): string {
-    return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+    return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
   }
 
   /**
@@ -64,10 +64,10 @@ export class StringUtils {
     if (str.length <= showChars) {
       return str;
     }
-    
+
     const visiblePart = str.slice(-showChars);
     const maskedPart = maskChar.repeat(str.length - showChars);
-    
+
     return maskedPart + visiblePart;
   }
 
@@ -77,11 +77,11 @@ export class StringUtils {
   static random(length: number, charset?: string): string {
     const chars = charset || 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
-    
+
     for (let i = 0; i < length; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    
+
     return result;
   }
 
@@ -103,11 +103,11 @@ export class StringUtils {
   static parseQueryString(queryString: string): Record<string, string> {
     const params = new URLSearchParams(queryString);
     const result: Record<string, string> = {};
-    
+
     params.forEach((value, key) => {
       result[key] = value;
     });
-    
+
     return result;
   }
 
@@ -116,13 +116,13 @@ export class StringUtils {
    */
   static toQueryString(obj: Record<string, any>): string {
     const params = new URLSearchParams();
-    
+
     Object.entries(obj).forEach(([key, value]) => {
       if (value !== null && value !== undefined) {
         params.append(key, String(value));
       }
     });
-    
+
     return params.toString();
   }
 

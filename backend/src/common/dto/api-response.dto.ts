@@ -102,14 +102,17 @@ export class PaginatedResponseDto<T = any> {
 
   constructor(data: Partial<PaginatedResponseDto<T>>) {
     this.data = data.data !== undefined ? data.data : [];
-    this.pagination = data.pagination !== undefined ? data.pagination : {
-      page: 1,
-      limit: 10,
-      total: 0,
-      totalPages: 0,
-      hasNext: false,
-      hasPrev: false,
-    };
+    this.pagination =
+      data.pagination !== undefined
+        ? data.pagination
+        : {
+            page: 1,
+            limit: 10,
+            total: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false,
+          };
   }
 }
 

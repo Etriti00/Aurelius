@@ -140,17 +140,14 @@ export class VoiceService {
     }
   }
 
-  async speechToText(request: {
-    audioBuffer: Buffer;
-    language?: string;
-  }): Promise<string> {
+  async speechToText(request: { audioBuffer: Buffer; language?: string }): Promise<string> {
     try {
       const result = await this.speechToTextService.transcribe({
         audioBuffer: request.audioBuffer,
         language: request.language || 'en',
         model: 'whisper-1',
       });
-      
+
       return result.text;
     } catch (error) {
       this.logger.error('Speech-to-text conversion failed', error);
@@ -161,7 +158,7 @@ export class VoiceService {
   async textToSpeech(request: TextToSpeechRequest): Promise<{ audioUrl: string }> {
     try {
       const optimizedText = this.optimizeTextForSpeech(request.text);
-      
+
       const audioResponse = await this.elevenLabsService.generateAudio({
         text: optimizedText,
         voiceId: request.voiceId || 'rachel',
@@ -175,13 +172,15 @@ export class VoiceService {
       });
 
       // Save audio file and return URL
-      const filename = `voice-response-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.mp3`;
+      const filename = `voice-response-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}.mp3`;
       const filepath = `./uploads/voice/${filename}`;
-      
+
       fs.writeFileSync(filepath, audioResponse.audioBuffer);
-      
+
       const audioUrl = `/uploads/voice/${filename}`;
-      
+
       return { audioUrl };
     } catch (error) {
       this.logger.error('Text-to-speech conversion failed', error);
@@ -192,7 +191,7 @@ export class VoiceService {
   async getAvailableVoices(): Promise<any[]> {
     try {
       const voices = await this.elevenLabsService.getAvailableVoices();
-      
+
       // Filter and format voices for the frontend
       return voices
         .filter((voice: any) => voice.category === 'premade' || voice.category === 'cloned')
@@ -274,18 +273,18 @@ export class VoiceService {
 
       // Build context from user's current state
       const contextParts: string[] = [];
-      
+
       // Type assertion for _count
       const userWithCount = user as any;
-      
+
       if (userWithCount._count?.tasks > 0) {
         contextParts.push(`User has ${userWithCount._count.tasks} active tasks`);
       }
-      
+
       if (userWithCount._count?.emailThreads > 0) {
         contextParts.push(`${userWithCount._count.emailThreads} unread emails`);
       }
-      
+
       if (userWithCount._count?.events > 0) {
         contextParts.push(`${userWithCount._count.events} upcoming calendar events`);
       }
@@ -320,16 +319,16 @@ export class VoiceService {
 
   private analyzeIntent(transcript: string): string {
     const text = transcript.toLowerCase();
-    
+
     // Define intent patterns
     const intentPatterns = {
-      'schedule': /\b(schedule|book|calendar|meeting|appointment)\b/,
-      'email': /\b(email|send|draft|message)\b/,
-      'task': /\b(task|todo|remind|deadline)\b/,
-      'query': /\b(what|when|where|who|how|why)\b/,
-      'search': /\b(find|search|look)\b/,
-      'status': /\b(status|update|progress)\b/,
-      'help': /\b(help|assistance|support)\b/,
+      schedule: /\b(schedule|book|calendar|meeting|appointment)\b/,
+      email: /\b(email|send|draft|message)\b/,
+      task: /\b(task|todo|remind|deadline)\b/,
+      query: /\b(what|when|where|who|how|why)\b/,
+      search: /\b(find|search|look)\b/,
+      status: /\b(status|update|progress)\b/,
+      help: /\b(help|assistance|support)\b/,
     };
 
     for (const [intent, pattern] of Object.entries(intentPatterns)) {
@@ -347,10 +346,10 @@ export class VoiceService {
     // Adjust based on transcript clarity
     if (transcript.length > 10) confidence += 0.1;
     if (transcript.length > 50) confidence += 0.1;
-    
+
     // Adjust based on intent specificity
     if (intent !== 'general') confidence += 0.1;
-    
+
     // Check for command words
     const commandWords = ['please', 'can you', 'could you', 'would you'];
     if (commandWords.some(word => transcript.toLowerCase().includes(word))) {
@@ -361,20 +360,22 @@ export class VoiceService {
   }
 
   private optimizeTextForSpeech(text: string): string {
-    return text
-      // Remove markdown and formatting
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      .replace(/\*(.*?)\*/g, '$1')
-      .replace(/`(.*?)`/g, '$1')
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      // Clean up whitespace
-      .replace(/\s+/g, ' ')
-      .trim()
-      // Add natural pauses
-      .replace(/\./g, '.')
-      .replace(/,/g, ',')
-      // Limit length for better speech synthesis
-      .substring(0, 2000);
+    return (
+      text
+        // Remove markdown and formatting
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/`(.*?)`/g, '$1')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        // Clean up whitespace
+        .replace(/\s+/g, ' ')
+        .trim()
+        // Add natural pauses
+        .replace(/\./g, '.')
+        .replace(/,/g, ',')
+        // Limit length for better speech synthesis
+        .substring(0, 2000)
+    );
   }
 
   private getVoiceSystemPrompt(): string {

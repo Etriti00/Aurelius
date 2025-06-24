@@ -20,8 +20,16 @@ export class EncryptionService {
       throw new Error('ENCRYPTION_KEY is required');
     }
 
-    // Ensure the master key is the correct length
-    this.masterKey = this.deriveKey(masterKeyString, 'aurelius-master-salt');
+    // Get or generate a unique salt for this instance
+    const saltString = this.configService.get<string>('ENCRYPTION_SALT');
+    if (!saltString) {
+      throw new Error(
+        'ENCRYPTION_SALT is required. Generate a unique salt using: openssl rand -hex 32'
+      );
+    }
+
+    // Ensure the master key is the correct length using the unique salt
+    this.masterKey = this.deriveKey(masterKeyString, saltString);
   }
 
   /**
@@ -31,32 +39,25 @@ export class EncryptionService {
     try {
       // Generate random IV
       const iv = crypto.randomBytes(this.ivLength);
-      
+
       // Create cipher
       const cipher = crypto.createCipheriv(this.algorithm, this.masterKey, iv);
-      
+
       // Encrypt data
-      const encrypted = Buffer.concat([
-        cipher.update(plaintext, 'utf8'),
-        cipher.final(),
-      ]);
-      
+      const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+
       // Get auth tag
       const tag = cipher.getAuthTag();
-      
+
       // Combine IV + tag + encrypted data
       const combined = Buffer.concat([iv, tag, encrypted]);
-      
+
       // Return base64 encoded
       return combined.toString('base64');
-    } catch (error: any) {
-      this.logger.error(`Encryption failed: ${error.message}`);
-      throw new BusinessException(
-        'Failed to encrypt data',
-        'ENCRYPTION_FAILED',
-        undefined,
-        error,
-      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Encryption failed: ${errorMessage}`);
+      throw new BusinessException('Failed to encrypt data', 'ENCRYPTION_FAILED', undefined, error);
     }
   }
 
@@ -67,31 +68,24 @@ export class EncryptionService {
     try {
       // Decode from base64
       const combined = Buffer.from(encryptedData, 'base64');
-      
+
       // Extract components
       const iv = combined.slice(0, this.ivLength);
       const tag = combined.slice(this.ivLength, this.ivLength + this.tagLength);
       const encrypted = combined.slice(this.ivLength + this.tagLength);
-      
+
       // Create decipher
       const decipher = crypto.createDecipheriv(this.algorithm, this.masterKey, iv);
       decipher.setAuthTag(tag);
-      
+
       // Decrypt data
-      const decrypted = Buffer.concat([
-        decipher.update(encrypted),
-        decipher.final(),
-      ]);
-      
+      const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+
       return decrypted.toString('utf8');
-    } catch (error: any) {
-      this.logger.error(`Decryption failed: ${error.message}`);
-      throw new BusinessException(
-        'Failed to decrypt data',
-        'DECRYPTION_FAILED',
-        undefined,
-        error,
-      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Decryption failed: ${errorMessage}`);
+      throw new BusinessException('Failed to decrypt data', 'DECRYPTION_FAILED', undefined, error);
     }
   }
 
@@ -102,10 +96,10 @@ export class EncryptionService {
     try {
       // Generate salt
       const salt = crypto.randomBytes(this.saltLength);
-      
+
       // Hash password with PBKDF2
       const hash = await this.pbkdf2(password, salt, this.pbkdf2Iterations, 64);
-      
+
       // Combine salt + iterations + hash
       const combined = Buffer.concat([
         salt,
@@ -113,16 +107,12 @@ export class EncryptionService {
         Buffer.from(':'),
         hash,
       ]);
-      
+
       return combined.toString('base64');
-    } catch (error: any) {
-      this.logger.error(`Password hashing failed: ${error.message}`);
-      throw new BusinessException(
-        'Failed to hash password',
-        'HASHING_FAILED',
-        undefined,
-        error,
-      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Password hashing failed: ${errorMessage}`);
+      throw new BusinessException('Failed to hash password', 'HASHING_FAILED', undefined, error);
     }
   }
 
@@ -133,21 +123,22 @@ export class EncryptionService {
     try {
       // Decode from base64
       const combined = Buffer.from(hash, 'base64');
-      
+
       // Extract components
       const salt = combined.slice(0, this.saltLength);
       const remainder = combined.slice(this.saltLength).toString();
       const [iterationsStr, hashStr] = remainder.split(':');
       const iterations = parseInt(iterationsStr, 10);
       const storedHash = Buffer.from(hashStr, 'utf8');
-      
+
       // Hash the provided password
       const providedHash = await this.pbkdf2(password, salt, iterations, storedHash.length);
-      
+
       // Compare hashes
       return crypto.timingSafeEqual(storedHash, providedHash);
-    } catch (error: any) {
-      this.logger.error(`Password verification failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Password verification failed: ${errorMessage}`);
       return false;
     }
   }
@@ -177,7 +168,8 @@ export class EncryptionService {
    * Generate HMAC
    */
   generateHmac(data: string, key?: string): string {
-    const hmacKey = key || this.configService.get<string>('HMAC_KEY') || this.masterKey.toString('hex');
+    const hmacKey =
+      key || this.configService.get<string>('HMAC_KEY') || this.masterKey.toString('hex');
     return crypto.createHmac('sha256', hmacKey).update(data).digest('hex');
   }
 
@@ -186,10 +178,7 @@ export class EncryptionService {
    */
   verifyHmac(data: string, hmac: string, key?: string): boolean {
     const expectedHmac = this.generateHmac(data, key);
-    return crypto.timingSafeEqual(
-      Buffer.from(hmac, 'hex'),
-      Buffer.from(expectedHmac, 'hex'),
-    );
+    return crypto.timingSafeEqual(Buffer.from(hmac, 'hex'), Buffer.from(expectedHmac, 'hex'));
   }
 
   /**
@@ -214,10 +203,10 @@ export class EncryptionService {
   async createDataKey(): Promise<{ key: string; encryptedKey: string }> {
     // Generate new data key
     const dataKey = crypto.randomBytes(this.keyLength);
-    
+
     // Encrypt data key with master key
     const encryptedKey = await this.encrypt(dataKey.toString('base64'));
-    
+
     return {
       key: dataKey.toString('base64'),
       encryptedKey,
@@ -236,13 +225,7 @@ export class EncryptionService {
    * Derive key from password
    */
   private deriveKey(password: string, salt: string): Buffer {
-    return crypto.pbkdf2Sync(
-      password,
-      salt,
-      this.pbkdf2Iterations,
-      this.keyLength,
-      'sha256',
-    );
+    return crypto.pbkdf2Sync(password, salt, this.pbkdf2Iterations, this.keyLength, 'sha256');
   }
 
   /**
@@ -252,7 +235,7 @@ export class EncryptionService {
     password: string,
     salt: Buffer,
     iterations: number,
-    keylen: number,
+    keylen: number
   ): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       crypto.pbkdf2(password, salt, iterations, keylen, 'sha256', (err, derivedKey) => {
@@ -265,31 +248,35 @@ export class EncryptionService {
   /**
    * Sanitize sensitive data for logging
    */
-  sanitizeForLogging(data: any): any {
+  sanitizeForLogging<T>(data: T): T {
     if (typeof data !== 'object' || data === null) {
       return data;
     }
 
-    const sensitiveKeys = [
-      'password',
-      'token',
-      'apiKey',
-      'secret',
-      'credential',
-      'auth',
-      'key',
-    ];
+    const sensitiveKeys = ['password', 'token', 'apiKey', 'secret', 'credential', 'auth', 'key'];
 
-    const sanitized = Array.isArray(data) ? [...data] : { ...data };
+    if (Array.isArray(data)) {
+      return data.map(item =>
+        typeof item === 'object' && item !== null ? this.sanitizeForLogging(item) : item
+      ) as T;
+    }
 
-    for (const key in sanitized) {
-      if (sensitiveKeys.some(sensitive => key.toLowerCase().includes(sensitive))) {
-        sanitized[key] = '[REDACTED]';
-      } else if (typeof sanitized[key] === 'object') {
-        sanitized[key] = this.sanitizeForLogging(sanitized[key]);
+    const sanitized: Record<string, unknown> = {};
+
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        const value = (data as Record<string, unknown>)[key];
+
+        if (sensitiveKeys.some(sensitive => key.toLowerCase().includes(sensitive))) {
+          sanitized[key] = '[REDACTED]';
+        } else if (typeof value === 'object' && value !== null) {
+          sanitized[key] = this.sanitizeForLogging(value);
+        } else {
+          sanitized[key] = value;
+        }
       }
     }
 
-    return sanitized;
+    return sanitized as T;
   }
 }

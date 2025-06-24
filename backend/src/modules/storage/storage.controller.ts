@@ -60,14 +60,14 @@ export class StorageController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({ maxSize: 50 * 1024 * 1024 }), // 50MB
-          new FileTypeValidator({ 
+          new FileTypeValidator({
             fileType: /(jpg|jpeg|png|gif|webp|svg|pdf|txt|csv|json|docx|xlsx|pptx)$/,
           }),
         ],
-      }),
+      })
     )
     file: Express.Multer.File,
-    @Body() dto: UploadFileDto,
+    @Body() dto: UploadFileDto
   ): Promise<FileResponseDto> {
     const uploadedFile = await this.storageService.uploadFile(
       user.id,
@@ -78,7 +78,7 @@ export class StorageController {
         folder: dto.folder,
         public: dto.public,
         metadata: dto.metadata,
-      },
+      }
     );
 
     return this.mapToFileResponse(uploadedFile);
@@ -97,22 +97,16 @@ export class StorageController {
         validators: [
           new MaxFileSizeValidator({ maxSize: 50 * 1024 * 1024 }), // 50MB per file
         ],
-      }),
+      })
     )
     files: Express.Multer.File[],
-    @Body() dto: UploadMultipleFilesDto,
+    @Body() dto: UploadMultipleFilesDto
   ): Promise<FileResponseDto[]> {
     const uploadPromises = files.map(file =>
-      this.storageService.uploadFile(
-        user.id,
-        file.originalname,
-        file.buffer,
-        file.mimetype,
-        {
-          folder: dto.folder,
-          public: dto.public,
-        },
-      ),
+      this.storageService.uploadFile(user.id, file.originalname, file.buffer, file.mimetype, {
+        folder: dto.folder,
+        public: dto.public,
+      })
     );
 
     const uploadedFiles = await Promise.all(uploadPromises);
@@ -126,7 +120,7 @@ export class StorageController {
     @CurrentUser() user: any,
     @Query('prefix') prefix?: string,
     @Query('limit') limit?: number,
-    @Query('continuationToken') continuationToken?: string,
+    @Query('continuationToken') continuationToken?: string
   ): Promise<FileListResponseDto> {
     const options: StorageListOptions = {
       prefix,
@@ -135,7 +129,7 @@ export class StorageController {
     };
 
     const result = await this.storageService.listFiles(user.id, options);
-    
+
     return {
       files: result.files.map(file => this.mapToFileResponse(file)),
       folders: result.folders,
@@ -159,13 +153,16 @@ export class StorageController {
       storageLimit: limit,
       storageLimitFormatted: this.formatBytes(limit),
       usagePercentage: (stats.totalSize / limit) * 100,
-      byType: Object.entries(stats.byType).reduce((acc, [type, data]) => {
-        acc[type] = {
-          ...data,
-          percentage: (data.size / stats.totalSize) * 100,
-        };
-        return acc;
-      }, {} as Record<string, any>),
+      byType: Object.entries(stats.byType).reduce(
+        (acc, [type, data]) => {
+          acc[type] = {
+            ...data,
+            percentage: (data.size / stats.totalSize) * 100,
+          };
+          return acc;
+        },
+        {} as Record<string, any>
+      ),
       lastUpdated: new Date(),
     };
   }
@@ -173,12 +170,9 @@ export class StorageController {
   @Get(':id')
   @ApiOperation({ summary: 'Get file details' })
   @ApiResponse({ status: 200, type: FileResponseDto })
-  async getFile(
-    @CurrentUser() user: any,
-    @Param('id') fileId: string,
-  ): Promise<FileResponseDto> {
+  async getFile(@CurrentUser() user: any, @Param('id') fileId: string): Promise<FileResponseDto> {
     const file = await this.storageService.getFile(fileId, user.id);
-    
+
     if (!file) {
       throw new BadRequestException('File not found');
     }
@@ -192,17 +186,13 @@ export class StorageController {
   async getSignedUrl(
     @CurrentUser() user: any,
     @Param('id') fileId: string,
-    @Query() query: GetSignedUrlDto,
+    @Query() query: GetSignedUrlDto
   ): Promise<SignedUrlResponseDto> {
-    const url = await this.storageService.getSignedUrl(
-      fileId,
-      user.id,
-      {
-        expiresIn: query.expiresIn,
-        responseContentType: query.responseContentType,
-        responseContentDisposition: query.responseContentDisposition,
-      },
-    );
+    const url = await this.storageService.getSignedUrl(fileId, user.id, {
+      expiresIn: query.expiresIn,
+      responseContentType: query.responseContentType,
+      responseContentDisposition: query.responseContentDisposition,
+    });
 
     return {
       url,
@@ -216,11 +206,11 @@ export class StorageController {
   async getImageUrl(
     @CurrentUser() user: any,
     @Param('id') fileId: string,
-    @Query() query: ImageTransformDto,
+    @Query() query: ImageTransformDto
   ): Promise<ImageUrlResponseDto> {
     // Verify user owns the file
     await this.storageService.getFile(fileId, user.id);
-    
+
     const url = await this.storageService.getImageUrl(fileId, {
       width: query.width,
       height: query.height,
@@ -243,10 +233,7 @@ export class StorageController {
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a file' })
   @ApiResponse({ status: 204 })
-  async deleteFile(
-    @CurrentUser() user: any,
-    @Param('id') fileId: string,
-  ): Promise<void> {
+  async deleteFile(@CurrentUser() user: any, @Param('id') fileId: string): Promise<void> {
     await this.storageService.deleteFile(fileId, user.id);
   }
 
@@ -270,11 +257,11 @@ export class StorageController {
 
   private formatBytes(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
-    
+
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 }

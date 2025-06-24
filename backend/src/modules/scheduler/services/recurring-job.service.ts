@@ -11,7 +11,7 @@ export class RecurringJobService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
-    private notificationsService: NotificationsService,
+    private notificationsService: NotificationsService
   ) {}
 
   /**
@@ -143,7 +143,7 @@ export class RecurringJobService {
       for (const event of events) {
         try {
           await this.generateMeetingPreparation(event);
-          
+
           // Note: Meeting preparation sent (no field to track this in current schema)
         } catch (error) {
           this.logger.error(`Failed to prepare meeting ${event.id}: ${error}`);
@@ -192,7 +192,7 @@ export class RecurringJobService {
 
       this.logger.log(
         `Cleanup complete: ${deletedNotifications.count} notifications, ` +
-        `${deletedExecutions.count} job executions, ${deletedLogs.count} activity logs`,
+          `${deletedExecutions.count} job executions, ${deletedLogs.count} activity logs`
       );
     } catch (error: any) {
       this.logger.error(`Data cleanup job failed: ${error.message}`);
@@ -398,11 +398,11 @@ export class RecurringJobService {
     if (!dueDate) {
       return 'soon';
     }
-    
+
     const now = new Date();
     const diff = dueDate.getTime() - now.getTime();
     const minutes = Math.floor(diff / (1000 * 60));
-    
+
     if (minutes < 60) {
       return `${minutes} minutes`;
     } else {
@@ -411,10 +411,7 @@ export class RecurringJobService {
     }
   }
 
-  private async calculateWeeklyProductivity(
-    userId: string,
-    since: Date,
-  ): Promise<number> {
+  private async calculateWeeklyProductivity(userId: string, since: Date): Promise<number> {
     const [totalTasks, completedTasks] = await Promise.all([
       this.prisma.task.count({
         where: { userId, createdAt: { gte: since } },
@@ -427,10 +424,7 @@ export class RecurringJobService {
     return totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
   }
 
-  private async generateWeeklyInsights(
-    userId: string,
-    since: Date,
-  ): Promise<string[]> {
+  private async generateWeeklyInsights(userId: string, since: Date): Promise<string[]> {
     const insights: string[] = [];
 
     // Most productive day

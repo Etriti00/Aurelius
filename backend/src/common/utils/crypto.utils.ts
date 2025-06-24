@@ -15,23 +15,14 @@ export class CryptoUtils {
   static encrypt(text: string, secretKey: string): string {
     const iv = crypto.randomBytes(this.IV_LENGTH);
     const salt = crypto.randomBytes(this.SALT_LENGTH);
-    
-    const key = crypto.pbkdf2Sync(
-      secretKey,
-      salt,
-      this.ITERATIONS,
-      this.KEY_LENGTH,
-      'sha256',
-    );
+
+    const key = crypto.pbkdf2Sync(secretKey, salt, this.ITERATIONS, this.KEY_LENGTH, 'sha256');
 
     const cipher = crypto.createCipheriv(this.ALGORITHM, key, iv);
-    const encrypted = Buffer.concat([
-      cipher.update(text, 'utf8'),
-      cipher.final(),
-    ]);
-    
+    const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
+
     const tag = cipher.getAuthTag();
-    
+
     return Buffer.concat([salt, iv, tag, encrypted]).toString('base64');
   }
 
@@ -40,27 +31,16 @@ export class CryptoUtils {
    */
   static decrypt(encryptedText: string, secretKey: string): string {
     const buffer = Buffer.from(encryptedText, 'base64');
-    
+
     const salt = buffer.subarray(0, this.SALT_LENGTH);
-    const iv = buffer.subarray(
-      this.SALT_LENGTH,
-      this.SALT_LENGTH + this.IV_LENGTH,
-    );
+    const iv = buffer.subarray(this.SALT_LENGTH, this.SALT_LENGTH + this.IV_LENGTH);
     const tag = buffer.subarray(
       this.SALT_LENGTH + this.IV_LENGTH,
-      this.SALT_LENGTH + this.IV_LENGTH + this.TAG_LENGTH,
+      this.SALT_LENGTH + this.IV_LENGTH + this.TAG_LENGTH
     );
-    const encrypted = buffer.subarray(
-      this.SALT_LENGTH + this.IV_LENGTH + this.TAG_LENGTH,
-    );
+    const encrypted = buffer.subarray(this.SALT_LENGTH + this.IV_LENGTH + this.TAG_LENGTH);
 
-    const key = crypto.pbkdf2Sync(
-      secretKey,
-      salt,
-      this.ITERATIONS,
-      this.KEY_LENGTH,
-      'sha256',
-    );
+    const key = crypto.pbkdf2Sync(secretKey, salt, this.ITERATIONS, this.KEY_LENGTH, 'sha256');
 
     const decipher = crypto.createDecipheriv(this.ALGORITHM, key, iv);
     decipher.setAuthTag(tag);
@@ -96,11 +76,11 @@ export class CryptoUtils {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     const randomBytes = crypto.randomBytes(length);
     const result = new Array(length);
-    
+
     for (let i = 0; i < length; i++) {
       result[i] = chars[randomBytes[i] % chars.length];
     }
-    
+
     return result.join('');
   }
 
@@ -130,9 +110,6 @@ export class CryptoUtils {
    */
   static verifyHmac(data: string, secret: string, hmac: string): boolean {
     const expectedHmac = this.generateHmac(data, secret);
-    return crypto.timingSafeEqual(
-      Buffer.from(expectedHmac),
-      Buffer.from(hmac),
-    );
+    return crypto.timingSafeEqual(Buffer.from(expectedHmac), Buffer.from(hmac));
   }
 }

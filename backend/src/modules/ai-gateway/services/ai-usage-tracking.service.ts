@@ -23,8 +23,8 @@ interface UsageStats {
 }
 
 @Injectable()
-export class UsageTrackingService {
-  private readonly logger = new Logger(UsageTrackingService.name);
+export class AIUsageTrackingService {
+  private readonly logger = new Logger(AIUsageTrackingService.name);
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -58,7 +58,7 @@ export class UsageTrackingService {
 
   async getUserUsageStats(userId: string, startDate?: Date, endDate?: Date): Promise<UsageStats> {
     const whereClause: any = { userId };
-    
+
     if (startDate || endDate) {
       whereClause.createdAt = {};
       if (startDate) whereClause.createdAt.gte = startDate;
@@ -82,14 +82,15 @@ export class UsageTrackingService {
     }
 
     const totalActions = usageLogs.length;
-    const totalCost = usageLogs.reduce((sum, log) => sum + log.totalCost.toNumber(), 0);
+    const totalCost = usageLogs.reduce((sum: number, log) => sum + log.totalCost.toNumber(), 0);
     const totalTokens = usageLogs.reduce(
-      (sum, log) => sum + log.inputTokens + log.outputTokens,
+      (sum: number, log) => sum + log.inputTokens + log.outputTokens,
       0
     );
     const cacheHits = usageLogs.filter(log => log.cacheHit).length;
     const cacheHitRate = (cacheHits / totalActions) * 100;
-    const avgDuration = usageLogs.reduce((sum, log) => sum + log.duration, 0) / totalActions;
+    const avgDuration =
+      usageLogs.reduce((sum: number, log) => sum + log.duration, 0) / totalActions;
 
     const modelBreakdown: Record<string, number> = {};
     const actionBreakdown: Record<string, number> = {};
@@ -142,7 +143,7 @@ export class UsageTrackingService {
 
   async getSystemUsageStats(startDate?: Date, endDate?: Date): Promise<any> {
     const whereClause: any = {};
-    
+
     if (startDate || endDate) {
       whereClause.createdAt = {};
       if (startDate) whereClause.createdAt.gte = startDate;

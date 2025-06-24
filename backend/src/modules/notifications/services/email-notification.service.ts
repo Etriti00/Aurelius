@@ -11,7 +11,7 @@ export class EmailNotificationService {
       title: string;
       message: string;
       type: string;
-    },
+    }
   ) {
     // Queue email sending job
     await this.queueService.addEmailJob({

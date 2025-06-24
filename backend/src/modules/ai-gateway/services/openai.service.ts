@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '../../config/config.service';
+import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { AIRequestOptions, AIResponse, AIStreamResponse } from '../interfaces';
 import { AIException } from '../../../common/exceptions';
@@ -12,7 +12,7 @@ export class OpenAIService {
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    
+
     if (apiKey) {
       this.client = new OpenAI({ apiKey });
     } else {
@@ -40,7 +40,7 @@ export class OpenAIService {
       throw new AIException(
         `Failed to generate embedding: ${errorMessage}`,
         'text-embedding-3-small',
-        { originalError: errorMessage },
+        { originalError: errorMessage }
       );
     }
   }
@@ -64,22 +64,19 @@ export class OpenAIService {
       throw new AIException(
         `Failed to generate batch embeddings: ${errorMessage}`,
         'text-embedding-3-small',
-        { originalError: errorMessage },
+        { originalError: errorMessage }
       );
     }
   }
 
-  async generateResponse(
-    prompt: string,
-    options: AIRequestOptions = {},
-  ): Promise<AIResponse> {
+  async generateResponse(prompt: string, options: AIRequestOptions = {}): Promise<AIResponse> {
     if (!this.client) {
       throw new AIException('OpenAI client not initialized', options.model);
     }
 
     const model = options.model || this.defaultModel;
     const startTime = Date.now();
-    
+
     try {
       const response = await this.client.chat.completions.create({
         model,
@@ -103,7 +100,7 @@ export class OpenAIService {
 
       const processingTime = Date.now() - startTime;
       const usage = response.usage!;
-      
+
       return {
         content: response.choices[0].message.content || '',
         model,
@@ -121,24 +118,19 @@ export class OpenAIService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`OpenAI API error: ${errorMessage}`, error);
-      throw new AIException(
-        `Failed to generate response: ${errorMessage}`,
-        model,
-        { originalError: errorMessage },
-      );
+      throw new AIException(`Failed to generate response: ${errorMessage}`, model, {
+        originalError: errorMessage,
+      });
     }
   }
 
-  async generateStream(
-    prompt: string,
-    options: AIRequestOptions = {},
-  ): Promise<AIStreamResponse> {
+  async generateStream(prompt: string, options: AIRequestOptions = {}): Promise<AIStreamResponse> {
     if (!this.client) {
       throw new AIException('OpenAI client not initialized', options.model);
     }
 
     const model = options.model || this.defaultModel;
-    
+
     try {
       const stream = await this.client.chat.completions.create({
         model,
@@ -166,11 +158,9 @@ export class OpenAIService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`OpenAI streaming error: ${errorMessage}`, error);
-      throw new AIException(
-        `Failed to generate stream: ${errorMessage}`,
-        model,
-        { originalError: errorMessage },
-      );
+      throw new AIException(`Failed to generate stream: ${errorMessage}`, model, {
+        originalError: errorMessage,
+      });
     }
   }
 
@@ -183,10 +173,10 @@ export class OpenAIService {
     };
 
     const modelPricing = pricing[model] || { input: 10, output: 30 };
-    
+
     const inputCost = (usage.prompt_tokens / 1_000_000) * modelPricing.input;
     const outputCost = (usage.completion_tokens / 1_000_000) * modelPricing.output;
-    
+
     return Number((inputCost + outputCost).toFixed(6));
   }
 

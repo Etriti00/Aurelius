@@ -23,9 +23,7 @@ export class RateLimitService {
   private readonly logger = new Logger(RateLimitService.name);
   private readonly defaultConfig: RateLimitConfig;
 
-  constructor(
-    private cacheService: CacheService,
-  ) {
+  constructor(private cacheService: CacheService) {
     this.defaultConfig = {
       windowMs: 15 * 60 * 1000, // 15 minutes
       max: 100, // 100 requests per window
@@ -38,7 +36,7 @@ export class RateLimitService {
    */
   async checkLimit(
     key: string,
-    config: RateLimitConfig = this.defaultConfig,
+    config: RateLimitConfig = this.defaultConfig
   ): Promise<RateLimitResult> {
     const limitKey = `ratelimit:${key}`;
     const countKey = `${limitKey}:count`;
@@ -75,7 +73,7 @@ export class RateLimitService {
       const currentCount = count || 0;
       if (currentCount >= config.max) {
         const retryAfter = Math.ceil((resetTime - now) / 1000);
-        
+
         return {
           allowed: false,
           limit: config.max,
@@ -112,7 +110,7 @@ export class RateLimitService {
   async checkApiLimit(
     userId: string,
     endpoint: string,
-    tier: 'PRO' | 'MAX' | 'TEAMS' = 'PRO',
+    tier: 'PRO' | 'MAX' | 'TEAMS' = 'PRO'
   ): Promise<RateLimitResult> {
     const limits = {
       PRO: { requests: 1000, window: 60 * 60 * 1000 }, // 1000/hour
@@ -133,7 +131,10 @@ export class RateLimitService {
   /**
    * Check auth rate limit
    */
-  async checkAuthLimit(identifier: string, action: 'login' | 'register' | 'reset'): Promise<RateLimitResult> {
+  async checkAuthLimit(
+    identifier: string,
+    action: 'login' | 'register' | 'reset'
+  ): Promise<RateLimitResult> {
     const configs: Record<string, RateLimitConfig> = {
       login: {
         windowMs: 15 * 60 * 1000, // 15 minutes
@@ -161,7 +162,7 @@ export class RateLimitService {
    */
   async checkAiLimit(
     userId: string,
-    subscription: { tier: 'PRO' | 'MAX' | 'TEAMS'; aiActionsRemaining: number },
+    subscription: { tier: 'PRO' | 'MAX' | 'TEAMS'; aiActionsRemaining: number }
   ): Promise<RateLimitResult> {
     // Check monthly AI action limit
     if (subscription.aiActionsRemaining <= 0) {
@@ -214,7 +215,7 @@ export class RateLimitService {
 
     // Check total upload size
     const sizeKey = `upload:size:${userId}`;
-    const currentSize = await this.cacheService.get<number>(sizeKey) || 0;
+    const currentSize = (await this.cacheService.get<number>(sizeKey)) || 0;
     const maxSize = 100 * 1024 * 1024; // 100MB per hour
 
     if (currentSize + fileSize > maxSize) {
@@ -228,11 +229,7 @@ export class RateLimitService {
     }
 
     // Update size counter
-    await this.cacheService.set(
-      sizeKey,
-      currentSize + fileSize,
-      uploadCountConfig.windowMs / 1000,
-    );
+    await this.cacheService.set(sizeKey, currentSize + fileSize, uploadCountConfig.windowMs / 1000);
 
     return {
       allowed: true,
@@ -256,7 +253,10 @@ export class RateLimitService {
   /**
    * Get rate limit status without incrementing
    */
-  async getStatus(key: string, config: RateLimitConfig = this.defaultConfig): Promise<RateLimitResult> {
+  async getStatus(
+    key: string,
+    config: RateLimitConfig = this.defaultConfig
+  ): Promise<RateLimitResult> {
     const limitKey = `ratelimit:${key}`;
     const countKey = `${limitKey}:count`;
     const resetKey = `${limitKey}:reset`;
@@ -313,7 +313,7 @@ export class RateLimitService {
   async applyDynamicLimit(
     key: string,
     baseConfig: RateLimitConfig,
-    loadFactor: number = 1,
+    loadFactor: number = 1
   ): Promise<RateLimitResult> {
     // Adjust limits based on system load
     const adjustedConfig: RateLimitConfig = {

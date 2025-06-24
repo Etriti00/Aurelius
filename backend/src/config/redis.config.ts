@@ -6,7 +6,7 @@ export default registerAs('redis', () => ({
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
   password: process.env.REDIS_PASSWORD,
   db: parseInt(process.env.REDIS_DB || '0', 10),
-  
+
   // Connection Options
   connectTimeout: parseInt(process.env.REDIS_CONNECT_TIMEOUT || '10000', 10),
   commandTimeout: parseInt(process.env.REDIS_COMMAND_TIMEOUT || '5000', 10),
@@ -14,14 +14,14 @@ export default registerAs('redis', () => ({
     maxRetriesPerRequest: parseInt(process.env.REDIS_MAX_RETRIES || '3', 10),
     retryDelayMs: parseInt(process.env.REDIS_RETRY_DELAY || '1000', 10),
   },
-  
+
   // Cache Configuration
   cache: {
     ttl: parseInt(process.env.CACHE_TTL || '300', 10), // 5 minutes default
     max: parseInt(process.env.CACHE_MAX_ITEMS || '1000', 10),
     checkPeriod: parseInt(process.env.CACHE_CHECK_PERIOD || '120', 10), // 2 minutes
   },
-  
+
   // Cache Namespaces
   namespaces: {
     user: 'user:',
@@ -34,7 +34,7 @@ export default registerAs('redis', () => ({
     session: 'session:',
     lock: 'lock:',
   },
-  
+
   // Bull Queue Configuration
   queue: {
     defaultJobOptions: {
@@ -47,12 +47,15 @@ export default registerAs('redis', () => ({
       },
     },
   },
-  
+
   // Redis Cluster (if applicable)
-  cluster: process.env.REDIS_CLUSTER === 'true' ? {
-    nodes: process.env.REDIS_CLUSTER_NODES?.split(',') || [],
-    redisOptions: {
-      password: process.env.REDIS_PASSWORD,
-    },
-  } : null,
+  cluster:
+    process.env.REDIS_CLUSTER === 'true'
+      ? {
+          nodes: process.env.REDIS_CLUSTER_NODES?.split(',') || [],
+          redisOptions: {
+            password: process.env.REDIS_PASSWORD,
+          },
+        }
+      : null,
 }));

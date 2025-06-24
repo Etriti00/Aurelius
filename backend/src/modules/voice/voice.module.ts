@@ -7,11 +7,7 @@ import { extname } from 'path';
 
 import { VoiceController } from './voice.controller';
 import { VoiceService } from './voice.service';
-import {
-  ElevenLabsService,
-  SpeechToTextService,
-  VoiceAnalyticsService,
-} from './services';
+import { ElevenLabsService, SpeechToTextService, VoiceAnalyticsService } from './services';
 import { AIGatewayModule } from '../ai-gateway/ai-gateway.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CacheModule } from '../cache/cache.module';
@@ -28,7 +24,7 @@ import { AppConfigModule } from '../config/config.module';
       storage: diskStorage({
         destination: './uploads/voice',
         filename: (req: Express.Request, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
           // req parameter required by multer interface but unused for this simple filename generation
           void req; // Explicitly mark as intentionally unused
           callback(null, `voice-${uniqueSuffix}${extname(file.originalname)}`);

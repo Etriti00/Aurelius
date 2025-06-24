@@ -76,7 +76,7 @@ export class AuditLogService {
   constructor(
     private prisma: PrismaService,
     private encryptionService: EncryptionService,
-    private eventEmitter: EventEmitter2,
+    private eventEmitter: EventEmitter2
   ) {}
 
   /**
@@ -121,7 +121,7 @@ export class AuditLogService {
     userId: string,
     ipAddress: string,
     userAgent: string,
-    method: string,
+    method: string
   ): Promise<void> {
     await this.log({
       userId,
@@ -141,7 +141,7 @@ export class AuditLogService {
     email: string,
     ipAddress: string,
     userAgent: string,
-    reason: string,
+    reason: string
   ): Promise<void> {
     await this.log({
       action: AuditAction.LOGIN_FAILED,
@@ -164,7 +164,7 @@ export class AuditLogService {
     resource: string,
     resourceId: string,
     action: 'read' | 'create' | 'update' | 'delete',
-    details?: Record<string, any>,
+    details?: Record<string, any>
   ): Promise<void> {
     const actionMap = {
       read: AuditAction.DATA_READ,
@@ -190,7 +190,7 @@ export class AuditLogService {
     userId: string | undefined,
     alertType: string,
     details: Record<string, any>,
-    ipAddress?: string,
+    ipAddress?: string
   ): Promise<void> {
     await this.log({
       userId,
@@ -222,10 +222,10 @@ export class AuditLogService {
     const where: Prisma.AuditLogWhereInput = {};
 
     if (filters.userId) where.userId = filters.userId;
-    if (filters.action) where.action = filters.action;
+    if (filters.action != null) where.action = filters.action;
     if (filters.resource) where.resource = filters.resource;
     if (filters.success !== undefined) where.success = filters.success;
-    
+
     if (filters.startDate || filters.endDate) {
       where.timestamp = {};
       if (filters.startDate) where.timestamp.gte = filters.startDate;
@@ -244,12 +244,10 @@ export class AuditLogService {
 
     // Decrypt IP addresses
     const decryptedLogs = await Promise.all(
-      logs.map(async (log) => ({
+      logs.map(async log => ({
         ...log,
-        ipAddress: log.ipAddress
-          ? await this.encryptionService.decrypt(log.ipAddress)
-          : null,
-      })),
+        ipAddress: log.ipAddress ? await this.encryptionService.decrypt(log.ipAddress) : null,
+      }))
     );
 
     return { logs: decryptedLogs, total };
@@ -258,10 +256,7 @@ export class AuditLogService {
   /**
    * Get user activity summary
    */
-  async getUserActivitySummary(
-    userId: string,
-    days: number = 30,
-  ): Promise<any> {
+  async getUserActivitySummary(userId: string, days: number = 30): Promise<any> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -290,7 +285,7 @@ export class AuditLogService {
     // Count actions by type
     logs.forEach(log => {
       summary.actionsByType[log.action] = (summary.actionsByType[log.action] || 0) + 1;
-      
+
       const day = log.timestamp.toISOString().split('T')[0];
       summary.activityByDay[day] = (summary.activityByDay[day] || 0) + 1;
     });
@@ -312,11 +307,9 @@ export class AuditLogService {
     });
 
     if (recentFailures > 5) {
-      await this.logSecurityAlert(
-        userId,
-        'MULTIPLE_LOGIN_FAILURES',
-        { failureCount: recentFailures },
-      );
+      await this.logSecurityAlert(userId, 'MULTIPLE_LOGIN_FAILURES', {
+        failureCount: recentFailures,
+      });
       return true;
     }
 
@@ -334,22 +327,16 @@ export class AuditLogService {
 
     // Check for rapid API access
     if (recentActions.length > 1000) {
-      await this.logSecurityAlert(
-        userId,
-        'EXCESSIVE_API_USAGE',
-        { actionCount: recentActions.length },
-      );
+      await this.logSecurityAlert(userId, 'EXCESSIVE_API_USAGE', {
+        actionCount: recentActions.length,
+      });
       return true;
     }
 
     // Check for access from multiple IPs
     const uniqueIps = new Set(recentActions.map(a => a.ipAddress).filter(Boolean));
     if (uniqueIps.size > 5) {
-      await this.logSecurityAlert(
-        userId,
-        'MULTIPLE_IP_ACCESS',
-        { ipCount: uniqueIps.size },
-      );
+      await this.logSecurityAlert(userId, 'MULTIPLE_IP_ACCESS', { ipCount: uniqueIps.size });
       return true;
     }
 
@@ -382,10 +369,7 @@ export class AuditLogService {
   /**
    * Generate compliance report
    */
-  async generateComplianceReport(
-    startDate: Date,
-    endDate: Date,
-  ): Promise<any> {
+  async generateComplianceReport(startDate: Date, endDate: Date): Promise<any> {
     const logs = await this.prisma.auditLog.findMany({
       where: {
         timestamp: {
@@ -482,11 +466,12 @@ export class AuditLogService {
   private maskEmail(email: string): string {
     const [localPart, domain] = email.split('@');
     if (!domain) return '***';
-    
-    const maskedLocal = localPart.length > 2
-      ? localPart[0] + '*'.repeat(localPart.length - 2) + localPart[localPart.length - 1]
-      : '***';
-    
+
+    const maskedLocal =
+      localPart.length > 2
+        ? localPart[0] + '*'.repeat(localPart.length - 2) + localPart[localPart.length - 1]
+        : '***';
+
     return `${maskedLocal}@${domain}`;
   }
 }

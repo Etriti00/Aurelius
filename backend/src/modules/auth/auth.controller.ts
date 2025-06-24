@@ -88,7 +88,9 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Token refreshed successfully', type: Object })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
-  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto): Promise<Omit<AuthResponse, 'user'>> {
+  async refreshToken(
+    @Body() refreshTokenDto: RefreshTokenDto
+  ): Promise<Omit<AuthResponse, 'user'>> {
     const tokens = await this.authService.refreshTokens(refreshTokenDto.refreshToken);
     return tokens;
   }
@@ -106,10 +108,10 @@ export class AuthController {
     if (refreshTokenDto?.refreshToken) {
       await this.authService.revokeRefreshToken(refreshTokenDto.refreshToken);
     }
-    
+
     // Optionally revoke all user tokens
     await this.authService.revokeAllUserTokens(user.id);
-    
+
     return { message: 'Logout successful' };
   }
 

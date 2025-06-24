@@ -32,14 +32,14 @@ export interface User {
 export interface RequestUser {
   id: string;
   email: string;
-  name?: string;
+  name?: string | null;
   roles: string[];
 }
 
 export interface JwtPayload {
   sub: string;
   email: string;
-  name?: string;
+  name?: string | null;
   roles?: string[];
   iat?: number;
   exp?: number;

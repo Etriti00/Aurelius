@@ -10,11 +10,7 @@ import { QueueModule } from '../queue/queue.module';
 @Module({
   imports: [PrismaModule, CacheModule, QueueModule],
   controllers: [AnalyticsController],
-  providers: [
-    AnalyticsService,
-    UsageTrackingService,
-    PerformanceService,
-  ],
+  providers: [AnalyticsService, UsageTrackingService, PerformanceService],
   exports: [AnalyticsService, UsageTrackingService],
 })
 export class AnalyticsModule {}

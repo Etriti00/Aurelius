@@ -42,7 +42,8 @@ export class TasksController {
   @Get()
   @ApiOperation({
     summary: 'Get user tasks',
-    description: 'Retrieve a paginated list of tasks for the authenticated user with optional filtering and sorting.',
+    description:
+      'Retrieve a paginated list of tasks for the authenticated user with optional filtering and sorting.',
   })
   @ApiQuery({
     name: 'page',
@@ -131,7 +132,8 @@ export class TasksController {
   })
   async findAll(
     @CurrentUser() user: any,
-    @Query() query: PaginationDto & {
+    @Query()
+    query: PaginationDto & {
       status?: TaskStatus;
       priority?: TaskPriority;
       search?: string;
@@ -140,7 +142,7 @@ export class TasksController {
       dueAfter?: string;
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
-    },
+    }
   ): Promise<PaginatedResponseDto<TaskResponseDto>> {
     return this.tasksService.findAll(user.id, query);
   }
@@ -148,7 +150,8 @@ export class TasksController {
   @Get('insights')
   @ApiOperation({
     summary: 'Get task insights and analytics',
-    description: 'Retrieve AI-powered insights about user task patterns, productivity metrics, and recommendations.',
+    description:
+      'Retrieve AI-powered insights about user task patterns, productivity metrics, and recommendations.',
   })
   @ApiQuery({
     name: 'period',
@@ -169,7 +172,7 @@ export class TasksController {
   })
   async getInsights(
     @CurrentUser() user: any,
-    @Query('period') period?: string,
+    @Query('period') period?: string
   ): Promise<TaskInsightsDto> {
     return this.tasksService.getInsights(user.id, period);
   }
@@ -199,10 +202,7 @@ export class TasksController {
     description: 'Unauthorized',
     type: ErrorResponseDto,
   })
-  async findOne(
-    @CurrentUser() user: any,
-    @Param() params: IdParamDto,
-  ): Promise<TaskResponseDto> {
+  async findOne(@CurrentUser() user: any, @Param() params: IdParamDto): Promise<TaskResponseDto> {
     return this.tasksService.findOne(user.id, params.id);
   }
 
@@ -230,7 +230,7 @@ export class TasksController {
         summary: 'AI-suggested task',
         value: {
           title: 'Follow up on client meeting',
-          description: 'Send summary and action items from today\'s client call',
+          description: "Send summary and action items from today's client call",
           priority: 'medium',
           aiSuggested: true,
           aiReason: 'Identified from calendar event completion',
@@ -257,7 +257,7 @@ export class TasksController {
   })
   async create(
     @CurrentUser() user: any,
-    @Body() createTaskDto: CreateTaskDto,
+    @Body() createTaskDto: CreateTaskDto
   ): Promise<TaskResponseDto> {
     return this.tasksService.create(user.id, createTaskDto);
   }
@@ -299,7 +299,7 @@ export class TasksController {
   async update(
     @CurrentUser() user: any,
     @Param() params: IdParamDto,
-    @Body() updateTaskDto: UpdateTaskDto,
+    @Body() updateTaskDto: UpdateTaskDto
   ): Promise<TaskResponseDto> {
     return this.tasksService.update(user.id, params.id, updateTaskDto);
   }
@@ -357,7 +357,7 @@ export class TasksController {
   async partialUpdate(
     @CurrentUser() user: any,
     @Param() params: IdParamDto,
-    @Body() updateTaskDto: Partial<UpdateTaskDto>,
+    @Body() updateTaskDto: Partial<UpdateTaskDto>
   ): Promise<TaskResponseDto> {
     return this.tasksService.update(user.id, params.id, updateTaskDto);
   }
@@ -414,7 +414,7 @@ export class TasksController {
   async complete(
     @CurrentUser() user: any,
     @Param() params: IdParamDto,
-    @Body() body?: { actualMinutes?: number; notes?: string },
+    @Body() body?: { actualMinutes?: number; notes?: string }
   ): Promise<TaskResponseDto> {
     return this.tasksService.complete(user.id, params.id, body);
   }
@@ -503,11 +503,12 @@ export class TasksController {
   })
   async bulkOperation(
     @CurrentUser() user: any,
-    @Body() body: {
+    @Body()
+    body: {
       operation: 'update' | 'delete' | 'complete';
       taskIds: string[];
       data?: any;
-    },
+    }
   ): Promise<{
     success: boolean;
     processed: number;

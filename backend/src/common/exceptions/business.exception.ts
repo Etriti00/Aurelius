@@ -5,7 +5,7 @@ export class BusinessException extends HttpException {
     message: string,
     code: string,
     statusCode: HttpStatus = HttpStatus.BAD_REQUEST,
-    details?: any,
+    details?: any
   ) {
     super(
       {
@@ -15,7 +15,7 @@ export class BusinessException extends HttpException {
         details,
         timestamp: new Date().toISOString(),
       },
-      statusCode,
+      statusCode
     );
   }
 }
@@ -40,9 +40,7 @@ export class ForbiddenException extends BusinessException {
 
 export class NotFoundException extends BusinessException {
   constructor(resource: string, id?: string) {
-    const message = id
-      ? `${resource} with id ${id} not found`
-      : `${resource} not found`;
+    const message = id ? `${resource} with id ${id} not found` : `${resource} not found`;
     super(message, 'NOT_FOUND', HttpStatus.NOT_FOUND);
   }
 }
@@ -55,12 +53,7 @@ export class ConflictException extends BusinessException {
 
 export class RateLimitException extends BusinessException {
   constructor(retryAfter?: number) {
-    super(
-      'Too many requests',
-      'RATE_LIMIT_EXCEEDED',
-      HttpStatus.TOO_MANY_REQUESTS,
-      { retryAfter },
-    );
+    super('Too many requests', 'RATE_LIMIT_EXCEEDED', HttpStatus.TOO_MANY_REQUESTS, { retryAfter });
   }
 }
 
@@ -72,12 +65,11 @@ export class PaymentRequiredException extends BusinessException {
 
 export class QuotaExceededException extends BusinessException {
   constructor(resource: string, limit: number, current: number) {
-    super(
-      `${resource} quota exceeded`,
-      'QUOTA_EXCEEDED',
-      HttpStatus.PAYMENT_REQUIRED,
-      { resource, limit, current },
-    );
+    super(`${resource} quota exceeded`, 'QUOTA_EXCEEDED', HttpStatus.PAYMENT_REQUIRED, {
+      resource,
+      limit,
+      current,
+    });
   }
 }
 
@@ -87,18 +79,13 @@ export class IntegrationException extends BusinessException {
       `${provider} integration error: ${message}`,
       'INTEGRATION_ERROR',
       HttpStatus.BAD_GATEWAY,
-      details,
+      details
     );
   }
 }
 
 export class AIException extends BusinessException {
   constructor(message: string, model?: string, details?: any) {
-    super(
-      message,
-      'AI_ERROR',
-      HttpStatus.SERVICE_UNAVAILABLE,
-      { model, ...details },
-    );
+    super(message, 'AI_ERROR', HttpStatus.SERVICE_UNAVAILABLE, { model, ...details });
   }
 }

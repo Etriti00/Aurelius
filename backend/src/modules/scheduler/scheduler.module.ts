@@ -35,10 +35,6 @@ import { EmailModule } from '../email/email.module';
     JobExecutorService,
     SchedulerMonitorService,
   ],
-  exports: [
-    SchedulerService,
-    JobSchedulerService,
-    RecurringJobService,
-  ],
+  exports: [SchedulerService, JobSchedulerService, RecurringJobService],
 })
 export class SchedulerModule {}

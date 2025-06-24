@@ -25,6 +25,11 @@ interface AnthropicResponse {
   cacheHit: boolean;
 }
 
+interface MessageContent {
+  type: 'text';
+  text: string;
+}
+
 @Injectable()
 export class AnthropicService {
   private readonly logger = new Logger(AnthropicService.name);
@@ -46,10 +51,10 @@ export class AnthropicService {
 
   async generateResponse(request: AnthropicRequest): Promise<AnthropicResponse> {
     const startTime = Date.now();
-    
+
     // Generate cache key based on request parameters
     const cacheKey = this.generateCacheKey(request);
-    
+
     // Check cache first
     const cached = await this.cacheManager.get<AnthropicResponse>(cacheKey);
     if (cached) {
@@ -68,21 +73,28 @@ export class AnthropicService {
         content = `Context: ${request.context}\n\nRequest: ${request.prompt}`;
       }
 
-      // Use completions API with modern error handling
+      // Use messages API with modern error handling
       const systemPrompt = request.systemPrompt || this.getDefaultSystemPrompt();
-      const prompt = `${systemPrompt}\n\n${Anthropic.HUMAN_PROMPT} ${content}${Anthropic.AI_PROMPT}`;
-      
-      const response = await this.anthropic.completions.create({
+
+      const response = await this.anthropic.messages.create({
         model: request.model,
-        max_tokens_to_sample: request.maxTokens,
+        max_tokens: request.maxTokens,
         temperature: request.temperature,
-        prompt,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: content,
+          },
+        ],
       });
 
+      const textContent = response.content[0].type === 'text' ? response.content[0].text : '';
+
       const result: AnthropicResponse = {
-        text: response.completion,
-        inputTokens: this.calculateTokens(prompt),
-        outputTokens: this.calculateTokens(response.completion),
+        text: textContent,
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
         model: request.model,
         duration: Date.now() - startTime,
         cacheHit: false,
@@ -93,23 +105,24 @@ export class AnthropicService {
 
       this.logger.debug(
         `Anthropic API call completed: ${request.model}, ` +
-        `${result.inputTokens}/${result.outputTokens} tokens, ` +
-        `${result.duration}ms`
+          `${result.inputTokens}/${result.outputTokens} tokens, ` +
+          `${result.duration}ms`
       );
 
       return result;
     } catch (error) {
       this.logger.error('Anthropic API call failed', error);
-      
-      if (error instanceof Anthropic.APIError) {
-        if (error.status === 429) {
+
+      if (error instanceof Error && 'status' in error) {
+        const apiError = error as { status?: number; message: string };
+        if (apiError.status === 429) {
           throw new AIServiceException('Rate limit exceeded - please try again later');
-        } else if (error.status === 401) {
+        } else if (apiError.status === 401) {
           throw new AIServiceException('Invalid API key');
-        } else if (typeof error.status === 'number' && error.status >= 500) {
+        } else if (typeof apiError.status === 'number' && apiError.status >= 500) {
           throw new AIServiceException('Anthropic service temporarily unavailable');
         } else {
-          throw new AIServiceException(`AI request failed: ${error.message}`);
+          throw new AIServiceException(`AI request failed: ${apiError.message}`);
         }
       } else if (error instanceof Error) {
         throw new AIServiceException(`AI request failed: ${error.message}`);
@@ -123,7 +136,7 @@ export class AnthropicService {
     // Note: Anthropic doesn't provide embeddings, we'll need to use a different service
     // For now, return a placeholder - this should be implemented with OpenAI or similar
     this.logger.debug(`Embedding generation requested for text length: ${text.length}`);
-    throw new AIServiceException('Embedding generation not implemented');
+    throw new AIServiceException('Embedding generation not implemented for Anthropic');
   }
 
   private generateCacheKey(request: AnthropicRequest): string {
@@ -135,15 +148,10 @@ export class AnthropicService {
       systemPrompt: request.systemPrompt,
       context: request.context,
     };
-    
+
     // Create a hash of the request parameters
     const hash = Buffer.from(JSON.stringify(keyData)).toString('base64');
     return `anthropic:${hash}`;
-  }
-
-  private calculateTokens(text: string): number {
-    // Improved token estimation: 1 token ≈ 4 characters for Claude
-    return Math.ceil(text.length / 4);
   }
 
   private getDefaultSystemPrompt(): string {
@@ -174,90 +182,92 @@ Remember: You are not just an assistant, you are a digital chief of staff focuse
   // API compatibility methods for Claude service
   async createMessage(params: {
     model: string;
-    messages: Array<{ role: string; content: string }>;
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
     system?: string;
     max_tokens: number;
     temperature?: number;
     top_p?: number;
     stop_sequences?: string[];
   }): Promise<{
-    content: Array<{ text: string }>;
+    content: Array<MessageContent>;
     usage: { input_tokens: number; output_tokens: number };
     id: string;
   }> {
     try {
-      // Convert messages to single prompt for completions API
-      const systemPrompt = params.system || this.getDefaultSystemPrompt();
-      const conversation = params.messages
-        .map(msg => `${msg.role === 'user' ? Anthropic.HUMAN_PROMPT : Anthropic.AI_PROMPT} ${msg.content}`)
-        .join('');
-      const prompt = `${systemPrompt}\n\n${conversation}${Anthropic.AI_PROMPT}`;
-      
-      const response = await this.anthropic.completions.create({
+      const response = await this.anthropic.messages.create({
         model: params.model,
-        max_tokens_to_sample: params.max_tokens,
+        max_tokens: params.max_tokens,
         temperature: params.temperature || 0.7,
-        prompt,
+        system: params.system || this.getDefaultSystemPrompt(),
+        messages: params.messages,
         top_p: params.top_p,
         stop_sequences: params.stop_sequences,
       });
-      
+
       return {
-        content: [{ text: response.completion }],
+        content: response.content.map(
+          (c): MessageContent => ({
+            type: 'text',
+            text: c.type === 'text' ? c.text : '',
+          })
+        ),
         usage: {
-          input_tokens: this.calculateTokens(prompt),
-          output_tokens: this.calculateTokens(response.completion),
+          input_tokens: response.usage.input_tokens,
+          output_tokens: response.usage.output_tokens,
         },
-        id: `msg-${Date.now()}`,
+        id: response.id,
       };
     } catch (error) {
       this.logger.error('Anthropic createMessage failed', error);
-      throw new AIServiceException(`Message creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new AIServiceException(
+        `Message creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
   async createMessageStream(params: {
     model: string;
-    messages: Array<{ role: string; content: string }>;
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
     system?: string;
     max_tokens: number;
     temperature?: number;
     top_p?: number;
     stop_sequences?: string[];
-  }): Promise<AsyncIterable<any>> {
+  }): Promise<AsyncIterable<Anthropic.MessageStreamEvent>> {
     try {
-      // Convert to completions format for streaming
-      const systemPrompt = params.system || this.getDefaultSystemPrompt();
-      const conversation = params.messages
-        .map(msg => `${msg.role === 'user' ? Anthropic.HUMAN_PROMPT : Anthropic.AI_PROMPT} ${msg.content}`)
-        .join('');
-      const prompt = `${systemPrompt}\n\n${conversation}${Anthropic.AI_PROMPT}`;
-      
-      const stream = await this.anthropic.completions.create({
+      const stream = await this.anthropic.messages.create({
         model: params.model,
-        max_tokens_to_sample: params.max_tokens,
+        max_tokens: params.max_tokens,
         temperature: params.temperature || 0.7,
-        prompt,
+        system: params.system || this.getDefaultSystemPrompt(),
+        messages: params.messages,
         top_p: params.top_p,
         stop_sequences: params.stop_sequences,
         stream: true,
       });
-      
+
       return stream;
     } catch (error) {
       this.logger.error('Anthropic createMessageStream failed', error);
-      throw new AIServiceException(`Message streaming failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new AIServiceException(
+        `Message streaming failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await this.anthropic.completions.create({
-        model: 'claude-instant-1',
-        max_tokens_to_sample: 10,
-        prompt: `${Anthropic.HUMAN_PROMPT} ping${Anthropic.AI_PROMPT}`,
+      const response = await this.anthropic.messages.create({
+        model: 'claude-3-haiku-20240307',
+        max_tokens: 10,
+        messages: [
+          {
+            role: 'user',
+            content: 'ping',
+          },
+        ],
       });
-      
+
       return !!response;
     } catch (error) {
       this.logger.error('Anthropic health check failed', error);

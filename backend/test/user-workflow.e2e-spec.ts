@@ -1,19 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/modules/prisma/prisma.service';
+import { Tier } from '@prisma/client';
 import { ClaudeService } from '../src/modules/ai-gateway/services/claude.service';
 
 describe('Complete User Workflow E2E Tests', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
-  
+
   // User flow variables
   let accessToken: string;
   let refreshToken: string;
   let userId: string;
-  let subscriptionId: string;
   let taskId: string;
   let integrationId: string;
 
@@ -113,10 +113,10 @@ describe('Complete User Workflow E2E Tests', () => {
 
     it('should simulate subscription creation via webhook', async () => {
       // Create subscription directly in database (simulating successful payment)
-      const subscription = await prismaService.subscription.create({
+      await prismaService.subscription.create({
         data: {
           userId,
-          tier: 'PROFESSIONAL',
+          tier: Tier.PRO,
           status: 'ACTIVE',
           stripeCustomerId: 'cus_test_workflow',
           stripeSubscriptionId: 'sub_test_workflow',
@@ -131,7 +131,7 @@ describe('Complete User Workflow E2E Tests', () => {
         },
       });
 
-      subscriptionId = subscription.id;
+      // Store subscription ID for later use
 
       // Create usage tracking
       await prismaService.usage.create({
@@ -152,7 +152,7 @@ describe('Complete User Workflow E2E Tests', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(response.body.tier).toBe('PROFESSIONAL');
+      expect(response.body.tier).toBe(Tier.PRO);
       expect(response.body.status).toBe('ACTIVE');
       expect(response.body.monthlyActionLimit).toBe(1000);
     });
@@ -254,7 +254,8 @@ describe('Complete User Workflow E2E Tests', () => {
           messages: [
             {
               role: 'user',
-              content: 'Based on my completed quarterly review task, suggest 3 follow-up tasks for next quarter planning.',
+              content:
+                'Based on my completed quarterly review task, suggest 3 follow-up tasks for next quarter planning.',
             },
           ],
           model: 'claude-3-sonnet',
@@ -454,7 +455,7 @@ describe('Complete User Workflow E2E Tests', () => {
 
       expect(response.body).toHaveProperty('accessToken');
       expect(response.body).toHaveProperty('refreshToken');
-      
+
       // Update tokens for cleanup
       accessToken = response.body.accessToken;
       refreshToken = response.body.refreshToken;
@@ -526,11 +527,11 @@ describe('Complete User Workflow E2E Tests', () => {
       });
 
       expect(user).toBeDefined();
-      expect(user.email).toBe('workflow@example.com');
-      expect(user.subscription).toBeDefined();
-      expect(user.subscription.tier).toBe('PROFESSIONAL');
-      expect(user.tasks.length).toBe(2); // Original task + AI suggested task
-      expect(user.actionLogs.length).toBeGreaterThan(0); // AI usage logged
+      expect(user!.email).toBe('workflow@example.com');
+      expect(user!.subscription).toBeDefined();
+      expect(user!.subscription!.tier).toBe(Tier.PRO);
+      expect(user!.tasks.length).toBe(2); // Original task + AI suggested task
+      expect(user!.actionLogs.length).toBeGreaterThan(0); // AI usage logged
     });
 
     it('should verify analytics data consistency', async () => {
@@ -541,7 +542,7 @@ describe('Complete User Workflow E2E Tests', () => {
       });
 
       expect(actionLogs.length).toBeGreaterThan(0);
-      
+
       const aiChatLogs = actionLogs.filter(log => log.type === 'ai_chat');
       expect(aiChatLogs.length).toBeGreaterThan(0);
 

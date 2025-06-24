@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheModule } from '@nestjs/cache-manager';
@@ -7,6 +7,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import * as redisStore from 'cache-manager-redis-store';
+import { CsrfMiddleware } from './middleware/csrf.middleware';
 
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -55,26 +56,18 @@ import { AppService } from './app.service';
               winston.format.timestamp(),
               winston.format.colorize(),
               winston.format.printf(({ timestamp, level, message, context, trace }) => {
-                return `${timestamp} [${context}] ${level}: ${message}${
-                  trace ? `\n${trace}` : ''
-                }`;
+                return `${timestamp} [${context}] ${level}: ${message}${trace ? `\n${trace}` : ''}`;
               })
             ),
           }),
           new winston.transports.File({
             filename: 'logs/error.log',
             level: 'error',
-            format: winston.format.combine(
-              winston.format.timestamp(),
-              winston.format.json()
-            ),
+            format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
           }),
           new winston.transports.File({
             filename: 'logs/combined.log',
-            format: winston.format.combine(
-              winston.format.timestamp(),
-              winston.format.json()
-            ),
+            format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
           }),
         ],
       }),
@@ -82,11 +75,13 @@ import { AppService } from './app.service';
 
     // Rate Limiting
     ThrottlerModule.forRootAsync({
-      useFactory: () => [{
-        name: 'default',
-        ttl: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'),
-        limit: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
-      }],
+      useFactory: () => [
+        {
+          name: 'default',
+          ttl: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'),
+          limit: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
+        },
+      ],
     }),
 
     // Redis Cache
@@ -116,10 +111,7 @@ import { AppService } from './app.service';
     }),
 
     // Queue Registrations
-    BullModule.registerQueue(
-      { name: 'ai-processing' },
-      { name: 'proactivity' }
-    ),
+    BullModule.registerQueue({ name: 'ai-processing' }, { name: 'proactivity' }),
 
     // Core Modules
     PrismaModule,
@@ -149,9 +141,11 @@ import { AppService } from './app.service';
     WorkflowModule,
   ],
   controllers: [AppController],
-  providers: [
-    AppService,
-    ProactivityEngineService,
-  ],
+  providers: [AppService, ProactivityEngineService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    // Apply CSRF middleware to all routes except those excluded in the middleware itself
+    consumer.apply(CsrfMiddleware).forRoutes('*');
+  }
+}

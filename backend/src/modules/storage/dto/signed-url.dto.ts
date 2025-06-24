@@ -3,11 +3,11 @@ import { IsNumber, IsOptional, IsString, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class GetSignedUrlDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'URL expiration time in seconds',
     minimum: 60,
     maximum: 604800,
-    default: 3600
+    default: 3600,
   })
   @IsNumber()
   @Type(() => Number)
@@ -34,10 +34,7 @@ export class SignedUrlResponseDto {
   @ApiProperty({ description: 'URL expiration timestamp' })
   expiresAt: Date;
 
-  constructor(
-    url: string = '',
-    expiresAt: Date = new Date()
-  ) {
+  constructor(url: string = '', expiresAt: Date = new Date()) {
     this.url = url;
     this.expiresAt = expiresAt;
   }

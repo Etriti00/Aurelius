@@ -47,7 +47,16 @@
       "Bash(npm run type-check:*)",
       "Bash(npm run:*)",
       "Bash(git checkout:*)",
-      "Bash(npx next build:*)"
+      "Bash(npx next build:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm outdated)",
+      "Bash(mv:*)",
+      "Bash(npm update:*)",
+      "Bash(node:*)",
+      "Bash(touch:*)",
+      "Bash(cloc:*)",
+      "Bash(npx prisma:*)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   }

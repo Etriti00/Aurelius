@@ -1,21 +1,23 @@
 import { Process, Processor } from '@nestjs/bull';
 import { Job } from 'bull';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 @Processor('ai-tasks')
 @Injectable()
 export class AITaskProcessor {
+  private readonly logger = new Logger(AITaskProcessor.name);
+
   @Process('analyze')
   async handleAnalyze(job: Job) {
     const { userId, type } = job.data;
-    
+
     try {
       // TODO: Implement AI analysis logic
-      console.log(`Analyzing ${type} for user ${userId}`);
-      
+      this.logger.log(`Analyzing ${type} for user ${userId}`);
+
       return { success: true, analysisId: `analysis_${Date.now()}` };
     } catch (error) {
-      console.error('Failed to analyze:', error);
+      this.logger.error('Failed to analyze:', error);
       throw error;
     }
   }
@@ -23,14 +25,14 @@ export class AITaskProcessor {
   @Process('generate-suggestions')
   async handleGenerateSuggestions(job: Job) {
     const { userId } = job.data;
-    
+
     try {
       // TODO: Implement suggestion generation
-      console.log(`Generating suggestions for user ${userId}`);
-      
+      this.logger.log(`Generating suggestions for user ${userId}`);
+
       return { success: true, suggestions: [] };
     } catch (error) {
-      console.error('Failed to generate suggestions:', error);
+      this.logger.error('Failed to generate suggestions:', error);
       throw error;
     }
   }

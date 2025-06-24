@@ -23,7 +23,7 @@ export abstract class BaseIntegrationService {
     protected readonly prisma: PrismaService,
     protected readonly cacheService: CacheService,
     protected readonly queueService: QueueService,
-    protected readonly encryptionService: EncryptionService,
+    protected readonly encryptionService: EncryptionService
   ) {}
 
   /**
@@ -67,7 +67,7 @@ export abstract class BaseIntegrationService {
   async createIntegration(
     userId: string,
     name: string,
-    config: IntegrationConfig,
+    config: IntegrationConfig
   ): Promise<Integration> {
     try {
       // Validate configuration
@@ -113,7 +113,7 @@ export abstract class BaseIntegrationService {
         'Failed to create integration',
         'INTEGRATION_CREATE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -123,7 +123,7 @@ export abstract class BaseIntegrationService {
    */
   async updateIntegration(
     integrationId: string,
-    updates: Partial<IntegrationConfig>,
+    updates: Partial<IntegrationConfig>
   ): Promise<Integration> {
     try {
       const integration = await this.getIntegration(integrationId);
@@ -165,7 +165,7 @@ export abstract class BaseIntegrationService {
         'Failed to update integration',
         'INTEGRATION_UPDATE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -193,7 +193,7 @@ export abstract class BaseIntegrationService {
         'Failed to delete integration',
         'INTEGRATION_DELETE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -203,9 +203,7 @@ export abstract class BaseIntegrationService {
    */
   async getIntegration(integrationId: string): Promise<Integration | null> {
     // Check cache first
-    const cached = await this.cacheService.get<Integration>(
-      `integration:${integrationId}`,
-    );
+    const cached = await this.cacheService.get<Integration>(`integration:${integrationId}`);
     if (cached) {
       return cached;
     }
@@ -229,10 +227,7 @@ export abstract class BaseIntegrationService {
   /**
    * Queue sync job
    */
-  async queueSync(
-    integrationId: string,
-    syncType: 'full' | 'incremental',
-  ): Promise<void> {
+  async queueSync(integrationId: string, syncType: 'full' | 'incremental'): Promise<void> {
     await this.queueService.addIntegrationSyncJob({
       integrationId,
       syncType,
@@ -243,16 +238,13 @@ export abstract class BaseIntegrationService {
   /**
    * Perform sync
    */
-  async performSync(
-    integrationId: string,
-    syncType: 'full' | 'incremental',
-  ): Promise<SyncResult> {
+  async performSync(integrationId: string, syncType: 'full' | 'incremental'): Promise<SyncResult> {
     try {
       // Get raw integration from database
       const dbIntegration = await this.prisma.integration.findUnique({
         where: { id: integrationId },
       });
-      
+
       if (!dbIntegration) {
         throw new BusinessException('Integration not found', 'INTEGRATION_NOT_FOUND');
       }
@@ -285,13 +277,13 @@ export abstract class BaseIntegrationService {
 
       this.logger.log(
         `Sync completed for integration ${integrationId}: ` +
-        `${result.itemsProcessed} items synced, ${result.errors.length} errors`,
+          `${result.itemsProcessed} items synced, ${result.errors.length} errors`
       );
 
       return result;
     } catch (error: any) {
       this.logger.error(`Sync failed for integration ${integrationId}: ${error.message}`);
-      
+
       // Update status
       await this.updateStatus(integrationId, IntegrationStatusEnum.ERROR, error.message);
 
@@ -299,7 +291,7 @@ export abstract class BaseIntegrationService {
         'Integration sync failed',
         'INTEGRATION_SYNC_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -346,7 +338,7 @@ export abstract class BaseIntegrationService {
   protected async updateStatus(
     integrationId: string,
     status: IntegrationStatusEnum,
-    error?: string,
+    error?: string
   ): Promise<void> {
     await this.prisma.integration.update({
       where: { id: integrationId },
@@ -382,12 +374,12 @@ export abstract class BaseIntegrationService {
    */
   protected mapToIntegration(dbIntegration: any): Integration {
     const settings = dbIntegration.settings as Record<string, any>;
-    
+
     let clientId = '';
     let clientSecret = '';
     let redirectUri = '';
     let scopes: string[] = [];
-    
+
     if (settings) {
       if (settings.clientId) {
         clientId = settings.clientId;
@@ -402,7 +394,7 @@ export abstract class BaseIntegrationService {
         scopes = settings.scopes;
       }
     }
-    
+
     let status: IntegrationStatusEnum;
     if (dbIntegration.status === 'active') {
       status = IntegrationStatusEnum.ACTIVE;
@@ -413,12 +405,12 @@ export abstract class BaseIntegrationService {
     } else {
       status = IntegrationStatusEnum.DISCONNECTED;
     }
-    
+
     let updatedAt = dbIntegration.createdAt;
     if (dbIntegration.updatedAt) {
       updatedAt = dbIntegration.updatedAt;
     }
-    
+
     return {
       id: dbIntegration.id,
       userId: dbIntegration.userId,

@@ -14,15 +14,15 @@ export class CdnService {
 
   constructor(
     private configService: ConfigService,
-    private cacheService: CacheService,
+    private cacheService: CacheService
   ) {
     const baseUrl = this.configService.getOptional<string>('CDN_BASE_URL');
     const secret = this.configService.getOptional<string>('CDN_SECRET');
     const enabled = this.configService.getOptional<boolean>('CDN_ENABLED');
-    
-    this.cdnBaseUrl = baseUrl !== undefined ? baseUrl : 'https://cdn.aurelius.ai';
-    this.cdnSecret = secret !== undefined ? secret : '';
-    this.cdnEnabled = enabled !== undefined ? enabled : false;
+
+    this.cdnBaseUrl = baseUrl ?? 'https://cdn.aurelius.ai';
+    this.cdnSecret = secret ?? '';
+    this.cdnEnabled = enabled ?? false;
   }
 
   /**
@@ -46,12 +46,12 @@ export class CdnService {
 
     const params = this.buildImageParams(options);
     const signature = this.generateSignature(key, params);
-    
+
     const url = new URL(`${this.cdnBaseUrl}/${key}`);
     Object.entries(params).forEach(([key, value]) => {
       url.searchParams.append(key, String(value));
     });
-    
+
     if (this.cdnSecret) {
       url.searchParams.append('signature', signature);
     }
@@ -75,7 +75,7 @@ export class CdnService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.cdnSecret}`,
+          Authorization: `Bearer ${this.cdnSecret}`,
         },
         body: JSON.stringify({ keys }),
       });
@@ -90,13 +90,15 @@ export class CdnService {
       }
 
       this.logger.log(`Purged CDN cache for ${keys.length} keys`);
-    } catch (error: any) {
-      this.logger.error(`Failed to purge CDN cache: ${error.message}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to purge CDN cache: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       throw new BusinessException(
         'Failed to purge CDN cache',
         'CDN_PURGE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -110,7 +112,7 @@ export class CdnService {
         return;
       }
 
-      const warmPromises = urls.map(async (url) => {
+      const warmPromises = urls.map(async url => {
         try {
           const response = await fetch(url, { method: 'HEAD' });
           return { url, success: response.ok };
@@ -127,8 +129,10 @@ export class CdnService {
       }
 
       this.logger.log(`Warmed CDN cache for ${urls.length} URLs`);
-    } catch (error: any) {
-      this.logger.error(`Failed to warm CDN cache: ${error.message}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to warm CDN cache: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       // Don't throw, warming is best-effort
     }
   }
@@ -155,8 +159,8 @@ export class CdnService {
   /**
    * Build image transformation parameters
    */
-  private buildImageParams(options: ImageTransformOptions): Record<string, any> {
-    const params: Record<string, any> = {};
+  private buildImageParams(options: ImageTransformOptions): Record<string, string | number> {
+    const params: Record<string, string | number> = {};
 
     if (options.width) params.w = options.width;
     if (options.height) params.h = options.height;
@@ -174,7 +178,7 @@ export class CdnService {
   /**
    * Generate signature for image transformations
    */
-  private generateSignature(key: string, params: Record<string, any>): string {
+  private generateSignature(key: string, params: Record<string, string | number>): string {
     if (!this.cdnSecret) {
       return '';
     }
@@ -185,10 +189,7 @@ export class CdnService {
       .join('&');
 
     const message = `${key}?${sortedParams}`;
-    return crypto
-      .createHmac('sha256', this.cdnSecret)
-      .update(message)
-      .digest('hex');
+    return crypto.createHmac('sha256', this.cdnSecret).update(message).digest('hex');
   }
 
   /**
@@ -196,10 +197,7 @@ export class CdnService {
    */
   private generateAuthToken(path: string, expires: number): string {
     const message = `${path}:${expires}`;
-    return crypto
-      .createHmac('sha256', this.cdnSecret)
-      .update(message)
-      .digest('hex');
+    return crypto.createHmac('sha256', this.cdnSecret).update(message).digest('hex');
   }
 
   /**

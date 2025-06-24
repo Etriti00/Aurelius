@@ -1,5 +1,4 @@
 // Test setup file
-import { PrismaClient } from '@prisma/client';
 
 // Mock PrismaClient for tests
 jest.mock('@prisma/client', () => {

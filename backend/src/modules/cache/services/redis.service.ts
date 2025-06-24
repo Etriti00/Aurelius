@@ -25,8 +25,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-
-    this.client.on('error', (err) => {
+    this.client.on('error', err => {
       console.error('Redis Client Error:', err);
     });
   }
@@ -56,19 +55,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     key: string,
     ttl: number = 30000,
     retries: number = 3,
-    retryDelay: number = 100,
+    retryDelay: number = 100
   ): Promise<boolean> {
     const lockKey = `lock:${key}`;
     const lockValue = Date.now().toString();
 
     for (let i = 0; i < retries; i++) {
-      const result = await this.client.set(
-        lockKey,
-        lockValue,
-        'PX',
-        ttl,
-        'NX',
-      );
+      const result = await this.client.set(lockKey, lockValue, 'PX', ttl, 'NX');
 
       if (result === 'OK') {
         return true;
@@ -91,13 +84,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   /**
    * Execute a function with distributed lock
    */
-  async withLock<T>(
-    key: string,
-    fn: () => Promise<T>,
-    ttl: number = 30000,
-  ): Promise<T | null> {
+  async withLock<T>(key: string, fn: () => Promise<T>, ttl: number = 30000): Promise<T | null> {
     const acquired = await this.acquireLock(key, ttl);
-    
+
     if (!acquired) {
       return null;
     }

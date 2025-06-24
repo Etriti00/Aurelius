@@ -9,18 +9,9 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { CacheModule } from '../cache/cache.module';
 
 @Module({
-  imports: [
-    AppConfigModule,
-    PrismaModule,
-    CacheModule,
-  ],
+  imports: [AppConfigModule, PrismaModule, CacheModule],
   controllers: [StorageController],
-  providers: [
-    StorageService,
-    S3Service,
-    CdnService,
-    ImageService,
-  ],
+  providers: [StorageService, S3Service, CdnService, ImageService],
   exports: [StorageService, S3Service, CdnService, ImageService],
 })
 export class StorageModule {}

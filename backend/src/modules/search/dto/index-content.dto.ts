@@ -11,9 +11,9 @@ export class IndexContentDto {
   @IsString()
   content: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: SearchableType,
-    description: 'Type of content'
+    description: 'Type of content',
   })
   @IsEnum(SearchableType)
   type: SearchableType;
@@ -31,9 +31,9 @@ export class IndexContentDto {
 }
 
 export class BulkIndexDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Array of content items to index',
-    type: [IndexContentDto]
+    type: [IndexContentDto],
   })
   @IsArray()
   items: IndexContentDto[];
@@ -62,9 +62,9 @@ export class BulkIndexResponseDto {
   @ApiProperty({ description: 'Number of failed items' })
   failed: number;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Errors for failed items',
-    type: 'object'
+    type: 'object',
   })
   errors?: Array<{
     id: string;

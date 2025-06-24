@@ -26,7 +26,7 @@ import { AnalyticsProcessor } from './processors/analytics.processor';
       { name: 'ai-tasks' },
       { name: 'integrations' },
       { name: 'notifications' },
-      { name: 'analytics' },
+      { name: 'analytics' }
     ),
   ],
   providers: [

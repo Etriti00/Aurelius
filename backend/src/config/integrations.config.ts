@@ -18,12 +18,13 @@ export default registerAs('integrations', () => ({
     ],
     apiKey: process.env.GOOGLE_API_KEY,
   },
-  
+
   // Microsoft OAuth & APIs
   microsoft: {
     clientId: process.env.MICROSOFT_CLIENT_ID,
     clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-    redirectUri: process.env.MICROSOFT_REDIRECT_URI || 'http://localhost:3001/auth/microsoft/callback',
+    redirectUri:
+      process.env.MICROSOFT_REDIRECT_URI || 'http://localhost:3001/auth/microsoft/callback',
     tenant: process.env.MICROSOFT_TENANT || 'common',
     scopes: [
       'openid',
@@ -38,7 +39,7 @@ export default registerAs('integrations', () => ({
       'User.Read',
     ],
   },
-  
+
   // Slack
   slack: {
     clientId: process.env.SLACK_CLIENT_ID,
@@ -55,7 +56,7 @@ export default registerAs('integrations', () => ({
       'users:read.email',
     ],
   },
-  
+
   // Stripe
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY,
@@ -68,7 +69,7 @@ export default registerAs('integrations', () => ({
     },
     trialDays: parseInt(process.env.STRIPE_TRIAL_DAYS || '14', 10),
   },
-  
+
   // SendGrid
   sendgrid: {
     apiKey: process.env.SENDGRID_API_KEY,
@@ -81,7 +82,7 @@ export default registerAs('integrations', () => ({
       notification: process.env.SENDGRID_TEMPLATE_NOTIFICATION,
     },
   },
-  
+
   // Twilio (SMS)
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID,
@@ -89,20 +90,20 @@ export default registerAs('integrations', () => ({
     fromNumber: process.env.TWILIO_FROM_NUMBER,
     enabled: process.env.TWILIO_ENABLED === 'true',
   },
-  
+
   // Webhook Configuration
   webhooks: {
     signingSecret: process.env.WEBHOOK_SIGNING_SECRET || 'aurelius-webhook-secret',
     timeout: parseInt(process.env.WEBHOOK_TIMEOUT || '30000', 10),
     maxRetries: parseInt(process.env.WEBHOOK_MAX_RETRIES || '3', 10),
   },
-  
+
   // OAuth Defaults
   oauth: {
     stateExpiry: parseInt(process.env.OAUTH_STATE_EXPIRY || '600', 10), // 10 minutes
     tokenRefreshBuffer: parseInt(process.env.OAUTH_REFRESH_BUFFER || '300', 10), // 5 minutes
   },
-  
+
   // Integration Sync Settings
   sync: {
     defaultInterval: parseInt(process.env.SYNC_DEFAULT_INTERVAL || '300', 10), // 5 minutes

@@ -18,7 +18,10 @@ export class UpdateSubscriptionDto {
   @IsOptional()
   cancelAtPeriodEnd?: boolean;
 
-  @ApiPropertyOptional({ description: 'Proration behavior', enum: ['always_invoice', 'create_prorations', 'none'] })
+  @ApiPropertyOptional({
+    description: 'Proration behavior',
+    enum: ['always_invoice', 'create_prorations', 'none'],
+  })
   @IsString()
   @IsOptional()
   prorationBehavior?: 'always_invoice' | 'create_prorations' | 'none';

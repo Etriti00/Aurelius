@@ -13,7 +13,7 @@ export class PerformanceService {
       queueTime?: number;
       processingTime?: number;
       fromCache: boolean;
-    },
+    }
   ) {
     await this.prisma.actionLog.update({
       where: { id: actionId },
@@ -73,10 +73,7 @@ export class PerformanceService {
 
     if (recentActions.length === 0) return;
 
-    const totalDuration = recentActions.reduce(
-      (sum, action) => sum + (action.duration || 0),
-      0,
-    );
+    const totalDuration = recentActions.reduce((sum, action) => sum + (action.duration || 0), 0);
     const avgDuration = Math.round(totalDuration / recentActions.length);
 
     await this.prisma.usage.updateMany({

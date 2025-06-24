@@ -27,10 +27,18 @@
     "prisma:migrate:prod": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
-    "prisma:reset": "prisma migrate reset"
+    "prisma:reset": "prisma migrate reset",
+    "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\"",
+    "lint:errors": "eslint \"{src,apps,libs,test}/**/*.ts\" --quiet",
+    "lint:fix-safe": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix --fix-type layout",
+    "audit:fix": "npm audit fix",
+    "deps:check": "npm outdated",
+    "deps:update": "npm update",
+    "type-check": "tsc --noEmit",
+    "pre-commit": "npm run lint:errors && npm run type-check && npm run build"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.10.2",
+    "@anthropic-ai/sdk": "^0.54.0",
     "@aws-sdk/client-s3": "3.481.0",
     "@aws-sdk/lib-storage": "3.481.0",
     "@aws-sdk/s3-request-presigner": "3.481.0",
@@ -39,21 +47,23 @@
     "@nestjs/axios": "3.0.1",
     "@nestjs/bull": "10.0.1",
     "@nestjs/cache-manager": "2.1.1",
-    "@nestjs/common": "10.3.0",
+    "@nestjs/common": "^10.4.19",
     "@nestjs/config": "3.1.1",
-    "@nestjs/core": "10.3.0",
+    "@nestjs/core": "^10.4.19",
     "@nestjs/event-emitter": "^3.0.1",
     "@nestjs/jwt": "10.2.0",
+    "@nestjs/microservices": "^10.4.19",
     "@nestjs/passport": "10.0.3",
-    "@nestjs/platform-express": "10.3.0",
-    "@nestjs/platform-socket.io": "10.3.0",
+    "@nestjs/platform-express": "^10.4.19",
+    "@nestjs/platform-socket.io": "^10.4.19",
     "@nestjs/schedule": "4.0.0",
-    "@nestjs/swagger": "7.1.17",
+    "@nestjs/swagger": "^7.4.2",
     "@nestjs/throttler": "5.1.1",
-    "@nestjs/websockets": "10.3.0",
+    "@nestjs/websockets": "^10.4.19",
     "@prisma/client": "5.7.1",
     "@sentry/node": "7.91.0",
     "@sentry/profiling-node": "1.3.5",
+    "axios": "^1.10.0",
     "bcrypt": "5.1.1",
     "bull": "4.11.5",
     "cache-manager": "5.3.2",
@@ -69,7 +79,7 @@
     "ioredis": "5.3.2",
     "joi": "^17.13.3",
     "lru-cache": "10.1.0",
-    "multer": "1.4.5-lts.1",
+    "multer": "^2.0.1",
     "nest-winston": "1.9.4",
     "node-cron": "3.0.3",
     "openai": "4.24.1",
@@ -81,16 +91,15 @@
     "passport-microsoft": "1.0.0",
     "prisma": "5.7.1",
     "reflect-metadata": "0.1.13",
-    "rxjs": "7.8.1",
+    "rxjs": "^7.8.1",
     "sharp": "0.32.6",
-    "socket.io": "4.7.2",
-    "stripe": "14.10.0",
-    "webpack": "^5.89.0",
+    "socket.io": "4.8.1",
+    "stripe": "^18.2.1",
     "winston": "3.11.0",
     "winston-daily-rotate-file": "4.7.1"
   },
   "devDependencies": {
-    "@nestjs/cli": "10.2.1",
+    "@nestjs/cli": "^10.4.9",
     "@nestjs/schematics": "10.0.3",
     "@nestjs/testing": "10.3.0",
     "@types/bcrypt": "5.0.2",
@@ -116,34 +125,11 @@
     "source-map-support": "0.5.21",
     "supertest": "6.3.3",
     "ts-jest": "29.1.1",
-    "ts-loader": "9.5.1",
+    "ts-loader": "^9.5.2",
     "ts-node": "10.9.2",
     "tsconfig-paths": "4.2.0",
-    "typescript": "5.3.3"
-  },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
-    "collectCoverageFrom": [
-      "**/*.(t|j)s"
-    ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node",
-    "coverageThreshold": {
-      "global": {
-        "branches": 80,
-        "functions": 80,
-        "lines": 80,
-        "statements": 80
-      }
-    }
+    "typescript": "5.3.3",
+    "webpack": "^5.99.9",
+    "webpack-node-externals": "^3.0.0"
   }
 }

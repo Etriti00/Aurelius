@@ -48,7 +48,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       message = exception.message || 'Internal server error';
       error = 'INTERNAL_ERROR';
-      
+
       // Log unexpected errors
       this.logger.error(
         `Unexpected error: ${exception.message}`,
@@ -59,12 +59,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       message = 'An unexpected error occurred';
       error = 'UNKNOWN_ERROR';
-      
-      this.logger.error(
-        'Unknown exception type',
-        JSON.stringify(exception),
-        'HttpExceptionFilter'
-      );
+
+      this.logger.error('Unknown exception type', JSON.stringify(exception), 'HttpExceptionFilter');
     }
 
     const errorResponse: ErrorResponse = {

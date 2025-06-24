@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotFoundException, ConflictException } from '../../common/exceptions/app.exception';
+import { Tier } from '@prisma/client';
 
 interface CreateUserData {
   email: string;
@@ -85,7 +86,7 @@ export class UsersService {
           // Create default Pro subscription
           subscription: {
             create: {
-              tier: 'PRO',
+              tier: Tier.PRO,
               status: 'ACTIVE',
               currentPeriodStart: new Date(),
               currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
@@ -181,7 +182,7 @@ export class UsersService {
 
   async getProfile(id: string): Promise<any> {
     const user = await this.findById(id);
-    
+
     return {
       id: user.id,
       email: user.email,
@@ -204,7 +205,7 @@ export class UsersService {
 
   async getUsageStats(id: string): Promise<any> {
     const user = await this.findById(id);
-    
+
     if (!user.subscription) {
       throw new NotFoundException('Subscription not found');
     }

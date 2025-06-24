@@ -16,7 +16,7 @@ export class IntegrationSyncService {
     private queueService: QueueService,
     private cacheService: CacheService,
     private notificationsService: NotificationsService,
-    private eventEmitter: EventEmitter2,
+    private eventEmitter: EventEmitter2
   ) {}
 
   /**
@@ -71,10 +71,7 @@ export class IntegrationSyncService {
   /**
    * Process sync result
    */
-  async processSyncResult(
-    integrationId: string,
-    result: SyncResult,
-  ): Promise<void> {
+  async processSyncResult(integrationId: string, result: SyncResult): Promise<void> {
     try {
       // Update sync statistics
       await this.updateSyncStatistics(integrationId, result);
@@ -84,7 +81,7 @@ export class IntegrationSyncService {
         const errorObjects = result.errors.map(error => ({
           item: 'sync_item',
           error: error,
-          retryable: true
+          retryable: true,
         }));
         await this.handleSyncErrors(integrationId, errorObjects);
       }
@@ -123,7 +120,7 @@ export class IntegrationSyncService {
     integrationId: string,
     localItem: any,
     remoteItem: any,
-    conflictType: 'update' | 'delete',
+    conflictType: 'update' | 'delete'
   ): Promise<'local' | 'remote' | 'merge'> {
     // Get integration conflict resolution strategy
     const integration = await this.prisma.integration.findUnique({
@@ -135,7 +132,11 @@ export class IntegrationSyncService {
     }
 
     let strategy = 'remote_wins';
-    if (integration.settings && typeof integration.settings === 'object' && !Array.isArray(integration.settings)) {
+    if (
+      integration.settings &&
+      typeof integration.settings === 'object' &&
+      !Array.isArray(integration.settings)
+    ) {
       const settingsObj = integration.settings as Record<string, any>;
       if (settingsObj.conflictResolution) {
         strategy = settingsObj.conflictResolution;
@@ -149,7 +150,9 @@ export class IntegrationSyncService {
         return 'remote';
       case 'newest_wins':
         const localDate = new Date(localItem.updatedAt ? localItem.updatedAt : localItem.createdAt);
-        const remoteDate = new Date(remoteItem.updatedAt ? remoteItem.updatedAt : remoteItem.createdAt);
+        const remoteDate = new Date(
+          remoteItem.updatedAt ? remoteItem.updatedAt : remoteItem.createdAt
+        );
         if (localDate > remoteDate) {
           return 'local';
         } else {
@@ -161,7 +164,7 @@ export class IntegrationSyncService {
           integrationId,
           localItem,
           remoteItem,
-          conflictType,
+          conflictType
         );
         return 'local'; // Keep local until resolved
       default:
@@ -207,7 +210,7 @@ export class IntegrationSyncService {
    */
   async forceSync(
     integrationId: string,
-    syncType: 'full' | 'incremental' = 'incremental',
+    syncType: 'full' | 'incremental' = 'incremental'
   ): Promise<void> {
     // Check if sync is already running
     const isRunning = await this.isSyncRunning(integrationId);
@@ -227,7 +230,7 @@ export class IntegrationSyncService {
     await this.cacheService.set(
       `sync:running:${integrationId}`,
       true,
-      600, // 10 minutes max
+      600 // 10 minutes max
     );
   }
 
@@ -245,9 +248,9 @@ export class IntegrationSyncService {
     try {
       // Check last sync time
       if (integration.lastSyncAt) {
-        const hoursSinceSync = 
+        const hoursSinceSync =
           (Date.now() - new Date(integration.lastSyncAt).getTime()) / (1000 * 60 * 60);
-        
+
         if (hoursSinceSync > 24 && integration.status === IntegrationStatusEnum.ACTIVE) {
           await this.notificationsService.sendToUser(integration.userId, {
             type: 'integration_sync_delayed',
@@ -260,7 +263,8 @@ export class IntegrationSyncService {
 
       // Check error rate
       const stats = await this.getSyncStatistics(integration.id);
-      if (stats.errorRate > 0.2) { // 20% error rate
+      if (stats.errorRate > 0.2) {
+        // 20% error rate
         await this.prisma.integration.update({
           where: { id: integration.id },
           data: {
@@ -281,10 +285,7 @@ export class IntegrationSyncService {
   /**
    * Update sync statistics
    */
-  private async updateSyncStatistics(
-    integrationId: string,
-    result: SyncResult,
-  ): Promise<void> {
+  private async updateSyncStatistics(integrationId: string, result: SyncResult): Promise<void> {
     await this.prisma.syncStatistics.upsert({
       where: { integrationId },
       create: {
@@ -340,15 +341,18 @@ export class IntegrationSyncService {
    */
   private async handleSyncErrors(
     integrationId: string,
-    errors: Array<{ item: string; error: string; retryable: boolean }>,
+    errors: Array<{ item: string; error: string; retryable: boolean }>
   ): Promise<void> {
     // Group errors by type
-    const errorGroups = errors.reduce((acc, error) => {
-      const key = this.getErrorCategory(error);
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(error);
-      return acc;
-    }, {} as Record<string, typeof errors>);
+    const errorGroups = errors.reduce(
+      (acc, error) => {
+        const key = this.getErrorCategory(error);
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(error);
+        return acc;
+      },
+      {} as Record<string, typeof errors>
+    );
 
     // Queue retryable errors
     if (errorGroups.retryable && errorGroups.retryable.length > 0) {
@@ -363,7 +367,7 @@ export class IntegrationSyncService {
     if (errorGroups.permanent && errorGroups.permanent.length > 0) {
       this.logger.error(
         `Permanent sync errors for integration ${integrationId}: ` +
-        `${errorGroups.permanent.length} items failed`,
+          `${errorGroups.permanent.length} items failed`
       );
     }
   }
@@ -375,7 +379,7 @@ export class IntegrationSyncService {
     integrationId: string,
     localItem: any,
     remoteItem: any,
-    conflictType: string,
+    conflictType: string
   ): Promise<void> {
     await this.prisma.syncConflict.create({
       data: {
@@ -393,10 +397,14 @@ export class IntegrationSyncService {
    * Calculate next sync time
    */
   private calculateNextSyncTime(integration: any): Date | null {
-    if (!integration.settings || typeof integration.settings !== 'object' || Array.isArray(integration.settings)) {
+    if (
+      !integration.settings ||
+      typeof integration.settings !== 'object' ||
+      Array.isArray(integration.settings)
+    ) {
       return null;
     }
-    
+
     const settingsObj = integration.settings as Record<string, any>;
     if (!settingsObj.syncInterval) {
       return null;
@@ -407,28 +415,34 @@ export class IntegrationSyncService {
       lastSync = integration.lastSyncAt;
     }
     const intervalMinutes = settingsObj.syncInterval;
-    
-    return new Date(
-      new Date(lastSync).getTime() + intervalMinutes * 60 * 1000,
-    );
+
+    return new Date(new Date(lastSync).getTime() + intervalMinutes * 60 * 1000);
   }
 
   /**
    * Get integration errors from settings
    */
   private getIntegrationErrors(integration: any): string[] {
-    if (!integration.settings || typeof integration.settings !== 'object' || Array.isArray(integration.settings)) {
+    if (
+      !integration.settings ||
+      typeof integration.settings !== 'object' ||
+      Array.isArray(integration.settings)
+    ) {
       return [];
     }
-    
+
     const settingsObj = integration.settings as Record<string, any>;
-    if (settingsObj.lastSyncResult && typeof settingsObj.lastSyncResult === 'object' && !Array.isArray(settingsObj.lastSyncResult)) {
+    if (
+      settingsObj.lastSyncResult &&
+      typeof settingsObj.lastSyncResult === 'object' &&
+      !Array.isArray(settingsObj.lastSyncResult)
+    ) {
       const lastSyncResult = settingsObj.lastSyncResult as Record<string, any>;
       if (Array.isArray(lastSyncResult.errors)) {
         return lastSyncResult.errors;
       }
     }
-    
+
     return [];
   }
 
@@ -436,7 +450,11 @@ export class IntegrationSyncService {
    * Get settings object safely
    */
   private getSettingsObject(integration: any): Record<string, any> {
-    if (!integration.settings || typeof integration.settings !== 'object' || Array.isArray(integration.settings)) {
+    if (
+      !integration.settings ||
+      typeof integration.settings !== 'object' ||
+      Array.isArray(integration.settings)
+    ) {
       return {};
     }
     return integration.settings as Record<string, any>;
@@ -445,20 +463,23 @@ export class IntegrationSyncService {
   /**
    * Update settings with health check data
    */
-  private updateSettingsWithHealthCheck(integration: any, healthCheckData: any): Record<string, any> {
+  private updateSettingsWithHealthCheck(
+    integration: any,
+    healthCheckData: any
+  ): Record<string, any> {
     const currentSettings = this.getSettingsObject(integration);
     const newSettings: Record<string, any> = {};
-    
+
     // Copy existing settings
     for (const key in currentSettings) {
       if (currentSettings.hasOwnProperty(key)) {
         newSettings[key] = currentSettings[key];
       }
     }
-    
+
     // Add health check data
     newSettings.healthCheck = healthCheckData;
-    
+
     return newSettings;
   }
 

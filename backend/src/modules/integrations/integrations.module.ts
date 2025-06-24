@@ -35,11 +35,6 @@ import { SecurityModule } from '../security/security.module';
     IntegrationRegistryService,
     GoogleIntegrationService,
   ],
-  exports: [
-    IntegrationsService,
-    OAuthService,
-    IntegrationSyncService,
-    IntegrationRegistryService,
-  ],
+  exports: [IntegrationsService, OAuthService, IntegrationSyncService, IntegrationRegistryService],
 })
 export class IntegrationsModule {}

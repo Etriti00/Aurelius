@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-apple';
 import { ConfigService } from '@nestjs/config';
@@ -23,6 +23,8 @@ interface AppleProfile {
 
 @Injectable()
 export class AppleStrategy extends PassportStrategy(Strategy, 'apple') {
+  private readonly logger = new Logger(AppleStrategy.name);
+
   constructor(
     private readonly authService: AuthService,
     configService: ConfigService
@@ -44,9 +46,13 @@ export class AppleStrategy extends PassportStrategy(Strategy, 'apple') {
     profile: AppleProfile
   ): Promise<User> {
     try {
-      console.log('Apple OAuth validation:', { accessToken: Boolean(accessToken), refreshToken: Boolean(refreshToken), profileId: profile.id });
+      this.logger.log('Apple OAuth validation:', {
+        accessToken: Boolean(accessToken),
+        refreshToken: Boolean(refreshToken),
+        profileId: profile.id,
+      });
       const { id, email, name } = idToken;
-      
+
       const oauthUser = {
         email,
         name: name ? `${name.firstName} ${name.lastName}` : undefined,

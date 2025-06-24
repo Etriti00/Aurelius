@@ -10,7 +10,7 @@ export class QueueService {
     @InjectQueue('ai-tasks') private aiTaskQueue: Queue,
     @InjectQueue('integrations') private integrationsQueue: Queue,
     @InjectQueue('notifications') private notificationsQueue: Queue,
-    @InjectQueue('analytics') private analyticsQueue: Queue,
+    @InjectQueue('analytics') private analyticsQueue: Queue
   ) {}
 
   /**
@@ -83,7 +83,7 @@ export class QueueService {
         delay,
         removeOnComplete: true,
         removeOnFail: false,
-      },
+      }
     );
   }
 
@@ -110,7 +110,15 @@ export class QueueService {
   /**
    * Workflow Queue Methods
    */
-  async addWorkflowJob(data: { userId: string; triggerId: string; triggerType: string; triggerData: Record<string, unknown> }, options?: JobOptions) {
+  async addWorkflowJob(
+    data: {
+      userId: string;
+      triggerId: string;
+      triggerType: string;
+      triggerData: Record<string, unknown>;
+    },
+    options?: JobOptions
+  ) {
     return await this.aiTaskQueue.add('workflow-execution', data, {
       removeOnComplete: true,
       removeOnFail: false,
@@ -139,7 +147,7 @@ export class QueueService {
         removeOnComplete: true,
         removeOnFail: false,
         ...options,
-      },
+      }
     );
   }
 
@@ -148,7 +156,7 @@ export class QueueService {
    */
   async getQueueStats(queueName: string) {
     let queue: Queue;
-    
+
     switch (queueName) {
       case 'email':
         queue = this.emailQueue;
@@ -190,9 +198,7 @@ export class QueueService {
 
   async getAllQueueStats() {
     const queueNames = ['email', 'ai-tasks', 'integrations', 'notifications', 'analytics'];
-    return await Promise.all(
-      queueNames.map(name => this.getQueueStats(name))
-    );
+    return await Promise.all(queueNames.map(name => this.getQueueStats(name)));
   }
 
   /**
@@ -208,9 +214,7 @@ export class QueueService {
     ];
 
     const grace = hours * 60 * 60 * 1000; // Convert to milliseconds
-    
-    await Promise.all(
-      queues.map(queue => queue.clean(grace, 'completed'))
-    );
+
+    await Promise.all(queues.map(queue => queue.clean(grace, 'completed')));
   }
 }

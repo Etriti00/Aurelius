@@ -14,7 +14,6 @@ import {
   IntegrationCapability,
   OAuthProvider,
 } from '../interfaces';
-import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class GoogleIntegrationService extends BaseIntegrationService {
@@ -33,7 +32,7 @@ export class GoogleIntegrationService extends BaseIntegrationService {
     queueService: QueueService,
     encryptionService: EncryptionService,
     private httpService: HttpService,
-    private oauthService: OAuthService,
+    private oauthService: OAuthService
   ) {
     super(prisma, cacheService, queueService, encryptionService);
   }
@@ -53,10 +52,7 @@ export class GoogleIntegrationService extends BaseIntegrationService {
     }
 
     // Test API access
-    const isValid = await this.oauthService.validateTokens(
-      OAuthProvider.GOOGLE,
-      config.oauth,
-    );
+    const isValid = await this.oauthService.validateTokens(OAuthProvider.GOOGLE, config.oauth);
 
     if (!isValid) {
       throw new Error('Invalid OAuth tokens');
@@ -69,12 +65,13 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       const tokens = await this.decryptTokens(integration.config.oauth!);
 
       // Test Gmail API
-      const response = await firstValueFrom(
-        this.httpService.get('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+      const response = await this.httpService.axiosRef.get(
+        'https://gmail.googleapis.com/gmail/v1/users/me/profile',
+        {
           headers: {
             Authorization: `Bearer ${tokens.accessToken}`,
           },
-        }),
+        }
       );
 
       return response.status === 200;
@@ -105,14 +102,14 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       if (tokens.expiresAt && new Date() > new Date(tokens.expiresAt)) {
         const refreshed = await this.oauthService.refreshAccessToken(
           OAuthProvider.GOOGLE,
-          tokens.refreshToken!,
+          tokens.refreshToken!
         );
-        
+
         // Update integration with new tokens
         await this.updateIntegration(integration.id, {
           oauth: await this.encryptTokens(refreshed),
         });
-        
+
         tokens.accessToken = refreshed.accessToken;
       }
 
@@ -152,30 +149,29 @@ export class GoogleIntegrationService extends BaseIntegrationService {
   private async syncEmails(
     integration: Integration,
     accessToken: string,
-    syncType: 'full' | 'incremental',
+    syncType: 'full' | 'incremental'
   ): Promise<{ synced: number; errors: any[] }> {
     const synced = 0;
     const errors: any[] = [];
 
     try {
       // Get last sync time for incremental sync
-      const lastSync = syncType === 'incremental' 
-        ? integration.metadata?.lastEmailSync 
-        : null;
+      const lastSync = syncType === 'incremental' ? integration.metadata?.lastEmailSync : null;
 
-      const query = lastSync 
+      const query = lastSync
         ? `after:${Math.floor(new Date(lastSync).getTime() / 1000)}`
         : 'is:unread';
 
       // List messages
-      const response = await firstValueFrom(
-        this.httpService.get('https://gmail.googleapis.com/gmail/v1/users/me/messages', {
+      const response = await this.httpService.axiosRef.get(
+        'https://gmail.googleapis.com/gmail/v1/users/me/messages',
+        {
           headers: { Authorization: `Bearer ${accessToken}` },
           params: {
             q: query,
             maxResults: 50,
           },
-        }),
+        }
       );
 
       // Process messages
@@ -216,34 +212,33 @@ export class GoogleIntegrationService extends BaseIntegrationService {
   private async syncCalendar(
     integration: Integration,
     accessToken: string,
-    syncType: 'full' | 'incremental',
+    syncType: 'full' | 'incremental'
   ): Promise<{ synced: number; errors: any[] }> {
     const synced = 0;
     const errors: any[] = [];
 
     try {
-      const timeMin = syncType === 'incremental' && integration.metadata?.lastCalendarSync
-        ? new Date(integration.metadata.lastCalendarSync).toISOString()
-        : new Date().toISOString();
+      const timeMin =
+        syncType === 'incremental' && integration.metadata?.lastCalendarSync
+          ? new Date(integration.metadata.lastCalendarSync).toISOString()
+          : new Date().toISOString();
 
       const timeMax = new Date();
       timeMax.setMonth(timeMax.getMonth() + 3); // 3 months ahead
 
       // List calendar events
-      const response = await firstValueFrom(
-        this.httpService.get(
-          'https://www.googleapis.com/calendar/v3/calendars/primary/events',
-          {
-            headers: { Authorization: `Bearer ${accessToken}` },
-            params: {
-              timeMin,
-              timeMax: timeMax.toISOString(),
-              singleEvents: true,
-              orderBy: 'startTime',
-              maxResults: 100,
-            },
+      const response = await this.httpService.axiosRef.get(
+        'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: {
+            timeMin,
+            timeMax: timeMax.toISOString(),
+            singleEvents: true,
+            orderBy: 'startTime',
+            maxResults: 100,
           },
-        ),
+        }
       );
 
       // Process events
@@ -283,17 +278,18 @@ export class GoogleIntegrationService extends BaseIntegrationService {
   private async syncTasks(
     integration: Integration,
     accessToken: string,
-    syncType: 'full' | 'incremental',
+    syncType: 'full' | 'incremental'
   ): Promise<{ synced: number; errors: any[] }> {
     const synced = 0;
     const errors: any[] = [];
 
     try {
       // List task lists
-      const listsResponse = await firstValueFrom(
-        this.httpService.get('https://tasks.googleapis.com/tasks/v1/users/@me/lists', {
+      const listsResponse = await this.httpService.axiosRef.get(
+        'https://tasks.googleapis.com/tasks/v1/users/@me/lists',
+        {
           headers: { Authorization: `Bearer ${accessToken}` },
-        }),
+        }
       );
 
       let totalSynced = 0;
@@ -301,17 +297,15 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       // Sync tasks from each list
       if (listsResponse.data.items) {
         for (const list of listsResponse.data.items) {
-          const tasksResponse = await firstValueFrom(
-            this.httpService.get(
-              `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks`,
-              {
-                headers: { Authorization: `Bearer ${accessToken}` },
-                params: {
-                  showCompleted: syncType === 'full',
-                  maxResults: 100,
-                },
+          const tasksResponse = await this.httpService.axiosRef.get(
+            `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+              params: {
+                showCompleted: syncType === 'full',
+                maxResults: 100,
               },
-            ),
+            }
           );
 
           if (tasksResponse.data.items) {

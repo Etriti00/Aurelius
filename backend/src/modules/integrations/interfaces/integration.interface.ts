@@ -64,14 +64,14 @@ export enum IntegrationType {
   GOOGLE = 'google',
   MICROSOFT = 'microsoft',
   SLACK = 'slack',
-  JIRA = 'jira'
+  JIRA = 'jira',
 }
 
 export enum IntegrationStatusEnum {
   ACTIVE = 'ACTIVE',
   PAUSED = 'PAUSED',
   ERROR = 'ERROR',
-  DISCONNECTED = 'DISCONNECTED'
+  DISCONNECTED = 'DISCONNECTED',
 }
 
 export interface OAuthTokens {
@@ -131,14 +131,14 @@ export enum IntegrationCapability {
   PROJECT_SYNC = 'project_sync',
   COMMENT_SYNC = 'comment_sync',
   ATTACHMENT_SYNC = 'attachment_sync',
-  NOTIFICATION_SEND = 'notification_send'
+  NOTIFICATION_SEND = 'notification_send',
 }
 
 export enum OAuthProvider {
   GOOGLE = 'google',
   MICROSOFT = 'microsoft',
   SLACK = 'slack',
-  GITHUB = 'github'
+  GITHUB = 'github',
 }
 
 export interface IntegrationMetadata {

@@ -9,7 +9,7 @@ export class IntegrationsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly encryptionService: EncryptionService,
+    private readonly encryptionService: EncryptionService
   ) {}
 
   async getUserIntegrations(userId: string): Promise<any[]> {
@@ -41,8 +41,8 @@ export class IntegrationsService {
   }
 
   async connectIntegration(
-    userId: string, 
-    provider: string, 
+    userId: string,
+    provider: string,
     credentials: {
       accessToken: string;
       refreshToken?: string;
@@ -56,7 +56,7 @@ export class IntegrationsService {
 
       // Encrypt the tokens before storing
       const encryptedAccessToken = await this.encryptionService.encrypt(credentials.accessToken);
-      const encryptedRefreshToken = credentials.refreshToken 
+      const encryptedRefreshToken = credentials.refreshToken
         ? await this.encryptionService.encrypt(credentials.refreshToken)
         : null;
 
@@ -110,7 +110,7 @@ export class IntegrationsService {
     } catch (error) {
       this.logger.error(`Failed to connect ${provider} integration for user ${userId}`, error);
       throw new AppIntegrationException(
-        provider, 
+        provider,
         `Failed to connect integration: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
@@ -131,7 +131,10 @@ export class IntegrationsService {
     return { message: `${provider} integration disconnected` };
   }
 
-  async getIntegrationTokens(userId: string, provider: string): Promise<{
+  async getIntegrationTokens(
+    userId: string,
+    provider: string
+  ): Promise<{
     accessToken: string;
     refreshToken?: string;
     tokenExpiry?: Date;
@@ -139,8 +142,8 @@ export class IntegrationsService {
   } | null> {
     try {
       const integration = await this.prisma.integration.findFirst({
-        where: { 
-          userId, 
+        where: {
+          userId,
           provider,
           status: 'active',
         },
@@ -158,7 +161,7 @@ export class IntegrationsService {
 
       // Decrypt the tokens
       const accessToken = await this.encryptionService.decrypt(integration.accessToken);
-      const refreshToken = integration.refreshToken 
+      const refreshToken = integration.refreshToken
         ? await this.encryptionService.decrypt(integration.refreshToken)
         : undefined;
 
@@ -169,10 +172,15 @@ export class IntegrationsService {
         tokenType: integration.tokenType || undefined,
       };
     } catch (error) {
-      this.logger.error(`Failed to retrieve tokens for ${provider} integration (user ${userId})`, error);
+      this.logger.error(
+        `Failed to retrieve tokens for ${provider} integration (user ${userId})`,
+        error
+      );
       throw new AppIntegrationException(
         provider,
-        `Failed to retrieve integration tokens: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to retrieve integration tokens: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
       );
     }
   }
@@ -199,7 +207,7 @@ export class IntegrationsService {
 
       // Encrypt the new tokens
       const encryptedAccessToken = await this.encryptionService.encrypt(newTokens.accessToken);
-      const encryptedRefreshToken = newTokens.refreshToken 
+      const encryptedRefreshToken = newTokens.refreshToken
         ? await this.encryptionService.encrypt(newTokens.refreshToken)
         : integration.refreshToken; // Keep existing if not provided
 
@@ -215,9 +223,14 @@ export class IntegrationsService {
         },
       });
 
-      this.logger.debug(`Successfully refreshed tokens for ${provider} integration (user ${userId})`);
+      this.logger.debug(
+        `Successfully refreshed tokens for ${provider} integration (user ${userId})`
+      );
     } catch (error) {
-      this.logger.error(`Failed to refresh tokens for ${provider} integration (user ${userId})`, error);
+      this.logger.error(
+        `Failed to refresh tokens for ${provider} integration (user ${userId})`,
+        error
+      );
       throw new AppIntegrationException(
         provider,
         `Failed to refresh tokens: ${error instanceof Error ? error.message : 'Unknown error'}`

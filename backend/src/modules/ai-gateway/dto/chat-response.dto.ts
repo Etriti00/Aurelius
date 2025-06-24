@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AIModel } from './chat-request.dto';
+import { Metadata } from '../../../common/types';
 
 export class AIUsageDto {
   @ApiProperty({
@@ -54,11 +55,11 @@ export class SuggestedActionDto {
       title: 'Prepare quarterly report',
       dueDate: '2024-12-27T17:00:00Z',
       priority: 'high',
-      labels: ['quarterly', 'report']
+      labels: ['quarterly', 'report'],
     },
     type: 'object',
   })
-  parameters: any;
+  parameters: Record<string, string | number | boolean | string[]>;
 
   @ApiProperty({
     description: 'AI confidence in this suggestion (0-1)',
@@ -75,7 +76,7 @@ export class SuggestedActionDto {
   constructor(data: Partial<SuggestedActionDto>) {
     this.type = data.type !== undefined ? data.type : '';
     this.description = data.description !== undefined ? data.description : '';
-    this.parameters = data.parameters;
+    this.parameters = data.parameters !== undefined ? data.parameters : {};
     this.confidence = data.confidence !== undefined ? data.confidence : 0;
     this.id = data.id !== undefined ? data.id : '';
   }
@@ -84,7 +85,8 @@ export class SuggestedActionDto {
 export class ChatResponseDto {
   @ApiProperty({
     description: 'AI assistant response message',
-    example: 'I can help you prioritize your tasks. Based on your upcoming deadlines, I suggest focusing on the quarterly report first as it\'s due Friday.',
+    example:
+      "I can help you prioritize your tasks. Based on your upcoming deadlines, I suggest focusing on the quarterly report first as it's due Friday.",
   })
   response: string;
 
@@ -129,7 +131,7 @@ export class ChatResponseDto {
     description: 'Follow-up questions the AI suggests',
     example: [
       'Would you like me to create this task for you?',
-      'Should I schedule time for working on the report?'
+      'Should I schedule time for working on the report?',
     ],
     type: [String],
   })
@@ -140,11 +142,11 @@ export class ChatResponseDto {
     example: {
       tasksConsidered: 3,
       eventsConsidered: 2,
-      emailsConsidered: 1
+      emailsConsidered: 1,
     },
     type: 'object',
   })
-  contextUsed?: any;
+  contextUsed?: Metadata;
 
   @ApiProperty({
     description: 'Processing time in milliseconds',
@@ -243,7 +245,8 @@ export class ConversationDto {
     this.totalTokens = data.totalTokens !== undefined ? data.totalTokens : 0;
     this.totalCost = data.totalCost !== undefined ? data.totalCost : 0;
     this.createdAt = data.createdAt !== undefined ? data.createdAt : new Date().toISOString();
-    this.lastMessageAt = data.lastMessageAt !== undefined ? data.lastMessageAt : new Date().toISOString();
+    this.lastMessageAt =
+      data.lastMessageAt !== undefined ? data.lastMessageAt : new Date().toISOString();
     this.isArchived = data.isArchived !== undefined ? data.isArchived : false;
   }
 }

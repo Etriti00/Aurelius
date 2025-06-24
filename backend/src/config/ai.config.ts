@@ -9,7 +9,7 @@ export default registerAs('ai', () => ({
     timeout: parseInt(process.env.ANTHROPIC_TIMEOUT || '60000', 10),
     organizationId: process.env.ANTHROPIC_ORG_ID,
   },
-  
+
   // Model Configuration
   models: {
     'claude-3-haiku': {
@@ -34,7 +34,7 @@ export default registerAs('ai', () => ({
       enabled: process.env.ENABLE_OPUS === 'true',
     },
   },
-  
+
   // AI Cost Optimization
   costOptimization: {
     cacheEnabled: process.env.AI_CACHE_ENABLED !== 'false',
@@ -44,7 +44,7 @@ export default registerAs('ai', () => ({
     batchingWindowMs: parseInt(process.env.AI_BATCH_WINDOW || '100', 10),
     maxBatchSize: parseInt(process.env.AI_MAX_BATCH_SIZE || '10', 10),
   },
-  
+
   // Embeddings Configuration
   embeddings: {
     provider: process.env.EMBEDDINGS_PROVIDER || 'openai',
@@ -52,7 +52,7 @@ export default registerAs('ai', () => ({
     dimensions: parseInt(process.env.EMBEDDINGS_DIMENSIONS || '1536', 10),
     batchSize: parseInt(process.env.EMBEDDINGS_BATCH_SIZE || '100', 10),
   },
-  
+
   // Voice Configuration (ElevenLabs)
   voice: {
     provider: 'elevenlabs',
@@ -62,22 +62,24 @@ export default registerAs('ai', () => ({
     stability: parseFloat(process.env.VOICE_STABILITY || '0.5'),
     similarityBoost: parseFloat(process.env.VOICE_SIMILARITY || '0.75'),
   },
-  
+
   // Prompt Configuration
   prompts: {
-    systemPrompt: process.env.AI_SYSTEM_PROMPT || 'You are Aurelius, The Wise Advisor - a calm, insightful, and reassuring AI assistant.',
+    systemPrompt:
+      process.env.AI_SYSTEM_PROMPT ||
+      'You are Aurelius, The Wise Advisor - a calm, insightful, and reassuring AI assistant.',
     maxContextLength: parseInt(process.env.AI_MAX_CONTEXT || '100000', 10),
     includeUserPreferences: process.env.AI_INCLUDE_PREFERENCES !== 'false',
     includeMemory: process.env.AI_INCLUDE_MEMORY !== 'false',
   },
-  
+
   // Rate Limiting
   rateLimiting: {
     maxRequestsPerMinute: parseInt(process.env.AI_RATE_LIMIT_PER_MIN || '60', 10),
     maxRequestsPerHour: parseInt(process.env.AI_RATE_LIMIT_PER_HOUR || '1000', 10),
     burstLimit: parseInt(process.env.AI_BURST_LIMIT || '10', 10),
   },
-  
+
   // Monitoring
   monitoring: {
     trackUsage: process.env.AI_TRACK_USAGE !== 'false',

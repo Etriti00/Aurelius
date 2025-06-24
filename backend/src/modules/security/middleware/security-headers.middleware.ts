@@ -36,7 +36,7 @@ export class SecurityHeadersMiddleware implements NestMiddleware {
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
-      "upgrade-insecure-requests",
+      'upgrade-insecure-requests',
     ];
 
     if (isDevelopment) {
@@ -49,10 +49,7 @@ export class SecurityHeadersMiddleware implements NestMiddleware {
 
     // HSTS (only in production)
     if (!isDevelopment) {
-      res.setHeader(
-        'Strict-Transport-Security',
-        'max-age=31536000; includeSubDomains; preload',
-      );
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
     }
 
     // Feature Policy / Permissions Policy
@@ -83,13 +80,10 @@ export class SecurityHeadersMiddleware implements NestMiddleware {
       if (allowedOrigins.includes(req.headers.origin) || isDevelopment) {
         res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
         res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader(
-          'Access-Control-Allow-Methods',
-          'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-        );
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
         res.setHeader(
           'Access-Control-Allow-Headers',
-          'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-Key, X-Request-ID',
+          'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-Key, X-Request-ID'
         );
       }
     }

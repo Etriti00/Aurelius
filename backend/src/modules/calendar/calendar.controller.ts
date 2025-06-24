@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
 import { CalendarService } from './calendar.service';
@@ -31,8 +26,8 @@ export class CalendarController {
   }
 
   @Get('today')
-  @ApiOperation({ summary: 'Get today\'s calendar events' })
-  @ApiResponse({ status: 200, description: 'Today\'s events retrieved successfully' })
+  @ApiOperation({ summary: "Get today's calendar events" })
+  @ApiResponse({ status: 200, description: "Today's events retrieved successfully" })
   async getToday(@CurrentUser() user: any): Promise<any> {
     return this.calendarService.getToday(user.id);
   }
@@ -40,10 +35,7 @@ export class CalendarController {
   @Get('upcoming')
   @ApiOperation({ summary: 'Get upcoming calendar events' })
   @ApiResponse({ status: 200, description: 'Upcoming events retrieved successfully' })
-  async getUpcoming(
-    @CurrentUser() user: any,
-    @Query('limit') limit?: string
-  ): Promise<any> {
+  async getUpcoming(@CurrentUser() user: any, @Query('limit') limit?: string): Promise<any> {
     const limitNum = limit ? parseInt(limit) : 10;
     return this.calendarService.getUpcoming(user.id, limitNum);
   }

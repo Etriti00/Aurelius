@@ -10,19 +10,9 @@ import { CacheModule } from '../cache/cache.module';
 import { AIGatewayModule } from '../ai-gateway/ai-gateway.module';
 
 @Module({
-  imports: [
-    AppConfigModule,
-    PrismaModule,
-    CacheModule,
-    AIGatewayModule,
-  ],
+  imports: [AppConfigModule, PrismaModule, CacheModule, AIGatewayModule],
   controllers: [SearchController],
-  providers: [
-    SearchService,
-    VectorService,
-    EmbeddingService,
-    SemanticSearchService,
-  ],
+  providers: [SearchService, VectorService, EmbeddingService, SemanticSearchService],
   exports: [SearchService, VectorService, EmbeddingService, SemanticSearchService],
 })
 export class SearchModule {}

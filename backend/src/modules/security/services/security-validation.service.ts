@@ -91,7 +91,10 @@ export class SecurityValidationService {
   /**
    * Validate URL
    */
-  validateUrl(url: string, options?: { protocols?: string[]; requireProtocol?: boolean }): ValidationResult {
+  validateUrl(
+    url: string,
+    options?: { protocols?: string[]; requireProtocol?: boolean }
+  ): ValidationResult {
     const errors: string[] = [];
 
     if (!url) {
@@ -245,7 +248,7 @@ export class SecurityValidationService {
     } else {
       try {
         const parsed = JSON.parse(jsonString);
-        
+
         // Check depth to prevent deeply nested objects
         const depth = this.getObjectDepth(parsed);
         if (depth > maxDepth) {
@@ -362,10 +365,7 @@ export class SecurityValidationService {
     }
 
     // Use timing-safe comparison
-    return require('crypto').timingSafeEqual(
-      Buffer.from(token),
-      Buffer.from(expectedToken),
-    );
+    return require('crypto').timingSafeEqual(Buffer.from(token), Buffer.from(expectedToken));
   }
 
   /**

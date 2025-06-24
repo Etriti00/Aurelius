@@ -7,11 +7,11 @@ export class FindSimilarDto {
   @IsString()
   itemId: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Number of similar items to return',
     minimum: 1,
     maximum: 50,
-    default: 10
+    default: 10,
   })
   @IsNumber()
   @Type(() => Number)
@@ -50,9 +50,9 @@ export class SimilarItemDto {
 }
 
 export class SimilarItemsResponseDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Similar items',
-    type: [SimilarItemDto]
+    type: [SimilarItemDto],
   })
   items: SimilarItemDto[];
 

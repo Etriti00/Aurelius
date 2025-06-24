@@ -36,10 +36,10 @@ export class StorageStatsDto {
   @ApiProperty({ description: 'Percentage of storage used' })
   usagePercentage: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Statistics by file type',
     type: 'object',
-    additionalProperties: { $ref: '#/components/schemas/FileTypeStatsDto' }
+    additionalProperties: { $ref: '#/components/schemas/FileTypeStatsDto' },
   })
   byType: Record<string, FileTypeStatsDto>;
 

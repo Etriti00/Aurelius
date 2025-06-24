@@ -67,4 +67,35 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       return false;
     }
   }
+
+  async cleanDatabase(): Promise<void> {
+    // Only allow in test environment
+    if (this.configService.get('NODE_ENV') !== 'test') {
+      throw new Error('cleanDatabase can only be called in test environment');
+    }
+
+    try {
+      // Delete in correct order to respect foreign key constraints
+      await this.$transaction([
+        this.actionLog.deleteMany(),
+        this.usage.deleteMany(),
+        this.workflowExecution.deleteMany(),
+        this.workflowTrigger.deleteMany(),
+        this.workflow.deleteMany(),
+        this.calendarEvent.deleteMany(),
+        this.emailThread.deleteMany(),
+        this.task.deleteMany(),
+        this.integration.deleteMany(),
+        this.vectorEmbedding.deleteMany(),
+        this.notification.deleteMany(),
+        this.refreshToken.deleteMany(),
+        this.subscription.deleteMany(),
+        this.user.deleteMany(),
+      ]);
+      this.logger.debug('Database cleaned for testing');
+    } catch (error) {
+      this.logger.error('Failed to clean database', error);
+      throw error;
+    }
+  }
 }

@@ -16,7 +16,7 @@ export class EmbeddingService {
   constructor(
     private configService: ConfigService,
     private openAIService: OpenAIService,
-    private cacheService: CacheService,
+    private cacheService: CacheService
   ) {
     this.cacheEnabled = this.configService.getOptional<boolean>('EMBEDDING_CACHE_ENABLED') ?? true;
   }
@@ -55,7 +55,7 @@ export class EmbeddingService {
         'Failed to generate embedding',
         'EMBEDDING_GENERATION_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -112,7 +112,7 @@ export class EmbeddingService {
         // Merge cached and new embeddings in correct order
         const batchEmbeddings: number[][] = [];
         let newEmbeddingIndex = 0;
-        
+
         for (let i = 0; i < batch.length; i++) {
           if (cachedEmbeddings.has(i)) {
             batchEmbeddings.push(cachedEmbeddings.get(i)!);
@@ -131,7 +131,7 @@ export class EmbeddingService {
         'Failed to generate batch embeddings',
         'BATCH_EMBEDDING_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -170,7 +170,7 @@ export class EmbeddingService {
   findMostSimilar(
     targetEmbedding: number[],
     embeddings: Array<{ id: string; embedding: number[] }>,
-    topK: number = 10,
+    topK: number = 10
   ): Array<{ id: string; similarity: number }> {
     const similarities = embeddings.map(item => ({
       id: item.id,
@@ -209,7 +209,7 @@ export class EmbeddingService {
 
     if (embedding.length !== this.embeddingDimensions) {
       throw new Error(
-        `Invalid embedding dimensions: expected ${this.embeddingDimensions}, got ${embedding.length}`,
+        `Invalid embedding dimensions: expected ${this.embeddingDimensions}, got ${embedding.length}`
       );
     }
 
@@ -268,10 +268,7 @@ export class EmbeddingService {
   /**
    * Optimize embeddings by reducing dimensions (PCA-like)
    */
-  reduceEmbeddingDimensions(
-    embedding: number[],
-    targetDimensions: number,
-  ): number[] {
+  reduceEmbeddingDimensions(embedding: number[], targetDimensions: number): number[] {
     if (targetDimensions >= embedding.length) {
       return embedding;
     }

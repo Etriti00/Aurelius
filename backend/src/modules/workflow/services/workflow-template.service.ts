@@ -17,7 +17,7 @@ export class WorkflowTemplateService {
 
   constructor(
     private prisma: PrismaService,
-    private cacheService: CacheService,
+    private cacheService: CacheService
   ) {
     this.loadDefaultTemplates();
   }
@@ -51,7 +51,7 @@ export class WorkflowTemplateService {
   async createFromTemplate(
     userId: string,
     templateId: string,
-    customizations?: Record<string, any>,
+    customizations?: Record<string, any>
   ): Promise<{
     triggers: WorkflowTrigger[];
     actions: WorkflowAction[];
@@ -120,9 +120,7 @@ export class WorkflowTemplateService {
             },
           },
           requires: [],
-          effects: [
-            { type: 'updates', target: 'email', description: 'Adds category to email' },
-          ],
+          effects: [{ type: 'updates', target: 'email', description: 'Adds category to email' }],
           reversible: true,
         },
         {
@@ -136,12 +134,8 @@ export class WorkflowTemplateService {
               tone: { type: 'string', description: 'Response tone', default: 'professional' },
             },
           },
-          requires: [
-            { type: 'permission', details: { scope: 'email.draft' } },
-          ],
-          effects: [
-            { type: 'creates', target: 'draft', description: 'Creates email draft' },
-          ],
+          requires: [{ type: 'permission', details: { scope: 'email.draft' } }],
+          effects: [{ type: 'creates', target: 'draft', description: 'Creates email draft' }],
           reversible: true,
         },
       ],
@@ -192,9 +186,7 @@ export class WorkflowTemplateService {
             },
           },
           requires: [],
-          effects: [
-            { type: 'updates', target: 'task', description: 'Updates task priorities' },
-          ],
+          effects: [{ type: 'updates', target: 'task', description: 'Updates task priorities' }],
           reversible: true,
         },
         {
@@ -208,9 +200,7 @@ export class WorkflowTemplateService {
               title: { type: 'string', description: 'Session title', default: 'Focus Time' },
             },
           },
-          requires: [
-            { type: 'integration', details: { service: 'calendar' } },
-          ],
+          requires: [{ type: 'integration', details: { service: 'calendar' } }],
           effects: [
             { type: 'creates', target: 'calendar_event', description: 'Creates calendar block' },
           ],
@@ -252,12 +242,8 @@ export class WorkflowTemplateService {
               eventId: { type: 'string', description: 'Calendar event ID' },
             },
           },
-          requires: [
-            { type: 'integration', details: { service: 'calendar' } },
-          ],
-          effects: [
-            { type: 'creates', target: 'document', description: 'Creates meeting brief' },
-          ],
+          requires: [{ type: 'integration', details: { service: 'calendar' } }],
+          effects: [{ type: 'creates', target: 'document', description: 'Creates meeting brief' }],
           reversible: false,
         },
         {
@@ -272,9 +258,7 @@ export class WorkflowTemplateService {
             },
           },
           requires: [],
-          effects: [
-            { type: 'creates', target: 'task', description: 'Creates agenda tasks' },
-          ],
+          effects: [{ type: 'creates', target: 'task', description: 'Creates agenda tasks' }],
           reversible: true,
         },
       ],
@@ -306,16 +290,14 @@ export class WorkflowTemplateService {
           id: 'generate-summary',
           type: ActionType.ANALYZE_DATA,
           name: 'Generate Weekly Summary',
-          description: 'Analyze week\'s activities and generate insights',
+          description: "Analyze week's activities and generate insights",
           parameters: {
             required: {
               timeRange: { type: 'string', description: 'Time range', default: '7d' },
             },
           },
           requires: [],
-          effects: [
-            { type: 'creates', target: 'report', description: 'Creates weekly summary' },
-          ],
+          effects: [{ type: 'creates', target: 'report', description: 'Creates weekly summary' }],
           reversible: false,
         },
         {
@@ -329,9 +311,7 @@ export class WorkflowTemplateService {
             },
           },
           requires: [],
-          effects: [
-            { type: 'creates', target: 'task', description: 'Creates planning tasks' },
-          ],
+          effects: [{ type: 'creates', target: 'task', description: 'Creates planning tasks' }],
           reversible: true,
         },
       ],
@@ -393,9 +373,7 @@ export class WorkflowTemplateService {
             },
           },
           requires: [],
-          effects: [
-            { type: 'creates', target: 'draft', description: 'Creates email draft' },
-          ],
+          effects: [{ type: 'creates', target: 'draft', description: 'Creates email draft' }],
           reversible: true,
         },
       ],
@@ -409,10 +387,7 @@ export class WorkflowTemplateService {
   /**
    * Record template usage
    */
-  private async recordTemplateUsage(
-    userId: string,
-    templateId: string,
-  ): Promise<void> {
+  private async recordTemplateUsage(userId: string, templateId: string): Promise<void> {
     try {
       await this.prisma.workflowTemplateUsage.create({
         data: {
@@ -446,9 +421,7 @@ export class WorkflowTemplateService {
 
     // Filter templates based on available integrations
     const templates = Array.from(this.templates.values())
-      .filter(template => 
-        template.requiredIntegrations.every(req => activeProviders.has(req))
-      )
+      .filter(template => template.requiredIntegrations.every(req => activeProviders.has(req)))
       .sort((a, b) => b.popularity - a.popularity);
 
     return templates.slice(0, 5);
@@ -459,11 +432,12 @@ export class WorkflowTemplateService {
    */
   async searchTemplates(query: string): Promise<WorkflowTemplate[]> {
     const lowerQuery = query.toLowerCase();
-    
-    return Array.from(this.templates.values()).filter(template =>
-      template.name.toLowerCase().includes(lowerQuery) ||
-      template.description.toLowerCase().includes(lowerQuery) ||
-      template.tags.some(tag => tag.toLowerCase().includes(lowerQuery))
+
+    return Array.from(this.templates.values()).filter(
+      template =>
+        template.name.toLowerCase().includes(lowerQuery) ||
+        template.description.toLowerCase().includes(lowerQuery) ||
+        template.tags.some(tag => tag.toLowerCase().includes(lowerQuery))
     );
   }
 }

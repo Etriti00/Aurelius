@@ -16,7 +16,9 @@ import { Server, Socket } from 'socket.io';
   },
   transports: ['websocket', 'polling'],
 })
-export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+export class AppWebSocketGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer() server: Server;
   private readonly logger: Logger = new Logger('AppWebSocketGateway');
   private readonly userSockets = new Map<string, string>(); // userId -> socketId
@@ -32,7 +34,7 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
 
   handleConnection(client: Socket): void {
     const userId = client.handshake.auth?.userId || client.handshake.query?.userId;
-    
+
     if (userId) {
       this.userSockets.set(userId as string, client.id);
       client.join(`user:${userId}`);

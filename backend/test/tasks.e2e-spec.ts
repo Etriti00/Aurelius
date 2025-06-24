@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/modules/prisma/prisma.service';
 
@@ -26,13 +26,11 @@ describe('Tasks E2E Tests', () => {
     await app.init();
 
     // Create a test user and get auth token
-    const registerResponse = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
-        email: 'tasktest@example.com',
-        password: 'TaskPassword123!',
-        name: 'Task Test User',
-      });
+    const registerResponse = await request(app.getHttpServer()).post('/auth/register').send({
+      email: 'tasktest@example.com',
+      password: 'TaskPassword123!',
+      name: 'Task Test User',
+    });
 
     accessToken = registerResponse.body.accessToken;
     userId = registerResponse.body.user.id;
@@ -131,7 +129,10 @@ describe('Tasks E2E Tests', () => {
         where: { id: taskId },
       });
 
-      expect(deletedTask.deletedAt).toBeDefined();
+      expect(deletedTask).toBeDefined();
+      if (deletedTask) {
+        expect(deletedTask.deletedAt).toBeDefined();
+      }
     });
   });
 
@@ -183,9 +184,17 @@ describe('Tasks E2E Tests', () => {
         .expect(200);
 
       expect(response.body.data.length).toBe(2);
-      response.body.data.forEach((task) => {
-        expect(task.status).toBe('pending');
-      });
+      response.body.data.forEach(
+        (task: {
+          status: string;
+          priority: string;
+          title: string;
+          dueDate?: string;
+          labels?: string[];
+        }) => {
+          expect(task.status).toBe('pending');
+        }
+      );
     });
 
     it('should filter tasks by priority', async () => {
@@ -195,9 +204,17 @@ describe('Tasks E2E Tests', () => {
         .expect(200);
 
       expect(response.body.data.length).toBe(2);
-      response.body.data.forEach((task) => {
-        expect(task.priority).toBe('high');
-      });
+      response.body.data.forEach(
+        (task: {
+          status: string;
+          priority: string;
+          title: string;
+          dueDate?: string;
+          labels?: string[];
+        }) => {
+          expect(task.priority).toBe('high');
+        }
+      );
     });
 
     it('should filter tasks by label', async () => {
@@ -207,9 +224,17 @@ describe('Tasks E2E Tests', () => {
         .expect(200);
 
       expect(response.body.data.length).toBe(2);
-      response.body.data.forEach((task) => {
-        expect(task.labels).toContain('urgent');
-      });
+      response.body.data.forEach(
+        (task: {
+          status: string;
+          priority: string;
+          title: string;
+          dueDate?: string;
+          labels?: string[];
+        }) => {
+          expect(task.labels).toContain('urgent');
+        }
+      );
     });
 
     it('should paginate tasks', async () => {
@@ -253,9 +278,17 @@ describe('Tasks E2E Tests', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      const tasksWithDueDates = response.body.data.filter(task => task.dueDate);
+      const tasksWithDueDates = response.body.data.filter(
+        (task: {
+          status: string;
+          priority: string;
+          title: string;
+          dueDate?: string;
+          labels?: string[];
+        }) => task.dueDate
+      );
       expect(tasksWithDueDates.length).toBeGreaterThan(0);
-      
+
       // Check if sorted correctly
       for (let i = 1; i < tasksWithDueDates.length; i++) {
         const prevDate = new Date(tasksWithDueDates[i - 1].dueDate);
@@ -312,13 +345,11 @@ describe('Tasks E2E Tests', () => {
 
     beforeAll(async () => {
       // Create another user
-      const otherUserResponse = await request(app.getHttpServer())
-        .post('/auth/register')
-        .send({
-          email: 'othertaskuser@example.com',
-          password: 'OtherPassword123!',
-          name: 'Other Task User',
-        });
+      const otherUserResponse = await request(app.getHttpServer()).post('/auth/register').send({
+        email: 'othertaskuser@example.com',
+        password: 'OtherPassword123!',
+        name: 'Other Task User',
+      });
 
       otherUserToken = otherUserResponse.body.accessToken;
 
@@ -358,9 +389,7 @@ describe('Tasks E2E Tests', () => {
 
     it('should require authentication for all task operations', async () => {
       // Test without token
-      await request(app.getHttpServer())
-        .get('/tasks')
-        .expect(401);
+      await request(app.getHttpServer()).get('/tasks').expect(401);
 
       await request(app.getHttpServer())
         .post('/tasks')
@@ -372,9 +401,7 @@ describe('Tasks E2E Tests', () => {
         .send({ title: 'Unauthorized update' })
         .expect(401);
 
-      await request(app.getHttpServer())
-        .delete(`/tasks/${taskId}`)
-        .expect(401);
+      await request(app.getHttpServer()).delete(`/tasks/${taskId}`).expect(401);
     });
   });
 

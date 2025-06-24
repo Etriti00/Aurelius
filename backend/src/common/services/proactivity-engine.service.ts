@@ -68,7 +68,7 @@ export class ProactivityEngineService {
   @Cron(CronExpression.EVERY_5_MINUTES)
   async temporalTriggerCheck(): Promise<void> {
     this.logger.debug('Running temporal trigger check');
-    
+
     try {
       // Check for upcoming deadlines, meetings, and scheduled tasks
       const upcomingEvents = await this.prisma.calendarEvent.findMany({
@@ -124,7 +124,7 @@ export class ProactivityEngineService {
   @Cron(CronExpression.EVERY_30_MINUTES)
   async contextualTriggerCheck(): Promise<void> {
     this.logger.debug('Running contextual pattern analysis');
-    
+
     try {
       // Find users with recent activity
       const activeUsers = await this.prisma.user.findMany({
@@ -154,15 +154,11 @@ export class ProactivityEngineService {
 
       // Add to processing queue based on priority
       const delay = this.getProcessingDelay(priority);
-      
-      await this.proactivityQueue.add(
-        'process-trigger',
-        trigger,
-        {
-          delay,
-          priority: this.getPriorityScore(priority),
-        }
-      );
+
+      await this.proactivityQueue.add('process-trigger', trigger, {
+        delay,
+        priority: this.getPriorityScore(priority),
+      });
 
       this.logger.debug(
         `Queued trigger ${trigger.id} for user ${trigger.userId} with priority ${priority}`
@@ -175,10 +171,10 @@ export class ProactivityEngineService {
   async analyzeUserPatterns(userId: string): Promise<void> {
     try {
       const context = await this.gatherUserContext(userId);
-      
+
       // Analyze patterns and generate insights
       const patterns = await this.detectPatterns(context);
-      
+
       if (patterns.length > 0) {
         const trigger: TriggerEvent = {
           id: `contextual-patterns-${userId}`,
@@ -200,10 +196,10 @@ export class ProactivityEngineService {
   async generateEnhancedSuggestion(trigger: TriggerEvent): Promise<EnhancedSuggestion | null> {
     try {
       const context = await this.gatherUserContext(trigger.userId);
-      
+
       // Generate suggestion using AI
       const suggestion = await this.generateAISuggestion(trigger, context);
-      
+
       if (suggestion) {
         // Store suggestion in database
         const savedSuggestion = await this.prisma.aISuggestion.create({
@@ -255,7 +251,7 @@ export class ProactivityEngineService {
 
       // Determine if auto-execution is allowed
       const canAutoExecute = this.canAutoExecute(suggestion);
-      
+
       if (!approved && !canAutoExecute) {
         return { success: false, error: 'Manual approval required' };
       }
@@ -273,11 +269,10 @@ export class ProactivityEngineService {
       });
 
       // Notify user via WebSocket
-      this.webSocketGateway.sendToUser(
-        suggestion.userId,
-        'suggestion:executed',
-        { suggestion, result }
-      );
+      this.webSocketGateway.sendToUser(suggestion.userId, 'suggestion:executed', {
+        suggestion,
+        result,
+      });
 
       return { success: true, result };
     } catch (error) {
@@ -355,7 +350,7 @@ export class ProactivityEngineService {
     context: UserContext
   ): Promise<EnhancedSuggestion | null> {
     const prompt = this.buildSuggestionPrompt(trigger, context);
-    
+
     try {
       const response = await this.aiGateway.processRequest({
         prompt,
@@ -403,7 +398,7 @@ Respond in JSON format:
   private parseAISuggestion(aiResponse: string, trigger: TriggerEvent): EnhancedSuggestion | null {
     try {
       const parsed = JSON.parse(aiResponse);
-      
+
       return {
         ...parsed,
         id: '', // Will be set when saved to database
@@ -415,11 +410,13 @@ Respond in JSON format:
     }
   }
 
-  private async prioritizeTrigger(trigger: TriggerEvent): Promise<'urgent' | 'important' | 'routine' | 'ignore'> {
+  private async prioritizeTrigger(
+    trigger: TriggerEvent
+  ): Promise<'urgent' | 'important' | 'routine' | 'ignore'> {
     // Implement smart prioritization logic
     if (trigger.priority === 'urgent') return 'urgent';
     if (trigger.priority === 'important') return 'important';
-    
+
     // Check user's recent activity and preferences
     const recentSuggestions = await this.prisma.aISuggestion.count({
       where: {
@@ -432,28 +429,35 @@ Respond in JSON format:
 
     // Don't overwhelm users with too many suggestions
     if (recentSuggestions > 3) return 'ignore';
-    
+
     return trigger.priority;
   }
 
   private getProcessingDelay(priority: 'urgent' | 'important' | 'routine'): number {
     switch (priority) {
-      case 'urgent': return 0; // Immediate
-      case 'important': return 5 * 60 * 1000; // 5 minutes
-      case 'routine': return 30 * 60 * 1000; // 30 minutes
-      default: return 0;
+      case 'urgent':
+        return 0; // Immediate
+      case 'important':
+        return 5 * 60 * 1000; // 5 minutes
+      case 'routine':
+        return 30 * 60 * 1000; // 30 minutes
+      default:
+        return 0;
     }
   }
 
   private getPriorityScore(priority: 'urgent' | 'important' | 'routine'): number {
     switch (priority) {
-      case 'urgent': return 10;
-      case 'important': return 5;
-      case 'routine': return 1;
-      default: return 1;
+      case 'urgent':
+        return 10;
+      case 'important':
+        return 5;
+      case 'routine':
+        return 1;
+      default:
+        return 1;
     }
   }
-
 
   private async detectPatterns(_context: UserContext): Promise<any[]> {
     // TODO: Implement pattern detection logic
@@ -498,7 +502,7 @@ Respond in JSON format:
 
   private calculateExpirationTime(priority: string): Date {
     let hours: number;
-    
+
     if (priority === 'urgent') {
       hours = 2;
     } else if (priority === 'important') {
@@ -506,7 +510,7 @@ Respond in JSON format:
     } else {
       hours = 72;
     }
-    
+
     return new Date(Date.now() + hours * 60 * 60 * 1000);
   }
 

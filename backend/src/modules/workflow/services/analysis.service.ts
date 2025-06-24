@@ -4,12 +4,7 @@ import { AIGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { SearchService } from '../../search/search.service';
 import { CacheService } from '../../cache/services/cache.service';
 import { CalendarEvent, Task } from '@prisma/client';
-import {
-  WorkflowAnalysis,
-  AnalysisContext,
-  AnalysisInsight,
-  InsightType,
-} from '../interfaces';
+import { WorkflowAnalysis, AnalysisContext, AnalysisInsight, InsightType } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 
 @Injectable()
@@ -20,7 +15,7 @@ export class AnalysisService {
     private prisma: PrismaService,
     private aiGateway: AIGatewayService,
     private searchService: SearchService,
-    private cacheService: CacheService,
+    private cacheService: CacheService
   ) {}
 
   /**
@@ -29,7 +24,7 @@ export class AnalysisService {
   async analyzeWorkflow(
     userId: string,
     triggerId: string,
-    triggerData: Record<string, any>,
+    triggerData: Record<string, any>
   ): Promise<WorkflowAnalysis> {
     try {
       const startTime = Date.now();
@@ -50,11 +45,7 @@ export class AnalysisService {
       const optimizations = await this.identifyOptimizations(context);
 
       // Combine all insights
-      const insights: AnalysisInsight[] = [
-        ...aiInsights,
-        ...anomalies,
-        ...optimizations,
-      ];
+      const insights: AnalysisInsight[] = [...aiInsights, ...anomalies, ...optimizations];
 
       // Calculate confidence score
       const confidence = this.calculateConfidence(insights, patterns);
@@ -74,7 +65,9 @@ export class AnalysisService {
       await this.cacheAnalysis(analysis);
 
       this.logger.log(
-        `Completed workflow analysis in ${Date.now() - startTime}ms with ${insights.length} insights`,
+        `Completed workflow analysis in ${Date.now() - startTime}ms with ${
+          insights.length
+        } insights`
       );
 
       return analysis;
@@ -84,7 +77,7 @@ export class AnalysisService {
         'Workflow analysis failed',
         'WORKFLOW_ANALYSIS_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -94,7 +87,7 @@ export class AnalysisService {
    */
   private async buildAnalysisContext(
     userId: string,
-    triggerData: Record<string, any>,
+    triggerData: Record<string, any>
   ): Promise<AnalysisContext> {
     const [user, tasks, events, recentActivity] = await Promise.all([
       this.prisma.user.findUnique({
@@ -139,10 +132,7 @@ export class AnalysisService {
   /**
    * Analyze historical patterns
    */
-  private async analyzeHistoricalPatterns(
-    userId: string,
-    triggerId: string,
-  ): Promise<any> {
+  private async analyzeHistoricalPatterns(userId: string, triggerId: string): Promise<any> {
     // Get historical workflow executions
     const executions = await this.prisma.workflowExecution.findMany({
       where: {
@@ -171,7 +161,7 @@ export class AnalysisService {
    */
   private async performAIAnalysis(
     context: AnalysisContext,
-    patterns: any,
+    patterns: any
   ): Promise<AnalysisInsight[]> {
     const insights: AnalysisInsight[] = [];
 
@@ -190,7 +180,7 @@ export class AnalysisService {
         where: { id: context.userId },
         include: { subscription: true },
       });
-      
+
       if (!user || !user.subscription) {
         throw new Error('User or subscription not found');
       }
@@ -211,7 +201,7 @@ export class AnalysisService {
       const similarScenarios = await this.searchService.findSimilar(
         context.userId,
         JSON.stringify(context.triggerData),
-        5,
+        5
       );
 
       if (similarScenarios.length > 0) {
@@ -235,7 +225,7 @@ export class AnalysisService {
    */
   private async detectAnomalies(
     userId: string,
-    context: AnalysisContext,
+    context: AnalysisContext
   ): Promise<AnalysisInsight[]> {
     const insights: AnalysisInsight[] = [];
 
@@ -287,9 +277,7 @@ export class AnalysisService {
   /**
    * Identify optimization opportunities
    */
-  private async identifyOptimizations(
-    context: AnalysisContext,
-  ): Promise<AnalysisInsight[]> {
+  private async identifyOptimizations(context: AnalysisContext): Promise<AnalysisInsight[]> {
     const insights: AnalysisInsight[] = [];
 
     // Task batching opportunity
@@ -322,7 +310,7 @@ export class AnalysisService {
       insights.push({
         type: InsightType.RECOMMENDATION,
         title: 'End-of-Day Planning',
-        description: 'Good time to plan tomorrow\'s priorities',
+        description: "Good time to plan tomorrow's priorities",
         data: { timeContext: context.environmentContext },
         importance: 'low',
       });
@@ -334,10 +322,7 @@ export class AnalysisService {
   /**
    * Calculate confidence score
    */
-  private calculateConfidence(
-    insights: AnalysisInsight[],
-    patterns: any,
-  ): number {
+  private calculateConfidence(insights: AnalysisInsight[], patterns: any): number {
     let confidence = 0.5; // Base confidence
 
     // Increase confidence based on historical data
@@ -352,9 +337,9 @@ export class AnalysisService {
     const criticalInsights = insights.filter(i => i.importance === 'critical').length;
     const highInsights = insights.filter(i => i.importance === 'high').length;
 
-    confidence += (insights.length * 0.02); // More insights = higher confidence
-    confidence -= (criticalInsights * 0.05); // Critical issues reduce confidence
-    confidence += (highInsights * 0.03); // High importance insights boost confidence
+    confidence += insights.length * 0.02; // More insights = higher confidence
+    confidence -= criticalInsights * 0.05; // Critical issues reduce confidence
+    confidence += highInsights * 0.03; // High importance insights boost confidence
 
     return Math.max(0.1, Math.min(0.95, confidence));
   }
@@ -386,8 +371,9 @@ export class AnalysisService {
 
   private calculateFrequency(executions: any[]): number {
     if (executions.length < 2) return 0;
-    const daysDiff = (new Date().getTime() - executions[executions.length - 1].createdAt.getTime()) 
-      / (1000 * 60 * 60 * 24);
+    const daysDiff =
+      (new Date().getTime() - executions[executions.length - 1].createdAt.getTime()) /
+      (1000 * 60 * 60 * 24);
     return executions.length / daysDiff;
   }
 
@@ -399,7 +385,7 @@ export class AnalysisService {
 
   private findCommonActions(executions: any[]): string[] {
     const actionCounts: Record<string, number> = {};
-    
+
     executions.forEach(exec => {
       (exec.executedActions || []).forEach((action: any) => {
         actionCounts[action.type] = (actionCounts[action.type] || 0) + 1;
@@ -414,7 +400,7 @@ export class AnalysisService {
 
   private findPeakTimes(executions: any[]): number[] {
     const hourCounts: number[] = new Array(24).fill(0);
-    
+
     executions.forEach(exec => {
       const hour = exec.createdAt.getHours();
       hourCounts[hour]++;
@@ -431,7 +417,7 @@ export class AnalysisService {
     const durations = executions
       .filter(e => e.completedAt && e.startedAt)
       .map(e => e.completedAt.getTime() - e.startedAt.getTime());
-    
+
     if (durations.length === 0) return 0;
     return durations.reduce((a, b) => a + b, 0) / durations.length;
   }
@@ -490,7 +476,7 @@ Format as JSON array with: type, title, description, importance`;
     // Check for overlapping events in the next 7 days
     const startDate = new Date();
     const endDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    
+
     const events = await this.prisma.calendarEvent.findMany({
       where: {
         userId,
@@ -499,7 +485,7 @@ Format as JSON array with: type, title, description, importance`;
       },
       orderBy: { startTime: 'asc' },
     });
-    
+
     return events;
   }
 
@@ -513,7 +499,7 @@ Format as JSON array with: type, title, description, importance`;
       orderBy: { createdAt: 'desc' },
       take: 20,
     });
-    
+
     return recentTasks;
   }
 

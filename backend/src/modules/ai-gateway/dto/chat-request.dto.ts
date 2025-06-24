@@ -1,5 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsArray, IsOptional, IsEnum, IsNumber, IsBoolean, ValidateNested, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsArray,
+  IsOptional,
+  IsEnum,
+  IsNumber,
+  IsBoolean,
+  ValidateNested,
+  Min,
+  Max,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum ChatRole {
@@ -32,8 +42,8 @@ export class ChatMessageDto {
   content: string;
 
   constructor(data: Partial<ChatMessageDto>) {
-    this.role = data.role !== undefined ? data.role : ChatRole.USER;
-    this.content = data.content !== undefined ? data.content : '';
+    this.role = data.role ?? ChatRole.USER;
+    this.content = data.content ?? '';
     this.timestamp = data.timestamp;
   }
 
@@ -54,7 +64,7 @@ export class ChatContextDto {
     items: { type: 'object' },
   })
   @IsOptional()
-  tasks?: any[];
+  tasks?: Array<{ id: string; title: string; status: string }>;
 
   @ApiPropertyOptional({
     description: 'Recent emails for context',
@@ -63,7 +73,7 @@ export class ChatContextDto {
     items: { type: 'object' },
   })
   @IsOptional()
-  emails?: any[];
+  emails?: Array<{ id: string; subject: string; from: string }>;
 
   @ApiPropertyOptional({
     description: 'Upcoming calendar events for context',
@@ -72,7 +82,7 @@ export class ChatContextDto {
     items: { type: 'object' },
   })
   @IsOptional()
-  events?: any[];
+  events?: Array<{ id: string; title: string; startTime: string }>;
 
   @ApiPropertyOptional({
     description: 'Current user location',
@@ -107,8 +117,8 @@ export class ChatRequestDto {
       {
         role: 'user',
         content: 'Help me prioritize my tasks for today',
-        timestamp: '2024-12-24T10:00:00Z'
-      }
+        timestamp: '2024-12-24T10:00:00Z',
+      },
     ],
   })
   @IsArray()
@@ -194,7 +204,7 @@ export class ChatRequestDto {
   systemPrompt?: string;
 
   constructor(data: Partial<ChatRequestDto>) {
-    this.messages = data.messages !== undefined ? data.messages : [];
+    this.messages = data.messages ?? [];
     this.model = data.model;
     this.temperature = data.temperature;
     this.maxTokens = data.maxTokens;

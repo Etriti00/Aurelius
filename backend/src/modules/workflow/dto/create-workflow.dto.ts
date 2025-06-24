@@ -12,9 +12,9 @@ export class CreateWorkflowDto {
   @IsString()
   description: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Workflow triggers',
-    type: [CreateTriggerDto]
+    type: [CreateTriggerDto],
   })
   @IsArray()
   @ValidateNested({ each: true })

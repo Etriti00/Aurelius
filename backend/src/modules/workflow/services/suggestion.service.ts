@@ -21,15 +21,13 @@ export class SuggestionService {
   constructor(
     private prisma: PrismaService,
     private aiGateway: AIGatewayService,
-    private cacheService: CacheService,
+    private cacheService: CacheService
   ) {}
 
   /**
    * Generate suggestions based on analysis
    */
-  async generateSuggestions(
-    analysis: WorkflowAnalysis,
-  ): Promise<WorkflowSuggestion[]> {
+  async generateSuggestions(analysis: WorkflowAnalysis): Promise<WorkflowSuggestion[]> {
     try {
       const suggestions: WorkflowSuggestion[] = [];
 
@@ -55,7 +53,9 @@ export class SuggestionService {
       // Cache suggestions
       await this.cacheSuggestions(analysis.id, finalSuggestions);
 
-      this.logger.log(`Generated ${finalSuggestions.length} suggestions for analysis ${analysis.id}`);
+      this.logger.log(
+        `Generated ${finalSuggestions.length} suggestions for analysis ${analysis.id}`
+      );
       return finalSuggestions;
     } catch (error: any) {
       this.logger.error(`Failed to generate suggestions: ${error.message}`);
@@ -63,7 +63,7 @@ export class SuggestionService {
         'Failed to generate suggestions',
         'SUGGESTION_GENERATION_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -71,9 +71,7 @@ export class SuggestionService {
   /**
    * Generate task-related suggestions
    */
-  private async generateTaskSuggestions(
-    analysis: WorkflowAnalysis,
-  ): Promise<WorkflowSuggestion[]> {
+  private async generateTaskSuggestions(analysis: WorkflowAnalysis): Promise<WorkflowSuggestion[]> {
     const suggestions: WorkflowSuggestion[] = [];
     const context = analysis.context;
 
@@ -85,22 +83,18 @@ export class SuggestionService {
         title: 'Delegate Low-Priority Tasks',
         description: 'Your task load is high. Consider delegating or deferring low-priority items.',
         actions: [
-          this.createAction(
-            ActionType.UPDATE_TASK,
-            'Mark tasks for delegation',
-            {
-              required: {
-                taskIds: {
-                  type: 'array',
-                  description: 'Tasks to delegate',
-                },
-                delegateTo: {
-                  type: 'string',
-                  description: 'Person or team to delegate to',
-                },
+          this.createAction(ActionType.UPDATE_TASK, 'Mark tasks for delegation', {
+            required: {
+              taskIds: {
+                type: 'array',
+                description: 'Tasks to delegate',
+              },
+              delegateTo: {
+                type: 'string',
+                description: 'Person or team to delegate to',
               },
             },
-          ),
+          }),
         ],
         priority: 8,
         estimatedImpact: {
@@ -113,10 +107,10 @@ export class SuggestionService {
     }
 
     // Check for similar tasks
-    const hasPattern = analysis.insights.find(i => 
-      i.type === 'pattern_detected' && i.data.similarTasks
+    const hasPattern = analysis.insights.find(
+      i => i.type === 'pattern_detected' && i.data.similarTasks
     );
-    
+
     if (hasPattern) {
       suggestions.push({
         id: `sug-${Date.now()}-merge`,
@@ -124,22 +118,18 @@ export class SuggestionService {
         title: 'Merge Similar Tasks',
         description: 'Several tasks have similar objectives and can be combined.',
         actions: [
-          this.createAction(
-            ActionType.UPDATE_TASK,
-            'Merge related tasks',
-            {
-              required: {
-                taskIds: {
-                  type: 'array',
-                  description: 'Tasks to merge',
-                },
-                mergedTitle: {
-                  type: 'string',
-                  description: 'Title for merged task',
-                },
+          this.createAction(ActionType.UPDATE_TASK, 'Merge related tasks', {
+            required: {
+              taskIds: {
+                type: 'array',
+                description: 'Tasks to merge',
+              },
+              mergedTitle: {
+                type: 'string',
+                description: 'Title for merged task',
               },
             },
-          ),
+          }),
         ],
         priority: 6,
         estimatedImpact: {
@@ -158,7 +148,7 @@ export class SuggestionService {
    * Generate scheduling suggestions
    */
   private async generateScheduleSuggestions(
-    analysis: WorkflowAnalysis,
+    analysis: WorkflowAnalysis
   ): Promise<WorkflowSuggestion[]> {
     const suggestions: WorkflowSuggestion[] = [];
     const context = analysis.context;
@@ -171,28 +161,24 @@ export class SuggestionService {
         title: 'Schedule Deep Work Session',
         description: 'Morning hours are optimal for focused work. Block time for important tasks.',
         actions: [
-          this.createAction(
-            ActionType.SCHEDULE_EVENT,
-            'Create focus time block',
-            {
-              required: {
-                title: {
-                  type: 'string',
-                  description: 'Session title',
-                  default: 'Deep Work Session',
-                },
-                duration: {
-                  type: 'number',
-                  description: 'Duration in minutes',
-                  default: 90,
-                },
-                startTime: {
-                  type: 'date',
-                  description: 'Start time',
-                },
+          this.createAction(ActionType.SCHEDULE_EVENT, 'Create focus time block', {
+            required: {
+              title: {
+                type: 'string',
+                description: 'Session title',
+                default: 'Deep Work Session',
+              },
+              duration: {
+                type: 'number',
+                description: 'Duration in minutes',
+                default: 90,
+              },
+              startTime: {
+                type: 'date',
+                description: 'Start time',
               },
             },
-          ),
+          }),
         ],
         priority: 7,
         estimatedImpact: {
@@ -209,20 +195,17 @@ export class SuggestionService {
         id: `sug-${Date.now()}-optimize-meetings`,
         type: SuggestionType.OPTIMIZE_WORKFLOW,
         title: 'Optimize Meeting Schedule',
-        description: 'High meeting density detected. Consider consolidating or declining non-essential meetings.',
+        description:
+          'High meeting density detected. Consider consolidating or declining non-essential meetings.',
         actions: [
-          this.createAction(
-            ActionType.ANALYZE_DATA,
-            'Analyze meeting necessity',
-            {
-              required: {
-                eventIds: {
-                  type: 'array',
-                  description: 'Meeting IDs to analyze',
-                },
+          this.createAction(ActionType.ANALYZE_DATA, 'Analyze meeting necessity', {
+            required: {
+              eventIds: {
+                type: 'array',
+                description: 'Meeting IDs to analyze',
               },
             },
-          ),
+          }),
         ],
         priority: 6,
         estimatedImpact: {
@@ -240,13 +223,13 @@ export class SuggestionService {
    * Generate automation suggestions
    */
   private async generateAutomationSuggestions(
-    analysis: WorkflowAnalysis,
+    analysis: WorkflowAnalysis
   ): Promise<WorkflowSuggestion[]> {
     const suggestions: WorkflowSuggestion[] = [];
 
     // Check for repetitive patterns
     const patterns = analysis.insights.filter(i => i.type === 'pattern_detected');
-    
+
     for (const pattern of patterns) {
       if (pattern.data.frequency > 3) {
         suggestions.push({
@@ -255,23 +238,19 @@ export class SuggestionService {
           title: `Automate ${pattern.title}`,
           description: `This action occurs frequently and can be automated to save time.`,
           actions: [
-            this.createAction(
-              ActionType.TRIGGER_WORKFLOW,
-              'Create automation workflow',
-              {
-                required: {
-                  workflowType: {
-                    type: 'string',
-                    description: 'Type of automation',
-                    default: pattern.data.type,
-                  },
-                  trigger: {
-                    type: 'object',
-                    description: 'Trigger configuration',
-                  },
+            this.createAction(ActionType.TRIGGER_WORKFLOW, 'Create automation workflow', {
+              required: {
+                workflowType: {
+                  type: 'string',
+                  description: 'Type of automation',
+                  default: pattern.data.type,
+                },
+                trigger: {
+                  type: 'object',
+                  description: 'Trigger configuration',
                 },
               },
-            ),
+            }),
           ],
           priority: 9,
           estimatedImpact: {
@@ -292,22 +271,18 @@ export class SuggestionService {
         title: 'Create Email Response Template',
         description: 'Similar emails detected. Create a template for faster responses.',
         actions: [
-          this.createAction(
-            ActionType.GENERATE_CONTENT,
-            'Generate email template',
-            {
-              required: {
-                emailType: {
-                  type: 'string',
-                  description: 'Type of email',
-                },
-                templateName: {
-                  type: 'string',
-                  description: 'Template name',
-                },
+          this.createAction(ActionType.GENERATE_CONTENT, 'Generate email template', {
+            required: {
+              emailType: {
+                type: 'string',
+                description: 'Type of email',
+              },
+              templateName: {
+                type: 'string',
+                description: 'Template name',
               },
             },
-          ),
+          }),
         ],
         priority: 5,
         estimatedImpact: {
@@ -324,23 +299,23 @@ export class SuggestionService {
   /**
    * Generate AI-powered suggestions
    */
-  private async generateAISuggestions(
-    analysis: WorkflowAnalysis,
-  ): Promise<WorkflowSuggestion[]> {
+  private async generateAISuggestions(analysis: WorkflowAnalysis): Promise<WorkflowSuggestion[]> {
     try {
       const prompt = this.buildSuggestionPrompt(analysis);
-      
+
       // Get user subscription info
       const user = await this.prisma.user.findUnique({
         where: { id: analysis.context.userId },
         include: { subscription: true },
       });
-      
+
       if (!user || !user.subscription) {
-        this.logger.warn(`User or subscription not found for AI suggestions: ${analysis.context.userId}`);
+        this.logger.warn(
+          `User or subscription not found for AI suggestions: ${analysis.context.userId}`
+        );
         return [];
       }
-      
+
       const response = await this.aiGateway.processRequest({
         prompt,
         userId: analysis.context.userId,
@@ -361,7 +336,7 @@ export class SuggestionService {
    */
   private prioritizeSuggestions(
     suggestions: WorkflowSuggestion[],
-    analysis: WorkflowAnalysis,
+    analysis: WorkflowAnalysis
   ): WorkflowSuggestion[] {
     // Sort by priority and confidence
     const sorted = suggestions.sort((a, b) => {
@@ -395,7 +370,7 @@ export class SuggestionService {
   private createAction(
     type: ActionType,
     name: string,
-    parameters: ActionParameters,
+    parameters: ActionParameters
   ): WorkflowAction {
     return {
       id: `action-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -412,29 +387,19 @@ export class SuggestionService {
   private getActionRequirements(type: ActionType): ActionRequirement[] {
     const requirementsMap: Record<ActionType, ActionRequirement[]> = {
       [ActionType.CREATE_TASK]: [],
-      [ActionType.UPDATE_TASK]: [
-        { type: 'permission', details: { scope: 'task.write' } },
-      ],
+      [ActionType.UPDATE_TASK]: [{ type: 'permission', details: { scope: 'task.write' } }],
       [ActionType.SEND_EMAIL]: [
         { type: 'integration', details: { service: 'email' } },
         { type: 'confirmation', details: { reason: 'Sending email on your behalf' } },
       ],
-      [ActionType.SCHEDULE_EVENT]: [
-        { type: 'integration', details: { service: 'calendar' } },
-      ],
+      [ActionType.SCHEDULE_EVENT]: [{ type: 'integration', details: { service: 'calendar' } }],
       [ActionType.CREATE_REMINDER]: [],
-      [ActionType.EXECUTE_INTEGRATION]: [
-        { type: 'integration', details: { service: 'varies' } },
-      ],
+      [ActionType.EXECUTE_INTEGRATION]: [{ type: 'integration', details: { service: 'varies' } }],
       [ActionType.TRIGGER_WORKFLOW]: [
         { type: 'permission', details: { scope: 'workflow.execute' } },
       ],
-      [ActionType.GENERATE_CONTENT]: [
-        { type: 'permission', details: { scope: 'ai.generate' } },
-      ],
-      [ActionType.ANALYZE_DATA]: [
-        { type: 'data', details: { required: 'historical_data' } },
-      ],
+      [ActionType.GENERATE_CONTENT]: [{ type: 'permission', details: { scope: 'ai.generate' } }],
+      [ActionType.ANALYZE_DATA]: [{ type: 'data', details: { required: 'historical_data' } }],
       [ActionType.NOTIFY_USER]: [],
     };
 
@@ -480,20 +445,17 @@ export class SuggestionService {
   }
 
   private isActionReversible(type: ActionType): boolean {
-    const reversibleActions = [
-      ActionType.UPDATE_TASK,
-      ActionType.CREATE_REMINDER,
-    ];
+    const reversibleActions = [ActionType.UPDATE_TASK, ActionType.CREATE_REMINDER];
     return reversibleActions.includes(type);
   }
 
   private isSuggestionRelevant(
     suggestion: WorkflowSuggestion,
-    analysis: WorkflowAnalysis,
+    analysis: WorkflowAnalysis
   ): boolean {
     // Check if suggestion type matches context
     const context = analysis.context;
-    
+
     switch (suggestion.type) {
       case SuggestionType.DELEGATE_TASK:
         return context.userContext.currentTasks > 5;
@@ -526,35 +488,34 @@ Generate 2-3 specific, actionable suggestions that would:
 Format as JSON array with: type, title, description, priority (1-10), estimatedTimeSaved, reasoning`;
   }
 
-  private parseAISuggestions(
-    content: string,
-    analysis: WorkflowAnalysis,
-  ): WorkflowSuggestion[] {
+  private parseAISuggestions(content: string, analysis: WorkflowAnalysis): WorkflowSuggestion[] {
     try {
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (!jsonMatch) return [];
 
       const suggestions = JSON.parse(jsonMatch[0]);
-      return suggestions.map((sugData: { 
-        type?: string; 
-        title?: string; 
-        description?: string; 
-        priority?: number; 
-        estimatedTimeSaved?: number; 
-        reasoning?: string; 
-      }) => ({
-        id: `sug-ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        type: this.mapToSuggestionType(sugData.type || 'general'),
-        title: sugData.title || 'AI Generated Suggestion',
-        description: sugData.description || 'Generated based on workflow analysis',
-        actions: this.generateActionsForSuggestion(sugData, analysis),
-        priority: sugData.priority || 5,
-        estimatedImpact: {
-          timeSaved: sugData.estimatedTimeSaved || 0,
-        },
-        reasoning: sugData.reasoning || 'AI-generated suggestion based on current context',
-        confidence: 0.7,
-      }));
+      return suggestions.map(
+        (sugData: {
+          type?: string;
+          title?: string;
+          description?: string;
+          priority?: number;
+          estimatedTimeSaved?: number;
+          reasoning?: string;
+        }) => ({
+          id: `sug-ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          type: this.mapToSuggestionType(sugData.type || 'general'),
+          title: sugData.title || 'AI Generated Suggestion',
+          description: sugData.description || 'Generated based on workflow analysis',
+          actions: this.generateActionsForSuggestion(sugData, analysis),
+          priority: sugData.priority || 5,
+          estimatedImpact: {
+            timeSaved: sugData.estimatedTimeSaved || 0,
+          },
+          reasoning: sugData.reasoning || 'AI-generated suggestion based on current context',
+          confidence: 0.7,
+        })
+      );
     } catch (error) {
       this.logger.warn(`Failed to parse AI suggestions: ${error}`);
       return [];
@@ -563,18 +524,16 @@ Format as JSON array with: type, title, description, priority (1-10), estimatedT
 
   private generateActionsForSuggestion(
     sugData: { type?: string; title?: string; description?: string },
-    analysis: WorkflowAnalysis,
+    analysis: WorkflowAnalysis
   ): WorkflowAction[] {
     // Generate appropriate actions based on suggestion type and analysis context
     const actions: WorkflowAction[] = [];
     const suggestionType = sugData.type || 'general';
-    
+
     switch (suggestionType.toLowerCase()) {
       case 'task':
-        actions.push(this.createAction(
-          ActionType.CREATE_TASK,
-          'Create suggested task',
-          {
+        actions.push(
+          this.createAction(ActionType.CREATE_TASK, 'Create suggested task', {
             required: {
               title: {
                 type: 'string',
@@ -587,14 +546,12 @@ Format as JSON array with: type, title, description, priority (1-10), estimatedT
                 default: sugData.description || 'Generated from workflow analysis',
               },
             },
-          },
-        ));
+          })
+        );
         break;
       case 'email':
-        actions.push(this.createAction(
-          ActionType.SEND_EMAIL,
-          'Send suggested email',
-          {
+        actions.push(
+          this.createAction(ActionType.SEND_EMAIL, 'Send suggested email', {
             required: {
               to: {
                 type: 'string',
@@ -607,14 +564,12 @@ Format as JSON array with: type, title, description, priority (1-10), estimatedT
                 default: sugData.title || 'Follow-up',
               },
             },
-          },
-        ));
+          })
+        );
         break;
       case 'notification':
-        actions.push(this.createAction(
-          ActionType.NOTIFY_USER,
-          'Send notification',
-          {
+        actions.push(
+          this.createAction(ActionType.NOTIFY_USER, 'Send notification', {
             required: {
               title: {
                 type: 'string',
@@ -627,15 +582,13 @@ Format as JSON array with: type, title, description, priority (1-10), estimatedT
                 default: sugData.description || 'Automated workflow notification',
               },
             },
-          },
-        ));
+          })
+        );
         break;
       default:
         // For general suggestions, create a generic action
-        actions.push(this.createAction(
-          ActionType.NOTIFY_USER,
-          'Execute suggestion',
-          {
+        actions.push(
+          this.createAction(ActionType.NOTIFY_USER, 'Execute suggestion', {
             required: {
               title: {
                 type: 'string',
@@ -648,10 +601,10 @@ Format as JSON array with: type, title, description, priority (1-10), estimatedT
                 default: sugData.description || 'Execute the AI-generated suggestion',
               },
             },
-          },
-        ));
+          })
+        );
     }
-    
+
     return actions;
   }
 
@@ -671,7 +624,7 @@ Format as JSON array with: type, title, description, priority (1-10), estimatedT
 
   private async cacheSuggestions(
     analysisId: string,
-    suggestions: WorkflowSuggestion[],
+    suggestions: WorkflowSuggestion[]
   ): Promise<void> {
     const key = `suggestions:${analysisId}`;
     await this.cacheService.set(key, suggestions, 3600); // 1 hour

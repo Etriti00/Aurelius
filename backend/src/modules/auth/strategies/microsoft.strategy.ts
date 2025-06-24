@@ -15,12 +15,7 @@ export class MicrosoftStrategy extends PassportStrategy(Strategy, 'microsoft') {
       clientID: configService.get<string>('MICROSOFT_CLIENT_ID'),
       clientSecret: configService.get<string>('MICROSOFT_CLIENT_SECRET'),
       callbackURL: '/api/v1/auth/microsoft/callback',
-      scope: [
-        'user.read',
-        'mail.readwrite',
-        'calendars.readwrite',
-        'offline_access',
-      ],
+      scope: ['user.read', 'mail.readwrite', 'calendars.readwrite', 'offline_access'],
       tenant: 'common',
     });
   }
@@ -41,7 +36,7 @@ export class MicrosoftStrategy extends PassportStrategy(Strategy, 'microsoft') {
       };
 
       const tokens = await this.authService.handleOAuthLogin(oauthUser);
-      
+
       // Store OAuth tokens for API access
       const user = {
         ...oauthUser,

@@ -49,11 +49,11 @@ export class EmailService {
     html?: string;
   }): Promise<{ id: string; messageId: string; status: string }> {
     this.logger.log(`Sending email from ${emailData.from} to ${emailData.to}`);
-    
+
     // In a real implementation, this would integrate with an email service
     // like SendGrid, AWS SES, or similar
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     return {
       id: `email_${Date.now()}`,
       messageId,

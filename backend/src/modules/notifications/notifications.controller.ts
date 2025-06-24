@@ -26,10 +26,7 @@ export class NotificationsController {
 
   @Get()
   @ApiOperation({ summary: 'Get user notifications' })
-  async getNotifications(
-    @CurrentUser() user: any,
-    @Query() query: NotificationQueryDto,
-  ) {
+  async getNotifications(@CurrentUser() user: any, @Query() query: NotificationQueryDto) {
     return this.notificationsService.getUserNotifications(user.id, query);
   }
 
@@ -41,18 +38,13 @@ export class NotificationsController {
 
   @Post()
   @ApiOperation({ summary: 'Create a notification (admin only)' })
-  async createNotification(
-    @Body() createNotificationDto: CreateNotificationDto,
-  ) {
+  async createNotification(@Body() createNotificationDto: CreateNotificationDto) {
     return this.notificationsService.create(createNotificationDto);
   }
 
   @Patch(':id/read')
   @ApiOperation({ summary: 'Mark notification as read' })
-  async markAsRead(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-  ) {
+  async markAsRead(@CurrentUser() user: any, @Param('id') id: string) {
     return this.notificationsService.markAsRead(user.id, id);
   }
 
@@ -64,19 +56,13 @@ export class NotificationsController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a notification' })
-  async deleteNotification(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-  ) {
+  async deleteNotification(@CurrentUser() user: any, @Param('id') id: string) {
     return this.notificationsService.delete(user.id, id);
   }
 
   @Post('preferences')
   @ApiOperation({ summary: 'Update notification preferences' })
-  async updatePreferences(
-    @CurrentUser() user: any,
-    @Body() preferences: UpdateNotificationDto,
-  ) {
+  async updatePreferences(@CurrentUser() user: any, @Body() preferences: UpdateNotificationDto) {
     return this.notificationsService.updatePreferences(user.id, preferences);
   }
 }

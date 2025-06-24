@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsEnum, IsArray, IsBoolean, IsObject, IsOptional, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsArray,
+  IsBoolean,
+  IsObject,
+  IsOptional,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { TriggerType, ConditionOperator } from '../interfaces';
 
@@ -15,9 +23,9 @@ export class TriggerConditionDto {
   @ApiProperty({ description: 'Value to compare against' })
   value: any;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     enum: ['AND', 'OR'],
-    description: 'Logical operator for next condition'
+    description: 'Logical operator for next condition',
   })
   @IsEnum(['AND', 'OR'])
   @IsOptional()
@@ -35,9 +43,9 @@ export class CreateTriggerDto {
   @IsEnum(TriggerType)
   type: TriggerType;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Trigger conditions',
-    type: [TriggerConditionDto]
+    type: [TriggerConditionDto],
   })
   @IsArray()
   @ValidateNested({ each: true })

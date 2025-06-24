@@ -3,12 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SemanticSearchService } from './services/semantic-search.service';
 import { VectorService } from './services/vector.service';
 import { CacheService } from '../cache/services/cache.service';
-import {
-  SearchQuery,
-  SearchResponse,
-  SearchOptions,
-  SearchResult,
-} from './interfaces';
+import { SearchQuery, SearchResponse, SearchOptions, SearchResult } from './interfaces';
 import { BusinessException } from '../../common/exceptions';
 
 export enum SearchableType {
@@ -29,7 +24,7 @@ export class SearchService {
     private prisma: PrismaService,
     private semanticSearch: SemanticSearchService,
     private vectorService: VectorService,
-    private cacheService: CacheService,
+    private cacheService: CacheService
   ) {}
 
   /**
@@ -38,7 +33,7 @@ export class SearchService {
   async search(
     userId: string,
     query: string,
-    options: SearchOptions = {},
+    options: SearchOptions = {}
   ): Promise<SearchResponse> {
     try {
       const searchQuery: SearchQuery = {
@@ -59,16 +54,11 @@ export class SearchService {
           offset: options.offset,
           threshold: options.threshold,
           useHybridSearch: searchQuery.type === 'hybrid',
-        },
+        }
       );
     } catch (error: any) {
       this.logger.error(`Search failed: ${error.message}`);
-      throw new BusinessException(
-        'Search failed',
-        'SEARCH_FAILED',
-        undefined,
-        error,
-      );
+      throw new BusinessException('Search failed', 'SEARCH_FAILED', undefined, error);
     }
   }
 
@@ -79,7 +69,7 @@ export class SearchService {
     userId: string,
     type: SearchableType,
     query: string,
-    options: SearchOptions = {},
+    options: SearchOptions = {}
   ): Promise<SearchResponse> {
     try {
       return await this.semanticSearch.search(
@@ -95,7 +85,7 @@ export class SearchService {
           offset: options.offset,
           threshold: options.threshold,
           useHybridSearch: true,
-        },
+        }
       );
     } catch (error: any) {
       this.logger.error(`Search by type failed: ${error.message}`);
@@ -103,7 +93,7 @@ export class SearchService {
         'Search by type failed',
         'SEARCH_BY_TYPE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -140,16 +130,11 @@ export class SearchService {
         content,
         metadata,
         task.userId,
-        SearchableType.TASK,
+        SearchableType.TASK
       );
     } catch (error: any) {
       this.logger.error(`Failed to index task: ${error.message}`);
-      throw new BusinessException(
-        'Failed to index task',
-        'TASK_INDEX_FAILED',
-        undefined,
-        error,
-      );
+      throw new BusinessException('Failed to index task', 'TASK_INDEX_FAILED', undefined, error);
     }
   }
 
@@ -186,16 +171,11 @@ export class SearchService {
         content,
         metadata,
         email.userId,
-        SearchableType.EMAIL,
+        SearchableType.EMAIL
       );
     } catch (error: any) {
       this.logger.error(`Failed to index email: ${error.message}`);
-      throw new BusinessException(
-        'Failed to index email',
-        'EMAIL_INDEX_FAILED',
-        undefined,
-        error,
-      );
+      throw new BusinessException('Failed to index email', 'EMAIL_INDEX_FAILED', undefined, error);
     }
   }
 
@@ -229,7 +209,7 @@ export class SearchService {
         content,
         metadata,
         event.userId,
-        SearchableType.CALENDAR_EVENT,
+        SearchableType.CALENDAR_EVENT
       );
     } catch (error: any) {
       this.logger.error(`Failed to index calendar event: ${error.message}`);
@@ -237,7 +217,7 @@ export class SearchService {
         'Failed to index calendar event',
         'EVENT_INDEX_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -267,7 +247,7 @@ export class SearchService {
         memory.content,
         metadata,
         memory.userId,
-        SearchableType.MEMORY,
+        SearchableType.MEMORY
       );
     } catch (error: any) {
       this.logger.error(`Failed to index memory: ${error.message}`);
@@ -275,7 +255,7 @@ export class SearchService {
         'Failed to index memory',
         'MEMORY_INDEX_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -290,7 +270,7 @@ export class SearchService {
       type: SearchableType;
       content: string;
       metadata?: Record<string, any>;
-    }>,
+    }>
   ): Promise<void> {
     try {
       const documents = items.map(item => ({
@@ -307,12 +287,7 @@ export class SearchService {
       await this.semanticSearch.batchIndex(documents);
     } catch (error: any) {
       this.logger.error(`Bulk index failed: ${error.message}`);
-      throw new BusinessException(
-        'Bulk index failed',
-        'BULK_INDEX_FAILED',
-        undefined,
-        error,
-      );
+      throw new BusinessException('Bulk index failed', 'BULK_INDEX_FAILED', undefined, error);
     }
   }
 
@@ -328,7 +303,7 @@ export class SearchService {
         'Failed to remove from index',
         'INDEX_REMOVAL_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -336,41 +311,28 @@ export class SearchService {
   /**
    * Find similar items
    */
-  async findSimilar(
-    userId: string,
-    itemId: string,
-    limit: number = 10,
-  ): Promise<SearchResult[]> {
+  async findSimilar(userId: string, itemId: string, limit: number = 10): Promise<SearchResult[]> {
     try {
       const results = await this.semanticSearch.findSimilar(itemId, limit);
-      
+
       // Filter by userId
       return results.filter(r => r.data.userId === userId);
     } catch (error: any) {
       this.logger.error(`Find similar failed: ${error.message}`);
-      throw new BusinessException(
-        'Find similar failed',
-        'FIND_SIMILAR_FAILED',
-        undefined,
-        error,
-      );
+      throw new BusinessException('Find similar failed', 'FIND_SIMILAR_FAILED', undefined, error);
     }
   }
 
   /**
    * Get search suggestions based on partial query
    */
-  async getSuggestions(
-    userId: string,
-    partialQuery: string,
-    limit: number = 5,
-  ): Promise<string[]> {
+  async getSuggestions(userId: string, partialQuery: string, limit: number = 5): Promise<string[]> {
     try {
       // This would typically use a dedicated suggestion index
       // For now, return recent searches from cache
       const cacheKey = `suggestions:${userId}`;
-      const recentSearches = await this.cacheService.get<string[]>(cacheKey) || [];
-      
+      const recentSearches = (await this.cacheService.get<string[]>(cacheKey)) || [];
+
       return recentSearches
         .filter(search => search.toLowerCase().includes(partialQuery.toLowerCase()))
         .slice(0, limit);
@@ -384,11 +346,7 @@ export class SearchService {
    * Build task content for indexing
    */
   private buildTaskContent(task: any): string {
-    const parts = [
-      task.title,
-      task.description || '',
-      task.notes || '',
-    ];
+    const parts = [task.title, task.description || '', task.notes || ''];
 
     if (task.subtasks && task.subtasks.length > 0) {
       parts.push(...task.subtasks.map((st: any) => st.title));
@@ -419,11 +377,7 @@ export class SearchService {
    * Build event content for indexing
    */
   private buildEventContent(event: any): string {
-    const parts = [
-      event.title,
-      event.description || '',
-      event.location || '',
-    ];
+    const parts = [event.title, event.description || '', event.location || ''];
 
     if (event.attendees && event.attendees.length > 0) {
       parts.push(`Attendees: ${event.attendees.map((a: any) => a.email).join(', ')}`);
@@ -432,7 +386,9 @@ export class SearchService {
     return parts.filter(Boolean).join(' ');
   }
 
-  private checkEmailHasAttachments(attachments: object | string | number | boolean | null): boolean {
+  private checkEmailHasAttachments(
+    attachments: object | string | number | boolean | null
+  ): boolean {
     if (Array.isArray(attachments)) {
       return attachments.length > 0;
     }

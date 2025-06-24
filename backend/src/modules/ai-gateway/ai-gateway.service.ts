@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { getOrDefault } from '../../common/utils/type-guards';
 
 import { AIModelSelectorService } from './services/ai-model-selector.service';
 import { AnthropicService } from './services/anthropic.service';
-import { UsageTrackingService } from './services/usage-tracking.service';
+import { AIUsageTrackingService } from './services/ai-usage-tracking.service';
 import { AIServiceException, RateLimitException } from '../../common/exceptions/app.exception';
 import { ChatMessageDto, AIModel } from './dto/chat-request.dto';
 import { ChatResponseDto, AIUsageDto, SuggestedActionDto } from './dto/chat-response.dto';
@@ -40,6 +41,62 @@ interface AIProcessResponse {
   };
 }
 
+interface EmailAnalysisResult {
+  summary: string;
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  sentiment: number;
+  actionItems: string[];
+  suggestedResponse?: string;
+}
+
+interface EmailDraftResult {
+  subject: string;
+  body: string;
+}
+
+interface ChatRequest {
+  userId: string;
+  messages: ChatMessageDto[];
+  model?: AIModel;
+  temperature?: number;
+  maxTokens?: number;
+  context?: ChatContext;
+  includeContext?: boolean;
+  suggestActions?: boolean;
+  conversationId?: string;
+  systemPrompt?: string;
+  userSubscription: { tier: 'PRO' | 'MAX' | 'TEAMS' };
+}
+
+interface ChatContext {
+  tasks?: Array<{ title: string; status: string }>;
+  events?: Array<{ title: string; startTime: string }>;
+  emails?: Array<{ subject: string; from: string }>;
+  location?: string;
+  timezone?: string;
+}
+
+interface ActionParameters {
+  title?: string;
+  recipient?: string;
+  [key: string]: string | number | boolean | string[] | undefined;
+}
+
+interface HealthCheckResult {
+  healthy: boolean;
+  services: Record<string, boolean>;
+}
+
+interface UserUsageStats {
+  userId: string;
+  currentMonthUsage: number;
+  monthlyLimit: number;
+  remainingActions: number;
+  usageByModel: Record<string, number>;
+  totalCost: number;
+  lastResetDate: Date;
+}
+
 @Injectable()
 export class AIGatewayService {
   private readonly logger = new Logger(AIGatewayService.name);
@@ -47,7 +104,7 @@ export class AIGatewayService {
   constructor(
     private readonly modelSelector: AIModelSelectorService,
     private readonly anthropicService: AnthropicService,
-    private readonly usageTracking: UsageTrackingService
+    private readonly usageTracking: AIUsageTrackingService
   ) {}
 
   async processRequest(request: AIProcessRequest): Promise<AIProcessResponse> {
@@ -123,8 +180,8 @@ export class AIGatewayService {
 
       this.logger.debug(
         `AI request completed for user ${request.userId}: ` +
-        `${response.metadata.duration}ms, $${cost.toFixed(6)}, ` +
-        `cache: ${response.metadata.cacheHit}`
+          `${response.metadata.duration}ms, $${cost.toFixed(6)}, ` +
+          `cache: ${response.metadata.cacheHit}`
       );
 
       return response;
@@ -171,13 +228,7 @@ Format as a simple list.`;
     userId: string;
     emailContent: string;
     userSubscription: { tier: 'PRO' | 'MAX' | 'TEAMS' };
-  }): Promise<{
-    summary: string;
-    priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
-    sentiment: number;
-    actionItems: string[];
-    suggestedResponse?: string;
-  }> {
+  }): Promise<EmailAnalysisResult> {
     const analysisPrompt = `Analyze this email thread and provide:
 
 1. A concise summary (2-3 sentences)
@@ -208,7 +259,7 @@ Respond in JSON format:
       });
 
       // Parse JSON response
-      const analysis = JSON.parse(response.text);
+      const analysis: EmailAnalysisResult = JSON.parse(response.text);
       return analysis;
     } catch (error) {
       this.logger.error('Failed to analyze email thread', error);
@@ -229,9 +280,9 @@ Respond in JSON format:
     purpose: string;
     tone?: 'formal' | 'casual' | 'friendly';
     userSubscription: { tier: 'PRO' | 'MAX' | 'TEAMS' };
-  }): Promise<{ subject: string; body: string }> {
-    const tone = request.tone || 'professional';
-    
+  }): Promise<EmailDraftResult> {
+    const tone = getOrDefault(request.tone, 'professional' as const);
+
     const draftPrompt = `Draft an email with the following details:
 
 Recipient: ${request.recipient}
@@ -261,7 +312,7 @@ Respond in JSON format:
         metadata: { type: 'email-drafting' },
       });
 
-      const draft = JSON.parse(response.text);
+      const draft: EmailDraftResult = JSON.parse(response.text);
       return draft;
     } catch (error) {
       this.logger.error('Failed to draft email', error);
@@ -295,7 +346,7 @@ Respond in JSON format:
   private calculateConfidence(model: string, outputTokens: number): number {
     // Calculate confidence based on model capability and response length
     let baseConfidence = 0.7;
-    
+
     switch (model) {
       case 'claude-3-opus':
         baseConfidence = 0.9;
@@ -318,14 +369,28 @@ Respond in JSON format:
     return Math.min(0.95, Math.max(0.5, baseConfidence));
   }
 
-  async getUsageStats(userId: string): Promise<any> {
-    return this.usageTracking.getUserUsageStats(userId);
+  async getUsageStats(userId: string): Promise<UserUsageStats> {
+    const stats = await this.usageTracking.getUserUsageStats(userId);
+
+    const currentMonth = new Date();
+    currentMonth.setDate(1);
+    currentMonth.setHours(0, 0, 0, 0);
+
+    // Transform UsageStats to UserUsageStats
+    // TODO: Fetch actual monthly limit from user's subscription
+    return {
+      userId,
+      currentMonthUsage: stats.totalActions,
+      monthlyLimit: 1000, // Default PRO limit, should be fetched from subscription
+      remainingActions: Math.max(0, 1000 - stats.totalActions),
+      usageByModel: getOrDefault(stats.modelBreakdown, {}),
+      totalCost: stats.totalCost,
+      lastResetDate: currentMonth,
+    };
   }
 
-  async healthCheck(): Promise<{ healthy: boolean; services: Record<string, boolean> }> {
-    const [anthropicHealthy] = await Promise.all([
-      this.anthropicService.healthCheck(),
-    ]);
+  async healthCheck(): Promise<HealthCheckResult> {
+    const [anthropicHealthy] = await Promise.all([this.anthropicService.healthCheck()]);
 
     return {
       healthy: anthropicHealthy,
@@ -335,21 +400,9 @@ Respond in JSON format:
     };
   }
 
-  async chat(request: {
-    userId: string;
-    messages: ChatMessageDto[];
-    model?: AIModel;
-    temperature?: number;
-    maxTokens?: number;
-    context?: any;
-    includeContext?: boolean;
-    suggestActions?: boolean;
-    conversationId?: string;
-    systemPrompt?: string;
-    userSubscription: { tier: 'PRO' | 'MAX' | 'TEAMS' };
-  }): Promise<ChatResponseDto> {
+  async chat(request: ChatRequest): Promise<ChatResponseDto> {
     const startTime = Date.now();
-    
+
     try {
       // Build the conversation prompt from messages
       const conversationText = request.messages
@@ -374,12 +427,12 @@ Respond in JSON format:
         userId: request.userId,
         action: 'chat',
         userSubscription: request.userSubscription,
-        metadata: { 
+        metadata: {
           type: 'chat',
           conversationId: request.conversationId,
           model: request.model,
           temperature: request.temperature,
-          maxTokens: request.maxTokens
+          maxTokens: request.maxTokens,
         },
       });
 
@@ -400,7 +453,7 @@ Respond in JSON format:
       // Build the chat response
       const chatResponse = new ChatResponseDto({
         response: response.text,
-        model: request.model || AIModel.CLAUDE_3_SONNET,
+        model: request.model ?? AIModel.CLAUDE_3_SONNET,
         usage,
         timestamp: new Date().toISOString(),
         conversationTurnId: this.generateTurnId(),
@@ -411,14 +464,13 @@ Respond in JSON format:
       });
 
       return chatResponse;
-
     } catch (error) {
       this.logger.error('Failed to process chat request', error);
-      
+
       // Return error response
       return new ChatResponseDto({
         response: '',
-        model: request.model || AIModel.CLAUDE_3_SONNET,
+        model: request.model ?? AIModel.CLAUDE_3_SONNET,
         usage: new AIUsageDto({ promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }),
         timestamp: new Date().toISOString(),
         conversationTurnId: this.generateTurnId(),
@@ -430,35 +482,41 @@ Respond in JSON format:
     }
   }
 
-  private formatContextForPrompt(context: any): string {
+  private formatContextForPrompt(context: ChatContext): string {
     const contextParts: string[] = [];
-    
+
     if (context.tasks && context.tasks.length > 0) {
-      contextParts.push(`Current tasks: ${context.tasks.map((t: any) => `${t.title} (${t.status})`).join(', ')}`);
+      contextParts.push(
+        `Current tasks: ${context.tasks.map(t => `${t.title} (${t.status})`).join(', ')}`
+      );
     }
-    
+
     if (context.events && context.events.length > 0) {
-      contextParts.push(`Upcoming events: ${context.events.map((e: any) => `${e.title} at ${e.startTime}`).join(', ')}`);
+      contextParts.push(
+        `Upcoming events: ${context.events.map(e => `${e.title} at ${e.startTime}`).join(', ')}`
+      );
     }
-    
+
     if (context.emails && context.emails.length > 0) {
-      contextParts.push(`Recent emails: ${context.emails.map((e: any) => `"${e.subject}" from ${e.from}`).join(', ')}`);
+      contextParts.push(
+        `Recent emails: ${context.emails.map(e => `"${e.subject}" from ${e.from}`).join(', ')}`
+      );
     }
-    
+
     if (context.location) {
       contextParts.push(`Location: ${context.location}`);
     }
-    
+
     if (context.timezone) {
       contextParts.push(`Timezone: ${context.timezone}`);
     }
-    
+
     return contextParts.join('. ');
   }
 
   private extractSuggestedActions(text: string): SuggestedActionDto[] {
     const actions: SuggestedActionDto[] = [];
-    
+
     // Look for action-oriented phrases in the response
     const actionPatterns = [
       /create.*task/i,
@@ -467,26 +525,37 @@ Respond in JSON format:
       /set.*reminder/i,
       /add.*to.*calendar/i,
     ];
-    
+
     const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    
+
     sentences.forEach((sentence, index) => {
       actionPatterns.forEach(pattern => {
         if (pattern.test(sentence)) {
           const actionType = this.determineActionType(sentence);
           if (actionType) {
-            actions.push(new SuggestedActionDto({
-              type: actionType,
-              description: sentence.trim(),
-              parameters: this.extractActionParameters(sentence, actionType),
-              confidence: 0.7,
-              id: `suggestion-${Date.now()}-${index}`,
-            }));
+            const rawParameters = this.extractActionParameters(sentence, actionType);
+            // Filter out undefined values to match DTO type
+            const parameters: Record<string, string | number | boolean | string[]> = {};
+            Object.entries(rawParameters).forEach(([key, value]) => {
+              if (value !== undefined) {
+                parameters[key] = value;
+              }
+            });
+
+            actions.push(
+              new SuggestedActionDto({
+                type: actionType,
+                description: sentence.trim(),
+                parameters,
+                confidence: 0.7,
+                id: `suggestion-${Date.now()}-${index}`,
+              })
+            );
           }
         }
       });
     });
-    
+
     return actions.slice(0, 3); // Limit to 3 suggestions
   }
 
@@ -499,20 +568,21 @@ Respond in JSON format:
     return null;
   }
 
-  private extractActionParameters(sentence: string, actionType: string): any {
+  private extractActionParameters(sentence: string, actionType: string): ActionParameters {
     // Basic parameter extraction - could be enhanced with NLP
-    const parameters: any = {};
-    
+    const parameters: ActionParameters = {};
+
     switch (actionType) {
       case 'create_task':
         // Try to extract task title from quotes or after "create task"
-        const taskMatch = sentence.match(/create.*task.*["']([^"']+)["']/i) || 
-                         sentence.match(/create.*task.*(?:to|for)\s+([^.!?]+)/i);
+        const taskMatch =
+          sentence.match(/create.*task.*["']([^"']+)["']/i) ||
+          sentence.match(/create.*task.*(?:to|for)\s+([^.!?]+)/i);
         if (taskMatch) {
           parameters.title = taskMatch[1].trim();
         }
         break;
-        
+
       case 'schedule_event':
         // Try to extract event details
         const eventMatch = sentence.match(/schedule.*["']([^"']+)["']/i);
@@ -520,17 +590,18 @@ Respond in JSON format:
           parameters.title = eventMatch[1].trim();
         }
         break;
-        
+
       case 'send_email':
         // Try to extract recipient or subject
-        const emailMatch = sentence.match(/send.*email.*to\s+([^.!?\s]+)/i) ||
-                          sentence.match(/email.*["']([^"']+)["']/i);
+        const emailMatch =
+          sentence.match(/send.*email.*to\s+([^.!?\s]+)/i) ||
+          sentence.match(/email.*["']([^"']+)["']/i);
         if (emailMatch) {
           parameters.recipient = emailMatch[1].trim();
         }
         break;
     }
-    
+
     return parameters;
   }
 

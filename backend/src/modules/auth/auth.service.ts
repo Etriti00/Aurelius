@@ -9,13 +9,12 @@ import { UsersService } from '../users/users.service';
 import { IntegrationsService } from '../integrations/integrations.service';
 import { UnauthorizedException } from '../../common/exceptions/app.exception';
 import { JwtPayload, RequestUser } from '../../common/interfaces/user.interface';
-import { User } from '@prisma/client';
+import { User, RefreshToken } from '@prisma/client';
+import { AuthTokens as ImportedAuthTokens } from '../../common/types';
+import { getOrDefault } from '../../common/utils/type-guards';
 
-interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-}
+// Use imported AuthTokens type
+type AuthTokens = ImportedAuthTokens;
 
 interface OAuthUser {
   id?: string;
@@ -24,6 +23,47 @@ interface OAuthUser {
   avatar?: string;
   provider: 'google' | 'microsoft' | 'apple';
   providerId: string;
+}
+
+interface RefreshTokenWithUser extends RefreshToken {
+  user: User;
+}
+
+interface ProviderTokens {
+  accessToken: string;
+  refreshToken?: string;
+  tokenExpiry?: Date;
+}
+
+interface AuthResult {
+  user: User;
+  tokens: AuthTokens;
+}
+
+interface UserInput {
+  id: string;
+  email: string;
+  name?: string | null;
+  roles?: string[];
+}
+
+interface UserData {
+  email: string;
+  name?: string;
+  avatar?: string;
+  lastActiveAt: Date;
+  googleId?: string;
+  microsoftId?: string;
+  appleId?: string;
+}
+
+interface UserCreateData extends UserData {
+  [key: string]: string | Date | undefined;
+}
+
+interface UserUpdates {
+  name?: string;
+  avatar?: string;
 }
 
 @Injectable()
@@ -38,12 +78,12 @@ export class AuthService {
     private readonly integrationsService: IntegrationsService
   ) {}
 
-  async generateTokens(user: { id: string; email: string; name?: string; roles?: string[] }): Promise<AuthTokens> {
+  async generateTokens(user: UserInput): Promise<AuthTokens> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       name: user.name,
-      roles: user.roles || ['user'],
+      roles: getOrDefault(user.roles, ['user']),
     };
 
     const accessToken = this.jwtService.sign(payload);
@@ -65,7 +105,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       name: user.name,
-      roles: user.roles || ['user'],
+      roles: getOrDefault(user.roles, ['user']),
     };
   }
 
@@ -84,14 +124,14 @@ export class AuthService {
       }
 
       const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-      
+
       if (!isPasswordValid) {
         return null;
       }
 
       // Update last active time
       await this.usersService.updateLastActive(user.id);
-      
+
       return user;
     } catch (error) {
       this.logger.error('Credential validation failed', error);
@@ -99,12 +139,12 @@ export class AuthService {
     }
   }
 
-  async validateRefreshToken(refreshToken: string): Promise<any> {
+  async validateRefreshToken(refreshToken: string): Promise<User> {
     try {
-      const tokenRecord = await this.prisma.refreshToken.findUnique({
+      const tokenRecord = (await this.prisma.refreshToken.findUnique({
         where: { token: refreshToken },
         include: { user: true },
-      });
+      })) as RefreshTokenWithUser | null;
 
       if (!tokenRecord) {
         throw new UnauthorizedException('Invalid refresh token');
@@ -128,10 +168,10 @@ export class AuthService {
 
   async refreshTokens(refreshToken: string): Promise<AuthTokens> {
     const user = await this.validateRefreshToken(refreshToken);
-    
+
     // Revoke old refresh token (token rotation)
     await this.revokeRefreshToken(refreshToken);
-    
+
     // Generate new tokens
     return this.generateTokens(user);
   }
@@ -159,12 +199,8 @@ export class AuthService {
 
   async handleOAuthLoginWithTokens(
     oauthUser: OAuthUser,
-    providerTokens: {
-      accessToken: string;
-      refreshToken?: string;
-      tokenExpiry?: Date;
-    }
-  ): Promise<{ user: User; tokens: AuthTokens }> {
+    providerTokens: ProviderTokens
+  ): Promise<AuthResult> {
     try {
       let user = await this.findUserByProvider(oauthUser.provider, oauthUser.providerId);
 
@@ -197,7 +233,7 @@ export class AuthService {
     }
   }
 
-  async handleOAuthLoginWithUser(oauthUser: OAuthUser): Promise<{ user: User; tokens: AuthTokens }> {
+  async handleOAuthLoginWithUser(oauthUser: OAuthUser): Promise<AuthResult> {
     try {
       let user = await this.findUserByProvider(oauthUser.provider, oauthUser.providerId);
 
@@ -233,7 +269,7 @@ export class AuthService {
   async revokeAllUserTokens(userId: string): Promise<void> {
     try {
       await this.prisma.refreshToken.updateMany({
-        where: { 
+        where: {
           userId,
           revokedAt: null,
         },
@@ -245,16 +281,16 @@ export class AuthService {
     }
   }
 
-  async validateApiKey(apiKey: string): Promise<any> {
+  async validateApiKey(apiKey: string): Promise<never> {
     // Log the attempt for security monitoring
     this.logger.warn(`API key authentication attempted: ${apiKey.substring(0, 8)}...`);
-    
+
     // For future API key authentication - validate against database
     // const apiKeyRecord = await this.prisma.apiKey.findUnique({ where: { key: apiKey } });
     // if (!apiKeyRecord || !apiKeyRecord.isActive) {
     //   throw new UnauthorizedException('Invalid API key');
     // }
-    
+
     throw new UnauthorizedException('API key authentication not implemented');
   }
 
@@ -277,9 +313,9 @@ export class AuthService {
     return token;
   }
 
-  private async findUserByProvider(provider: string, providerId: string): Promise<any> {
+  private async findUserByProvider(provider: string, providerId: string): Promise<User | null> {
     const providerField = `${provider}Id`;
-    
+
     return this.prisma.user.findFirst({
       where: {
         [providerField]: providerId,
@@ -287,8 +323,8 @@ export class AuthService {
     });
   }
 
-  private async createUserFromOAuth(oauthUser: OAuthUser): Promise<any> {
-    const userData: any = {
+  private async createUserFromOAuth(oauthUser: OAuthUser): Promise<User> {
+    const userData: UserData = {
       email: oauthUser.email,
       name: oauthUser.name,
       avatar: oauthUser.avatar,
@@ -296,15 +332,25 @@ export class AuthService {
     };
 
     // Set provider-specific ID
-    userData[`${oauthUser.provider}Id`] = oauthUser.providerId;
+    switch (oauthUser.provider) {
+      case 'google':
+        userData.googleId = oauthUser.providerId;
+        break;
+      case 'microsoft':
+        userData.microsoftId = oauthUser.providerId;
+        break;
+      case 'apple':
+        userData.appleId = oauthUser.providerId;
+        break;
+    }
 
     return this.prisma.user.create({
-      data: userData,
+      data: userData as UserCreateData,
     });
   }
 
   private async syncOAuthProfile(userId: string, oauthUser: OAuthUser): Promise<void> {
-    const updates: any = {};
+    const updates: UserUpdates = {};
 
     if (oauthUser.name) {
       updates.name = oauthUser.name;
@@ -324,7 +370,7 @@ export class AuthService {
 
   private getTokenExpirationTime(): number {
     const expiresIn = this.configService.get<string>('JWT_EXPIRES_IN', '15m');
-    
+
     // Convert to seconds
     if (expiresIn.endsWith('m')) {
       return parseInt(expiresIn) * 60;
@@ -341,13 +387,10 @@ export class AuthService {
     try {
       const result = await this.prisma.refreshToken.deleteMany({
         where: {
-          OR: [
-            { expiresAt: { lt: new Date() } },
-            { revokedAt: { not: null } },
-          ],
+          OR: [{ expiresAt: { lt: new Date() } }, { revokedAt: { not: null } }],
         },
       });
-      
+
       if (result.count > 0) {
         this.logger.log(`Cleaned up ${result.count} expired/revoked tokens`);
       }

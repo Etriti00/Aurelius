@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '../../config/config.service';
+import { ConfigService } from '@nestjs/config';
 import { AnthropicService } from './anthropic.service';
 import { AIRequestOptions, AIResponse, AIStreamResponse } from '../interfaces';
 import { AIException } from '../../../common/exceptions';
@@ -11,16 +11,13 @@ export class ClaudeService {
 
   constructor(
     private configService: ConfigService,
-    private anthropicService: AnthropicService,
+    private anthropicService: AnthropicService
   ) {}
 
-  async generateResponse(
-    prompt: string,
-    options: AIRequestOptions = {},
-  ): Promise<AIResponse> {
+  async generateResponse(prompt: string, options: AIRequestOptions = {}): Promise<AIResponse> {
     const model = options.model || this.defaultModel;
     const startTime = Date.now();
-    
+
     try {
       const response = await this.anthropicService.createMessage({
         model: this.mapModelName(model),
@@ -38,7 +35,7 @@ export class ClaudeService {
       });
 
       const processingTime = Date.now() - startTime;
-      
+
       return {
         content: response.content[0].text,
         model,
@@ -55,20 +52,15 @@ export class ClaudeService {
       };
     } catch (error: any) {
       this.logger.error(`Claude API error: ${error.message}`, error.stack);
-      throw new AIException(
-        `Failed to generate response: ${error.message}`,
-        model,
-        { originalError: error.message },
-      );
+      throw new AIException(`Failed to generate response: ${error.message}`, model, {
+        originalError: error.message,
+      });
     }
   }
 
-  async generateStream(
-    prompt: string,
-    options: AIRequestOptions = {},
-  ): Promise<AIStreamResponse> {
+  async generateStream(prompt: string, options: AIRequestOptions = {}): Promise<AIStreamResponse> {
     const model = options.model || this.defaultModel;
-    
+
     try {
       const stream = await this.anthropicService.createMessageStream({
         model: this.mapModelName(model),
@@ -92,21 +84,19 @@ export class ClaudeService {
       };
     } catch (error: any) {
       this.logger.error(`Claude streaming error: ${error.message}`, error.stack);
-      throw new AIException(
-        `Failed to generate stream: ${error.message}`,
-        model,
-        { originalError: error.message },
-      );
+      throw new AIException(`Failed to generate stream: ${error.message}`, model, {
+        originalError: error.message,
+      });
     }
   }
 
   async analyzeConversation(
     messages: Array<{ role: string; content: string }>,
-    options: AIRequestOptions = {},
+    options: AIRequestOptions = {}
   ): Promise<AIResponse> {
     const model = options.model || this.defaultModel;
     const startTime = Date.now();
-    
+
     try {
       const response = await this.anthropicService.createMessage({
         model: this.mapModelName(model),
@@ -120,7 +110,7 @@ export class ClaudeService {
       });
 
       const processingTime = Date.now() - startTime;
-      
+
       return {
         content: response.content[0].text,
         model,
@@ -137,11 +127,9 @@ export class ClaudeService {
       };
     } catch (error: any) {
       this.logger.error(`Claude conversation analysis error: ${error.message}`, error.stack);
-      throw new AIException(
-        `Failed to analyze conversation: ${error.message}`,
-        model,
-        { originalError: error.message },
-      );
+      throw new AIException(`Failed to analyze conversation: ${error.message}`, model, {
+        originalError: error.message,
+      });
     }
   }
 
@@ -151,18 +139,23 @@ export class ClaudeService {
       'claude-3-5-sonnet': 'claude-3-5-sonnet-20241022',
       'claude-3-opus': 'claude-3-opus-20240229',
     };
-    
+
     return modelMap[model] || model;
   }
 
-  private calculateCost(model: string, usage: { input_tokens: number; output_tokens: number }): number {
-    const costs = this.configService.get('ai.models') as Record<string, { costPer1kTokens: number }> | undefined;
+  private calculateCost(
+    model: string,
+    usage: { input_tokens: number; output_tokens: number }
+  ): number {
+    const costs = this.configService.get('ai.models') as
+      | Record<string, { costPer1kTokens: number }>
+      | undefined;
     if (!costs) {
       this.logger.warn('AI model costs configuration not found');
       return 0;
     }
     const modelCost = costs[model];
-    
+
     if (!modelCost) {
       this.logger.warn(`Cost calculation not available for model: ${model}`);
       return 0;
@@ -170,12 +163,15 @@ export class ClaudeService {
 
     const inputCost = (usage.input_tokens / 1000) * modelCost.costPer1kTokens;
     const outputCost = (usage.output_tokens / 1000) * modelCost.costPer1kTokens * 3; // Output tokens typically 3x more expensive
-    
+
     return Number((inputCost + outputCost).toFixed(6));
   }
 
   private getDefaultSystemPrompt(): string {
-    return this.configService.get('ai.prompts.systemPrompt');
+    return (
+      this.configService.get<string>('ai.prompts.systemPrompt') ||
+      'You are a helpful AI assistant. Provide clear, accurate, and concise responses.'
+    );
   }
 
   private async *wrapStream(stream: AsyncIterable<any>): AsyncIterable<string> {

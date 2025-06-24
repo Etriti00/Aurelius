@@ -9,7 +9,7 @@ export class CalendarService {
 
   async getEvents(userId: string, startDate?: Date, endDate?: Date): Promise<any[]> {
     const where: any = { userId, status: 'CONFIRMED' };
-    
+
     if (startDate || endDate) {
       where.startTime = {};
       if (startDate) where.startTime.gte = startDate;
@@ -42,16 +42,19 @@ export class CalendarService {
     return this.getEvents(userId, startOfDay, endOfDay);
   }
 
-  async createEvent(userId: string, eventData: {
-    title: string;
-    description?: string;
-    startTime: Date;
-    endTime: Date;
-    location?: string;
-    attendees?: string[];
-  }): Promise<{ id: string; title: string; startTime: Date; endTime: Date }> {
+  async createEvent(
+    userId: string,
+    eventData: {
+      title: string;
+      description?: string;
+      startTime: Date;
+      endTime: Date;
+      location?: string;
+      attendees?: string[];
+    }
+  ): Promise<{ id: string; title: string; startTime: Date; endTime: Date }> {
     this.logger.log(`Creating calendar event for user ${userId}: ${eventData.title}`);
-    
+
     const event = await this.prisma.calendarEvent.create({
       data: {
         userId,
@@ -76,7 +79,7 @@ export class CalendarService {
   async getAnalytics(userId: string): Promise<any> {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    
+
     const [thisWeek, upcoming] = await Promise.all([
       this.prisma.calendarEvent.count({
         where: {

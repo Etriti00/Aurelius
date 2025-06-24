@@ -1,5 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEnum, IsArray, IsNumber, IsDateString, IsBoolean, ValidateNested, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  IsNumber,
+  IsDateString,
+  IsBoolean,
+  ValidateNested,
+  Min,
+  Max,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
 export enum TaskPriority {
@@ -43,7 +54,7 @@ export class TaskLocationDto {
 
   @ApiPropertyOptional({
     description: 'Longitude coordinate',
-    example: -74.0060,
+    example: -74.006,
   })
   @IsOptional()
   @IsNumber()
@@ -69,7 +80,8 @@ export class CreateTaskDto {
 
   @ApiPropertyOptional({
     description: 'Detailed task description',
-    example: 'Create comprehensive documentation for the new AI features including API references and user guides',
+    example:
+      'Create comprehensive documentation for the new AI features including API references and user guides',
     maxLength: 2000,
   })
   @IsOptional()

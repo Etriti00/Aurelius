@@ -28,10 +28,10 @@ export class UploadFileDto {
 }
 
 export class UploadMultipleFilesDto {
-  @ApiProperty({ 
+  @ApiProperty({
     type: 'array',
     items: { type: 'string', format: 'binary' },
-    description: 'Files to upload'
+    description: 'Files to upload',
   })
   files: any[];
 

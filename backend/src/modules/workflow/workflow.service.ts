@@ -21,7 +21,7 @@ export class WorkflowService {
     private triggerService: TriggerService,
     private workflowEngine: WorkflowEngineService,
     private templateService: WorkflowTemplateService,
-    private cacheService: CacheService,
+    private cacheService: CacheService
   ) {
     this.logger.debug('Workflow service initialized with all dependencies');
     // Initialize cache warming for frequently accessed workflows
@@ -39,7 +39,7 @@ export class WorkflowService {
     userId: string,
     name: string,
     description: string,
-    triggers: Omit<WorkflowTrigger, 'id'>[],
+    triggers: Omit<WorkflowTrigger, 'id'>[]
   ): Promise<{
     workflowId: string;
     triggers: WorkflowTrigger[];
@@ -73,7 +73,7 @@ export class WorkflowService {
         'Failed to create workflow',
         'WORKFLOW_CREATE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -84,7 +84,7 @@ export class WorkflowService {
   async createFromTemplate(
     userId: string,
     templateId: string,
-    customizations?: Record<string, any>,
+    customizations?: Record<string, any>
   ): Promise<{
     workflowId: string;
     triggers: WorkflowTrigger[];
@@ -99,23 +99,18 @@ export class WorkflowService {
       const { triggers } = await this.templateService.createFromTemplate(
         userId,
         templateId,
-        customizations,
+        customizations
       );
 
       // Create workflow
-      return this.createWorkflow(
-        userId,
-        template.name,
-        template.description,
-        triggers,
-      );
+      return this.createWorkflow(userId, template.name, template.description, triggers);
     } catch (error: any) {
       this.logger.error(`Failed to create from template: ${error.message}`);
       throw new BusinessException(
         'Failed to create workflow from template',
         'TEMPLATE_CREATE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -126,7 +121,7 @@ export class WorkflowService {
   async executeWorkflow(
     userId: string,
     triggerId: string,
-    triggerData: Record<string, any>,
+    triggerData: Record<string, any>
   ): Promise<WorkflowExecution> {
     try {
       return await this.workflowEngine.executeWorkflow(userId, triggerId, triggerData);
@@ -152,10 +147,10 @@ export class WorkflowService {
 
     // Get triggers for each workflow
     const workflowsWithTriggers = await Promise.all(
-      workflows.map(async (workflow) => {
+      workflows.map(async workflow => {
         const triggers = await this.triggerService.getUserTriggers(userId);
-        const workflowTriggers = triggers.filter(t => 
-          t.id.startsWith(`${userId}-`) && t.metadata?.workflowId === workflow.id
+        const workflowTriggers = triggers.filter(
+          t => t.id.startsWith(`${userId}-`) && t.metadata?.workflowId === workflow.id
         );
 
         return {
@@ -163,7 +158,7 @@ export class WorkflowService {
           triggers: workflowTriggers,
           executionCount: workflow._count.executions,
         };
-      }),
+      })
     );
 
     return workflowsWithTriggers;
@@ -175,7 +170,7 @@ export class WorkflowService {
   async getWorkflowExecutions(
     userId: string,
     workflowId?: string,
-    limit: number = 20,
+    limit: number = 20
   ): Promise<WorkflowExecution[]> {
     const executions = await this.prisma.workflowExecution.findMany({
       where: {
@@ -206,10 +201,10 @@ export class WorkflowService {
    */
   async getExecutionDetails(
     userId: string,
-    executionId: string,
+    executionId: string
   ): Promise<WorkflowExecution | null> {
     const execution = await this.workflowEngine.getExecutionStatus(executionId);
-    
+
     if (!execution) {
       return null;
     }
@@ -222,7 +217,7 @@ export class WorkflowService {
     if (!dbExec) {
       throw new BusinessException(
         'Execution not found or access denied',
-        'EXECUTION_ACCESS_DENIED',
+        'EXECUTION_ACCESS_DENIED'
       );
     }
 
@@ -239,7 +234,7 @@ export class WorkflowService {
       name?: string;
       description?: string;
       enabled?: boolean;
-    },
+    }
   ): Promise<any> {
     const workflow = await this.prisma.workflow.findFirst({
       where: { id: workflowId, userId },
@@ -257,9 +252,7 @@ export class WorkflowService {
     // Enable/disable triggers
     if (updates.enabled !== undefined) {
       const triggers = await this.triggerService.getUserTriggers(userId);
-      const workflowTriggers = triggers.filter(t => 
-        t.metadata?.workflowId === workflowId
-      );
+      const workflowTriggers = triggers.filter(t => t.metadata?.workflowId === workflowId);
 
       for (const trigger of workflowTriggers) {
         if (updates.enabled) {
@@ -287,9 +280,7 @@ export class WorkflowService {
 
     // Deactivate triggers
     const triggers = await this.triggerService.getUserTriggers(userId);
-    const workflowTriggers = triggers.filter(t => 
-      t.metadata?.workflowId === workflowId
-    );
+    const workflowTriggers = triggers.filter(t => t.metadata?.workflowId === workflowId);
 
     for (const trigger of workflowTriggers) {
       await this.triggerService.deactivateTrigger(trigger.id);
@@ -304,12 +295,9 @@ export class WorkflowService {
   /**
    * Get workflow metrics
    */
-  async getWorkflowMetrics(
-    userId: string,
-    workflowId?: string,
-  ): Promise<WorkflowMetrics[]> {
+  async getWorkflowMetrics(userId: string, workflowId?: string): Promise<WorkflowMetrics[]> {
     const where = workflowId ? { workflowId } : {};
-    
+
     const metrics = await this.prisma.workflowMetrics.findMany({
       where,
       include: {
@@ -364,12 +352,12 @@ export class WorkflowService {
   async testTrigger(
     userId: string,
     triggerId: string,
-    testData?: Record<string, any>,
+    testData?: Record<string, any>
   ): Promise<{
     triggered: boolean;
     message: string;
   }> {
-    console.log(`Testing trigger ${triggerId} for user ${userId}`, testData);
+    this.logger.log(`Testing trigger ${triggerId} for user ${userId}`, testData);
     try {
       await this.triggerService.fireTrigger(triggerId, testData || {});
       return {

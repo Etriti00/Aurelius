@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/modules/prisma/prisma.service';
 
@@ -15,12 +15,12 @@ describe('Authentication E2E Tests', () => {
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(new ValidationPipe());
-    
+
     prismaService = app.get<PrismaService>(PrismaService);
-    
+
     // Clean up test database
     await prismaService.cleanDatabase();
-    
+
     await app.init();
   });
 
@@ -56,10 +56,7 @@ describe('Authentication E2E Tests', () => {
         name: 'Another User',
       };
 
-      await request(app.getHttpServer())
-        .post('/auth/register')
-        .send(registerDto)
-        .expect(400);
+      await request(app.getHttpServer()).post('/auth/register').send(registerDto).expect(400);
     });
 
     it('should fail registration with weak password', async () => {
@@ -69,21 +66,19 @@ describe('Authentication E2E Tests', () => {
         name: 'Weak Password User',
       };
 
-      await request(app.getHttpServer())
-        .post('/auth/register')
-        .send(registerDto)
-        .expect(400);
+      await request(app.getHttpServer()).post('/auth/register').send(registerDto).expect(400);
     });
   });
 
   describe('User Login Flow', () => {
-    let userCredentials;
+    let userCredentials: { email: string; password: string; name: string };
 
     beforeAll(async () => {
       // Create a test user
       userCredentials = {
         email: 'testlogin@example.com',
         password: 'TestPassword123!',
+        name: 'Test User',
       };
 
       await request(app.getHttpServer())
@@ -127,16 +122,14 @@ describe('Authentication E2E Tests', () => {
   });
 
   describe('Token Refresh Flow', () => {
-    let tokens;
+    let tokens: { accessToken: string; refreshToken: string };
 
     beforeAll(async () => {
       // Get fresh tokens
-      const response = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({
-          email: 'testlogin@example.com',
-          password: 'TestPassword123!',
-        });
+      const response = await request(app.getHttpServer()).post('/auth/login').send({
+        email: 'testlogin@example.com',
+        password: 'TestPassword123!',
+      });
 
       tokens = response.body;
     });
@@ -165,15 +158,13 @@ describe('Authentication E2E Tests', () => {
   });
 
   describe('Protected Routes', () => {
-    let accessToken;
+    let accessToken: string;
 
     beforeAll(async () => {
-      const response = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({
-          email: 'testlogin@example.com',
-          password: 'TestPassword123!',
-        });
+      const response = await request(app.getHttpServer()).post('/auth/login').send({
+        email: 'testlogin@example.com',
+        password: 'TestPassword123!',
+      });
 
       accessToken = response.body.accessToken;
     });
@@ -186,9 +177,7 @@ describe('Authentication E2E Tests', () => {
     });
 
     it('should fail to access protected route without token', async () => {
-      await request(app.getHttpServer())
-        .get('/users/profile')
-        .expect(401);
+      await request(app.getHttpServer()).get('/users/profile').expect(401);
     });
 
     it('should fail to access protected route with invalid token', async () => {
@@ -201,33 +190,27 @@ describe('Authentication E2E Tests', () => {
 
   describe('OAuth Flow', () => {
     it('should initiate Google OAuth', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/auth/google')
-        .expect(302); // Redirect to Google
+      const response = await request(app.getHttpServer()).get('/auth/google').expect(302); // Redirect to Google
 
       expect(response.headers.location).toContain('accounts.google.com');
     });
 
     it('should initiate Microsoft OAuth', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/auth/microsoft')
-        .expect(302); // Redirect to Microsoft
+      const response = await request(app.getHttpServer()).get('/auth/microsoft').expect(302); // Redirect to Microsoft
 
       expect(response.headers.location).toContain('login.microsoftonline.com');
     });
   });
 
   describe('Session Management', () => {
-    let accessToken;
-    let userId;
+    let accessToken: string;
+    let userId: string;
 
     beforeAll(async () => {
-      const response = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({
-          email: 'testlogin@example.com',
-          password: 'TestPassword123!',
-        });
+      const response = await request(app.getHttpServer()).post('/auth/login').send({
+        email: 'testlogin@example.com',
+        password: 'TestPassword123!',
+      });
 
       accessToken = response.body.accessToken;
       userId = response.body.user.id;
@@ -248,12 +231,10 @@ describe('Authentication E2E Tests', () => {
 
     it('should revoke all sessions', async () => {
       // Get new tokens
-      const loginResponse = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({
-          email: 'testlogin@example.com',
-          password: 'TestPassword123!',
-        });
+      const loginResponse = await request(app.getHttpServer()).post('/auth/login').send({
+        email: 'testlogin@example.com',
+        password: 'TestPassword123!',
+      });
 
       const newToken = loginResponse.body.accessToken;
 

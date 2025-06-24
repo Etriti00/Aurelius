@@ -2,12 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CacheService } from '../../cache/services/cache.service';
 import { QueueService } from '../../queue/services/queue.service';
-import {
-  WorkflowTrigger,
-  TriggerType,
-  TriggerCondition,
-  ConditionOperator,
-} from '../interfaces';
+import { WorkflowTrigger, TriggerType, TriggerCondition, ConditionOperator } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as cron from 'node-cron';
@@ -22,7 +17,7 @@ export class TriggerService {
     private prisma: PrismaService,
     private cacheService: CacheService,
     private queueService: QueueService,
-    private eventEmitter: EventEmitter2,
+    private eventEmitter: EventEmitter2
   ) {
     this.initializeEventListeners();
   }
@@ -32,11 +27,11 @@ export class TriggerService {
    */
   async registerTrigger(
     userId: string,
-    trigger: Omit<WorkflowTrigger, 'id'>,
+    trigger: Omit<WorkflowTrigger, 'id'>
   ): Promise<WorkflowTrigger> {
     try {
       const triggerId = this.generateTriggerId(userId, trigger.type);
-      
+
       const newTrigger: WorkflowTrigger = {
         id: triggerId,
         ...trigger,
@@ -70,7 +65,7 @@ export class TriggerService {
         'Failed to register trigger',
         'TRIGGER_REGISTRATION_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -113,7 +108,7 @@ export class TriggerService {
         'Failed to activate trigger',
         'TRIGGER_ACTIVATION_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -146,7 +141,7 @@ export class TriggerService {
         'Failed to deactivate trigger',
         'TRIGGER_DEACTIVATION_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -154,10 +149,7 @@ export class TriggerService {
   /**
    * Evaluate trigger conditions
    */
-  async evaluateTrigger(
-    trigger: WorkflowTrigger,
-    context: Record<string, any>,
-  ): Promise<boolean> {
+  async evaluateTrigger(trigger: WorkflowTrigger, context: Record<string, any>): Promise<boolean> {
     try {
       if (!trigger.conditions || trigger.conditions.length === 0) {
         return true;
@@ -188,10 +180,7 @@ export class TriggerService {
   /**
    * Fire a trigger
    */
-  async fireTrigger(
-    triggerId: string,
-    data: Record<string, any> = {},
-  ): Promise<void> {
+  async fireTrigger(triggerId: string, data: Record<string, any> = {}): Promise<void> {
     try {
       const triggerData = this.activeTriggers.get(triggerId);
       if (!triggerData) {
@@ -229,7 +218,7 @@ export class TriggerService {
         'Failed to fire trigger',
         'TRIGGER_FIRE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -237,14 +226,11 @@ export class TriggerService {
   /**
    * Get user triggers
    */
-  async getUserTriggers(
-    userId: string,
-    type?: TriggerType,
-  ): Promise<WorkflowTrigger[]> {
+  async getUserTriggers(userId: string, type?: TriggerType): Promise<WorkflowTrigger[]> {
     const triggers = await this.prisma.workflowTrigger.findMany({
       where: {
         userId,
-        ...(type && { type }),
+        ...(type != null && { type }),
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -252,7 +238,9 @@ export class TriggerService {
     return triggers.map(t => ({
       id: t.id,
       type: t.type as TriggerType,
-      conditions: Array.isArray((t.config as Record<string, unknown>)?.conditions) ? (t.config as Record<string, unknown>).conditions as TriggerCondition[] : [],
+      conditions: Array.isArray((t.config as Record<string, unknown>)?.conditions)
+        ? ((t.config as Record<string, unknown>).conditions as TriggerCondition[])
+        : [],
       enabled: t.active,
       metadata: t.metadata as Record<string, any>,
     }));
@@ -261,10 +249,7 @@ export class TriggerService {
   /**
    * Activate time-based trigger
    */
-  private async activateTimeTrigger(
-    userId: string,
-    trigger: WorkflowTrigger,
-  ): Promise<void> {
+  private async activateTimeTrigger(userId: string, trigger: WorkflowTrigger): Promise<void> {
     this.logger.debug(`Activating time trigger for user ${userId}: ${trigger.id}`);
     const cronPattern = trigger.metadata?.cronPattern;
     if (!cronPattern) {
@@ -285,17 +270,14 @@ export class TriggerService {
   /**
    * Activate event-based trigger
    */
-  private async activateEventTrigger(
-    userId: string,
-    trigger: WorkflowTrigger,
-  ): Promise<void> {
+  private async activateEventTrigger(userId: string, trigger: WorkflowTrigger): Promise<void> {
     const eventName = trigger.metadata?.eventName;
     if (!eventName) {
       throw new Error('Event trigger requires eventName in metadata');
     }
 
     // Register event listener
-    this.eventEmitter.on(eventName, async (data) => {
+    this.eventEmitter.on(eventName, async data => {
       if (data.userId === userId) {
         await this.fireTrigger(trigger.id, data);
       }
@@ -305,10 +287,7 @@ export class TriggerService {
   /**
    * Activate context-based trigger
    */
-  private async activateContextTrigger(
-    userId: string,
-    trigger: WorkflowTrigger,
-  ): Promise<void> {
+  private async activateContextTrigger(userId: string, trigger: WorkflowTrigger): Promise<void> {
     // Context triggers are evaluated periodically
     const checkInterval = trigger.metadata?.checkInterval || 300000; // 5 minutes default
 
@@ -321,11 +300,8 @@ export class TriggerService {
   /**
    * Activate email trigger
    */
-  private async activateEmailTrigger(
-    userId: string,
-    trigger: WorkflowTrigger,
-  ): Promise<void> {
-    this.eventEmitter.on('email.received', async (data) => {
+  private async activateEmailTrigger(userId: string, trigger: WorkflowTrigger): Promise<void> {
+    this.eventEmitter.on('email.received', async data => {
       if (data.userId === userId) {
         await this.fireTrigger(trigger.id, {
           emailId: data.emailId,
@@ -340,14 +316,11 @@ export class TriggerService {
   /**
    * Activate calendar trigger
    */
-  private async activateCalendarTrigger(
-    userId: string,
-    trigger: WorkflowTrigger,
-  ): Promise<void> {
+  private async activateCalendarTrigger(userId: string, trigger: WorkflowTrigger): Promise<void> {
     const eventTypes = trigger.metadata?.eventTypes || ['created', 'updated'];
 
     eventTypes.forEach((eventType: string) => {
-      this.eventEmitter.on(`calendar.${eventType}`, async (data) => {
+      this.eventEmitter.on(`calendar.${eventType}`, async data => {
         if (data.userId === userId) {
           await this.fireTrigger(trigger.id, data);
         }
@@ -358,13 +331,10 @@ export class TriggerService {
   /**
    * Activate task trigger
    */
-  private async activateTaskTrigger(
-    userId: string,
-    trigger: WorkflowTrigger,
-  ): Promise<void> {
+  private async activateTaskTrigger(userId: string, trigger: WorkflowTrigger): Promise<void> {
     const statusChanges = trigger.metadata?.statusChanges || ['completed', 'overdue'];
 
-    this.eventEmitter.on('task.statusChanged', async (data) => {
+    this.eventEmitter.on('task.statusChanged', async data => {
       if (data.userId === userId && statusChanges.includes(data.newStatus)) {
         await this.fireTrigger(trigger.id, data);
       }
@@ -374,11 +344,8 @@ export class TriggerService {
   /**
    * Activate AI insight trigger
    */
-  private async activateAITrigger(
-    userId: string,
-    trigger: WorkflowTrigger,
-  ): Promise<void> {
-    this.eventEmitter.on('ai.insightDetected', async (data) => {
+  private async activateAITrigger(userId: string, trigger: WorkflowTrigger): Promise<void> {
+    this.eventEmitter.on('ai.insightDetected', async data => {
       if (data.userId === userId) {
         const insightTypes = trigger.metadata?.insightTypes || [];
         if (insightTypes.length === 0 || insightTypes.includes(data.insightType)) {
@@ -391,10 +358,7 @@ export class TriggerService {
   /**
    * Evaluate a single condition
    */
-  private evaluateCondition(
-    condition: TriggerCondition,
-    context: Record<string, any>,
-  ): boolean {
+  private evaluateCondition(condition: TriggerCondition, context: Record<string, any>): boolean {
     const fieldValue = this.getFieldValue(condition.field, context);
     const conditionValue = condition.value;
 
@@ -505,7 +469,9 @@ export class TriggerService {
         const workflowTrigger: WorkflowTrigger = {
           id: trigger.id,
           type: trigger.type as TriggerType,
-          conditions: Array.isArray((trigger.config as Record<string, unknown>)?.conditions) ? (trigger.config as Record<string, unknown>).conditions as TriggerCondition[] : [],
+          conditions: Array.isArray((trigger.config as Record<string, unknown>)?.conditions)
+            ? ((trigger.config as Record<string, unknown>).conditions as TriggerCondition[])
+            : [],
           enabled: trigger.active,
           metadata: trigger.metadata as Record<string, any>,
         };

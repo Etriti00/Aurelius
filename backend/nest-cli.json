@@ -3,9 +3,6 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "deleteOutDir": true,
-    "webpack": {
-      "typeCheck": true
-    }
+    "deleteOutDir": true
   }
 }

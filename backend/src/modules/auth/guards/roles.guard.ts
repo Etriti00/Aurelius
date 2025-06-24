@@ -11,25 +11,25 @@ export class AuthRolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    
+
     if (!requiredRoles) {
       return true;
     }
-    
+
     const { user } = context.switchToHttp().getRequest();
-    
+
     if (!user) {
       return false;
     }
-    
+
     // Check if user has subscription with admin features
-    const hasAdminAccess = user.subscription?.teamFeatures || 
-                          user.subscription?.tier === 'ENTERPRISE';
-    
+    const hasAdminAccess =
+      user.subscription?.teamFeatures || user.subscription?.tier === 'ENTERPRISE';
+
     if (requiredRoles.includes('admin') && hasAdminAccess) {
       return true;
     }
-    
-    return requiredRoles.some((role) => user.roles?.includes(role));
+
+    return requiredRoles.some(role => user.roles?.includes(role));
   }
 }

@@ -8,17 +8,9 @@ import { CacheModule } from '../cache/cache.module';
 import { QueueModule } from '../queue/queue.module';
 
 @Module({
-  imports: [
-    AppConfigModule,
-    PrismaModule,
-    CacheModule,
-    QueueModule,
-  ],
+  imports: [AppConfigModule, PrismaModule, CacheModule, QueueModule],
   controllers: [BillingController],
-  providers: [
-    BillingService,
-    StripeService,
-  ],
+  providers: [BillingService, StripeService],
   exports: [BillingService, StripeService],
 })
 export class BillingModule {}

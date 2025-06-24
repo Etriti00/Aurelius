@@ -27,7 +27,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context) as boolean | Promise<boolean>;
   }
 
-  handleRequest<TUser = User>(err: Error | null, user: User | null, info: Record<string, unknown>): TUser {
+  handleRequest<TUser = User>(
+    err: Error | null,
+    user: User | null,
+    info: Record<string, unknown>
+  ): TUser {
     if (err || !user) {
       this.logger.warn('Authentication failed', { error: err?.message, info });
       throw err || new UnauthorizedException('Authentication required');

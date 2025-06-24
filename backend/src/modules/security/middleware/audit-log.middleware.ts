@@ -17,7 +17,7 @@ export class AuditLogMiddleware implements NestMiddleware {
     const startTime = Date.now();
     const requestId = this.generateRequestId();
     const auditLogService = this.auditLogService;
-    
+
     // Add request ID to headers
     req.headers['x-request-id'] = requestId;
     res.setHeader('X-Request-ID', requestId);
@@ -25,22 +25,22 @@ export class AuditLogMiddleware implements NestMiddleware {
     // Store original end function
     const originalEnd = res.end;
     const originalJson = res.json;
-    
+
     let responseBody: any;
     let responseSent = false;
 
     // Capture response body
-    res.json = function(body: any) {
+    res.json = function (body: any) {
       responseBody = body;
       return originalJson.call(this, body);
     };
 
     // Override end function to capture audit data
-    res.end = function(chunk?: any, encoding?: any) {
+    res.end = function (chunk?: any, encoding?: any) {
       if (!responseSent) {
         responseSent = true;
         const duration = Date.now() - startTime;
-        
+
         // Log the request asynchronously
         setImmediate(() => {
           try {
@@ -63,7 +63,7 @@ export class AuditLogMiddleware implements NestMiddleware {
           }
         });
       }
-      
+
       return originalEnd.call(this, chunk, encoding);
     };
 
@@ -87,22 +87,22 @@ function getClientIP(req: Request): string {
 
 function sanitizeBody(body: any): any {
   if (!body) return undefined;
-  
+
   // Remove sensitive fields
   const sensitiveFields = ['password', 'token', 'apiKey', 'secret', 'credentials'];
-  
+
   if (typeof body === 'object') {
     const sanitized = { ...body };
-    
+
     for (const field of sensitiveFields) {
       if (sanitized[field]) {
         sanitized[field] = '[REDACTED]';
       }
     }
-    
+
     return sanitized;
   }
-  
+
   return body;
 }
 
@@ -126,12 +126,17 @@ declare module '../services/audit-log.service' {
 }
 
 // Implementation for the extended method
-AuditLogService.prototype.logApiRequest = async function(data) {
-  const action = data.method === 'GET' ? AuditAction.DATA_READ :
-                data.method === 'POST' ? AuditAction.DATA_CREATE :
-                data.method === 'PUT' || data.method === 'PATCH' ? AuditAction.DATA_UPDATE :
-                data.method === 'DELETE' ? AuditAction.DATA_DELETE :
-                AuditAction.API_ACCESS;
+AuditLogService.prototype.logApiRequest = async function (data) {
+  const action =
+    data.method === 'GET'
+      ? AuditAction.DATA_READ
+      : data.method === 'POST'
+        ? AuditAction.DATA_CREATE
+        : data.method === 'PUT' || data.method === 'PATCH'
+          ? AuditAction.DATA_UPDATE
+          : data.method === 'DELETE'
+            ? AuditAction.DATA_DELETE
+            : AuditAction.API_ACCESS;
 
   await this.log({
     userId: data.userId,

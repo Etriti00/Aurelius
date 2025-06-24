@@ -11,11 +11,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { CacheModule } from '../cache/cache.module';
 
 @Module({
-  imports: [
-    AppConfigModule,
-    PrismaModule,
-    CacheModule,
-  ],
+  imports: [AppConfigModule, PrismaModule, CacheModule],
   providers: [
     EncryptionService,
     SecurityValidationService,
@@ -23,11 +19,6 @@ import { CacheModule } from '../cache/cache.module';
     RateLimitService,
     EventEmitter2,
   ],
-  exports: [
-    EncryptionService,
-    SecurityValidationService,
-    AuditLogService,
-    RateLimitService,
-  ],
+  exports: [EncryptionService, SecurityValidationService, AuditLogService, RateLimitService],
 })
 export class SecurityModule {}

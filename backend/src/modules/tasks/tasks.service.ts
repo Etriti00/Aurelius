@@ -60,30 +60,33 @@ export class TasksService {
     const hasNext = page < totalPages;
     const hasPrev = page > 1;
 
-    const taskDtos = tasks.map(task => new TaskResponseDto({
-      id: task.id,
-      userId: task.userId,
-      title: task.title,
-      description: task.description !== null ? task.description : undefined,
-      priority: task.priority as any,
-      status: task.status as any,
-      dueDate: task.dueDate?.toISOString(),
-      estimatedMinutes: task.estimatedMinutes !== null ? task.estimatedMinutes : undefined,
-      actualMinutes: task.actualMinutes !== null ? task.actualMinutes : undefined,
-      labels: task.labels as string[],
-      startDate: task.startDate?.toISOString(),
-      completedAt: task.completedAt?.toISOString(),
-      progress: 0,
-      aiSuggested: task.aiSuggested !== null ? task.aiSuggested : false,
-      aiReason: task.aiReason !== null ? task.aiReason : undefined,
-      aiConfidence: task.aiConfidence !== null ? task.aiConfidence : undefined,
-      parentTaskId: task.parentId !== null ? task.parentId : undefined,
-      project: task.projectId !== null ? task.projectId : undefined,
-      externalId: task.externalId !== null ? task.externalId : undefined,
-      externalSource: undefined,
-      createdAt: task.createdAt.toISOString(),
-      updatedAt: task.updatedAt.toISOString(),
-    }));
+    const taskDtos = tasks.map(
+      task =>
+        new TaskResponseDto({
+          id: task.id,
+          userId: task.userId,
+          title: task.title,
+          description: task.description !== null ? task.description : undefined,
+          priority: task.priority as any,
+          status: task.status as any,
+          dueDate: task.dueDate?.toISOString(),
+          estimatedMinutes: task.estimatedMinutes !== null ? task.estimatedMinutes : undefined,
+          actualMinutes: task.actualMinutes !== null ? task.actualMinutes : undefined,
+          labels: task.labels as string[],
+          startDate: task.startDate?.toISOString(),
+          completedAt: task.completedAt?.toISOString(),
+          progress: 0,
+          aiSuggested: task.aiSuggested !== null ? task.aiSuggested : false,
+          aiReason: task.aiReason !== null ? task.aiReason : undefined,
+          aiConfidence: task.aiConfidence !== null ? task.aiConfidence : undefined,
+          parentTaskId: task.parentId !== null ? task.parentId : undefined,
+          project: task.projectId !== null ? task.projectId : undefined,
+          externalId: task.externalId !== null ? task.externalId : undefined,
+          externalSource: undefined,
+          createdAt: task.createdAt.toISOString(),
+          updatedAt: task.updatedAt.toISOString(),
+        })
+    );
 
     return new PaginatedResponseDto({
       data: taskDtos,
@@ -138,8 +141,8 @@ export class TasksService {
 
   async findOne(userId: string, id: string): Promise<TaskResponseDto> {
     const task = await this.prisma.task.findFirst({
-      where: { 
-        id, 
+      where: {
+        id,
         userId,
         deletedAt: null,
       },
@@ -175,7 +178,11 @@ export class TasksService {
     });
   }
 
-  async complete(userId: string, id: string, completionData?: { actualMinutes?: number; notes?: string }): Promise<TaskResponseDto> {
+  async complete(
+    userId: string,
+    id: string,
+    completionData?: { actualMinutes?: number; notes?: string }
+  ): Promise<TaskResponseDto> {
     const task = await this.prisma.task.findFirst({
       where: { id, userId, deletedAt: null },
     });
@@ -202,7 +209,8 @@ export class TasksService {
       priority: updatedTask.priority as any,
       status: updatedTask.status as any,
       dueDate: updatedTask.dueDate?.toISOString(),
-      estimatedMinutes: updatedTask.estimatedMinutes !== null ? updatedTask.estimatedMinutes : undefined,
+      estimatedMinutes:
+        updatedTask.estimatedMinutes !== null ? updatedTask.estimatedMinutes : undefined,
       actualMinutes: updatedTask.actualMinutes !== null ? updatedTask.actualMinutes : undefined,
       labels: updatedTask.labels as string[],
       startDate: updatedTask.startDate?.toISOString(),
@@ -222,17 +230,17 @@ export class TasksService {
 
   async getInsights(userId: string, period?: string): Promise<TaskInsightsDto> {
     const periodDate = this.calculatePeriodDate(period);
-    
+
     const [totalTasks, completedTasks, overdueTasks] = await Promise.all([
       this.prisma.task.count({
-        where: { 
+        where: {
           userId,
           deletedAt: null,
           createdAt: periodDate ? { gte: periodDate } : undefined,
         },
       }),
       this.prisma.task.count({
-        where: { 
+        where: {
           userId,
           status: 'COMPLETED',
           deletedAt: null,
@@ -240,7 +248,7 @@ export class TasksService {
         },
       }),
       this.prisma.task.count({
-        where: { 
+        where: {
           userId,
           status: { not: 'COMPLETED' },
           dueDate: { lt: new Date() },
@@ -263,16 +271,22 @@ export class TasksService {
       select: { actualMinutes: true },
     });
 
-    const averageCompletionTime = completedTasksWithTime.length > 0
-      ? completedTasksWithTime.reduce((sum, task) => sum + (task.actualMinutes || 0), 0) / completedTasksWithTime.length / 60
-      : 0;
+    const averageCompletionTime =
+      completedTasksWithTime.length > 0
+        ? completedTasksWithTime.reduce((sum: number, task) => sum + (task.actualMinutes || 0), 0) /
+          completedTasksWithTime.length /
+          60
+        : 0;
 
     // Calculate most productive day (simplified)
     const mostProductiveDay = 'Tuesday'; // Placeholder - would need more complex analysis
 
-    const averageDailyCompletion = period === 'week' ? completedTasks / 7 : 
-                                  period === 'month' ? completedTasks / 30 : 
-                                  completedTasks / 365;
+    const averageDailyCompletion =
+      period === 'week'
+        ? completedTasks / 7
+        : period === 'month'
+          ? completedTasks / 30
+          : completedTasks / 365;
 
     return new TaskInsightsDto({
       totalTasks,
@@ -286,11 +300,14 @@ export class TasksService {
     });
   }
 
-  async bulkOperation(userId: string, operation: {
-    operation: 'update' | 'delete' | 'complete';
-    taskIds: string[];
-    data?: any;
-  }): Promise<{
+  async bulkOperation(
+    userId: string,
+    operation: {
+      operation: 'update' | 'delete' | 'complete';
+      taskIds: string[];
+      data?: any;
+    }
+  ): Promise<{
     success: boolean;
     processed: number;
     failed: number;
@@ -343,7 +360,11 @@ export class TasksService {
         result.processed++;
       } catch (error) {
         result.failed++;
-        result.errors.push(`Failed to ${operation.operation} task ${taskId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        result.errors.push(
+          `Failed to ${operation.operation} task ${taskId}: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`
+        );
       }
     }
 
@@ -361,15 +382,18 @@ export class TasksService {
       _count: { status: true },
     });
 
-    return stats.reduce((acc, stat) => {
-      acc[stat.status.toLowerCase()] = stat._count.status;
-      return acc;
-    }, {} as Record<string, number>);
+    return stats.reduce(
+      (acc: Record<string, number>, stat) => {
+        acc[stat.status.toLowerCase()] = stat._count.status;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
   }
 
   private buildOrderBy(sortBy?: string, sortOrder?: string): any {
     const order = sortOrder === 'desc' ? 'desc' : 'asc';
-    
+
     switch (sortBy) {
       case 'createdAt':
         return { createdAt: order };
@@ -382,11 +406,7 @@ export class TasksService {
       case 'title':
         return { title: order };
       default:
-        return [
-          { priority: 'desc' },
-          { dueDate: 'asc' },
-          { updatedAt: 'desc' },
-        ];
+        return [{ priority: 'desc' }, { dueDate: 'asc' }, { updatedAt: 'desc' }];
     }
   }
 
@@ -408,26 +428,38 @@ export class TasksService {
     }
   }
 
-  private generateInsights(completionRate: number, overdueTasks: number, averageCompletionTime: number): string[] {
+  private generateInsights(
+    completionRate: number,
+    overdueTasks: number,
+    averageCompletionTime: number
+  ): string[] {
     const insights: string[] = [];
 
     if (completionRate > 80) {
       insights.push('Excellent task completion rate! Keep up the great work.');
     } else if (completionRate > 60) {
-      insights.push('Good task completion rate. Consider breaking down larger tasks for better progress.');
+      insights.push(
+        'Good task completion rate. Consider breaking down larger tasks for better progress.'
+      );
     } else {
       insights.push('Consider reviewing your task planning and time estimation.');
     }
 
     if (overdueTasks > 5) {
-      insights.push('You have several overdue tasks. Consider prioritizing them or adjusting deadlines.');
+      insights.push(
+        'You have several overdue tasks. Consider prioritizing them or adjusting deadlines.'
+      );
     }
 
     if (averageCompletionTime > 0) {
       if (averageCompletionTime < 2) {
-        insights.push('You complete tasks efficiently! Consider taking on more challenging projects.');
+        insights.push(
+          'You complete tasks efficiently! Consider taking on more challenging projects.'
+        );
       } else if (averageCompletionTime > 8) {
-        insights.push('Tasks are taking longer than expected. Consider breaking them into smaller chunks.');
+        insights.push(
+          'Tasks are taking longer than expected. Consider breaking them into smaller chunks.'
+        );
       }
     }
 

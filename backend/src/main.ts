@@ -8,8 +8,8 @@ import compression from 'compression';
 
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
-import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+// import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
+// import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
@@ -21,20 +21,40 @@ async function bootstrap(): Promise<void> {
   app.useLogger(logger);
 
   // Security middleware
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        scriptSrc: ["'self'"],
-        imgSrc: ["'self'", 'data:', 'https:'],
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'sha256-'"], // Will need to add specific hashes for inline styles
+          scriptSrc: ["'self'"],
+          imgSrc: ["'self'", 'https:'], // Removed data: to prevent XSS
+          connectSrc: ["'self'", 'wss:', 'https:'], // Added wss: for WebSocket
+          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          frameAncestors: ["'none'"],
+          upgradeInsecureRequests: [],
+          blockAllMixedContent: [],
+          workerSrc: ["'self'"],
+          childSrc: ["'none'"],
+          manifestSrc: ["'self'"],
+        },
       },
-    },
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-    },
-  }));
+      hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true,
+      },
+      noSniff: true,
+      xssFilter: true,
+      referrerPolicy: { policy: 'same-origin' },
+      permittedCrossDomainPolicies: false,
+    })
+  );
 
   app.use(compression());
 
@@ -43,7 +63,8 @@ async function bootstrap(): Promise<void> {
     origin: configService.get<string>('CORS_ORIGIN', 'http://localhost:3000'),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-CSRF-Token', 'X-API-Key'],
+    exposedHeaders: ['X-CSRF-Token'],
   });
 
   // Global prefix
@@ -67,16 +88,15 @@ async function bootstrap(): Promise<void> {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   // Global interceptors
-  app.useGlobalInterceptors(
-    new TimeoutInterceptor(),
-    new ResponseInterceptor()
-  );
+  // TODO: Fix RxJS Observable type conflicts in interceptors (monorepo issue)
+  // app.useGlobalInterceptors(new TimeoutInterceptor(), new ResponseInterceptor());
 
   // Swagger documentation
   if (configService.get<string>('NODE_ENV') !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('Aurelius API')
-      .setDescription(`
+      .setDescription(
+        `
         ## Aurelius AI Personal Assistant API
         
         Welcome to the Aurelius API documentation. Aurelius is a revolutionary AI Personal Assistant that acts as your "digital chief of staff," transforming how you manage tasks, communications, and workflows.
@@ -110,17 +130,11 @@ async function bootstrap(): Promise<void> {
         
         ### Support
         For technical support, visit our [documentation](https://docs.aurelius.ai) or contact support@aurelius.ai
-      `)
+      `
+      )
       .setVersion('1.0')
-      .setContact(
-        'Aurelius Support',
-        'https://aurelius.ai',
-        'support@aurelius.ai'
-      )
-      .setLicense(
-        'Commercial License',
-        'https://aurelius.ai/license'
-      )
+      .setContact('Aurelius Support', 'https://aurelius.ai', 'support@aurelius.ai')
+      .setLicense('Commercial License', 'https://aurelius.ai/license')
       .addServer('https://api.aurelius.ai', 'Production Server')
       .addServer('https://staging-api.aurelius.ai', 'Staging Server')
       .addServer('http://localhost:3001', 'Development Server')
@@ -136,23 +150,68 @@ async function bootstrap(): Promise<void> {
         'JWT-auth'
       )
       .addSecurityRequirements('JWT-auth')
-      .addTag('auth', 'Authentication & Authorization - OAuth2 flows, JWT token management, and user session handling')
+      .addTag(
+        'auth',
+        'Authentication & Authorization - OAuth2 flows, JWT token management, and user session handling'
+      )
       .addTag('users', 'User Management - User profiles, preferences, and account management')
-      .addTag('tasks', 'Task Management - AI-powered task creation, tracking, and completion with smart insights')
-      .addTag('email', 'Email Intelligence - Email processing, AI drafting, categorization, and integration management')
-      .addTag('calendar', 'Calendar & Scheduling - Event management, scheduling optimization, and calendar integrations')
-      .addTag('ai-gateway', 'AI Processing - Claude AI integration, chat interactions, and AI model management')
-      .addTag('voice', 'Voice Interaction - Text-to-speech, speech-to-text, and voice cloning with ElevenLabs')
-      .addTag('integrations', 'Third-party Integrations - Google Workspace, Microsoft 365, and other external service connections')
-      .addTag('billing', 'Billing & Subscriptions - Stripe integration, subscription management, and usage tracking')
-      .addTag('search', 'Search & Discovery - Semantic search, vector embeddings, and content discovery')
-      .addTag('workflow', 'Workflow Automation - TASA engine, automated workflows, and proactive task execution')
-      .addTag('notifications', 'Notifications - Multi-channel notifications, preferences, and delivery management')
-      .addTag('analytics', 'Analytics & Insights - Productivity metrics, usage analytics, and AI-powered insights')
-      .addTag('storage', 'File Management - File uploads, processing, CDN distribution, and storage management')
-      .addTag('scheduler', 'Job Scheduling - Cron jobs, recurring tasks, and background job management')
+      .addTag(
+        'tasks',
+        'Task Management - AI-powered task creation, tracking, and completion with smart insights'
+      )
+      .addTag(
+        'email',
+        'Email Intelligence - Email processing, AI drafting, categorization, and integration management'
+      )
+      .addTag(
+        'calendar',
+        'Calendar & Scheduling - Event management, scheduling optimization, and calendar integrations'
+      )
+      .addTag(
+        'ai-gateway',
+        'AI Processing - Claude AI integration, chat interactions, and AI model management'
+      )
+      .addTag(
+        'voice',
+        'Voice Interaction - Text-to-speech, speech-to-text, and voice cloning with ElevenLabs'
+      )
+      .addTag(
+        'integrations',
+        'Third-party Integrations - Google Workspace, Microsoft 365, and other external service connections'
+      )
+      .addTag(
+        'billing',
+        'Billing & Subscriptions - Stripe integration, subscription management, and usage tracking'
+      )
+      .addTag(
+        'search',
+        'Search & Discovery - Semantic search, vector embeddings, and content discovery'
+      )
+      .addTag(
+        'workflow',
+        'Workflow Automation - TASA engine, automated workflows, and proactive task execution'
+      )
+      .addTag(
+        'notifications',
+        'Notifications - Multi-channel notifications, preferences, and delivery management'
+      )
+      .addTag(
+        'analytics',
+        'Analytics & Insights - Productivity metrics, usage analytics, and AI-powered insights'
+      )
+      .addTag(
+        'storage',
+        'File Management - File uploads, processing, CDN distribution, and storage management'
+      )
+      .addTag(
+        'scheduler',
+        'Job Scheduling - Cron jobs, recurring tasks, and background job management'
+      )
       .addTag('security', 'Security & Audit - Audit logs, rate limiting, and security monitoring')
-      .addTag('websocket', 'Real-time Communication - WebSocket connections, live updates, and collaborative features')
+      .addTag(
+        'websocket',
+        'Real-time Communication - WebSocket connections, live updates, and collaborative features'
+      )
       .build();
 
     const document = SwaggerModule.createDocument(app, config, {

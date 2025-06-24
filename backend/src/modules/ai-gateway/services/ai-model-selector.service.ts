@@ -80,9 +80,11 @@ export class AIModelSelectorService {
     const userTier = request.user.subscription.tier;
     const urgency = request.metadata?.urgency || 'normal';
     const requestType = request.metadata?.type || 'general';
-    
-    this.logger.debug(`Model selection for user ${request.user.id}: complexity=${complexity}, tier=${userTier}, urgency=${urgency}, type=${requestType}`);
-    
+
+    this.logger.debug(
+      `Model selection for user ${request.user.id}: complexity=${complexity}, tier=${userTier}, urgency=${urgency}, type=${requestType}`
+    );
+
     // Get environment-specific model preferences
     const isDevelopment = this.configService.get('NODE_ENV') !== 'production';
 
@@ -92,7 +94,9 @@ export class AIModelSelectorService {
     // Cost-optimized model selection logic
     if (complexity === 'simple' && urgency !== 'high') {
       selectedModel = 'claude-3-haiku';
-      reasoning = `Simple query - using cost-efficient Haiku model${isDevelopment ? ' (dev mode)' : ''}`;
+      reasoning = `Simple query - using cost-efficient Haiku model${
+        isDevelopment ? ' (dev mode)' : ''
+      }`;
     } else if (complexity === 'medium' || userTier === 'PRO') {
       selectedModel = 'claude-3-5-sonnet';
       reasoning = 'Medium complexity or Pro tier - using balanced Sonnet model';

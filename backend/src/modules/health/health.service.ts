@@ -14,7 +14,7 @@ export class HealthService {
     version: string;
   }> {
     const timestamp = new Date().toISOString();
-    
+
     const services = {
       database: await this.checkDatabase(),
       // Add other service checks here

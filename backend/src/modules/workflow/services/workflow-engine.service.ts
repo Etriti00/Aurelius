@@ -33,7 +33,7 @@ export class WorkflowEngineService {
     private suggestionService: SuggestionService,
     private actionService: ActionService,
     private cacheService: CacheService,
-    private eventEmitter: EventEmitter2,
+    private eventEmitter: EventEmitter2
   ) {
     // Initialize cache for workflow engine
     this.cacheService.get('workflow-engine:initialized').then(() => {
@@ -47,42 +47,37 @@ export class WorkflowEngineService {
   async executeWorkflow(
     userId: string,
     triggerId: string,
-    triggerData: Record<string, any>,
+    triggerData: Record<string, any>
   ): Promise<WorkflowExecution> {
     const executionId = this.generateExecutionId();
-    
+
     try {
       // Create execution record
-      const execution = await this.createExecution(
-        executionId,
-        userId,
-        triggerId,
-        triggerData,
-      );
+      const execution = await this.createExecution(executionId, userId, triggerId, triggerData);
 
       // Start execution
       this.activeExecutions.set(executionId, execution);
-      
+
       // Run TASA++ loop
       const result = await this.runTASALoop(execution, userId);
-      
+
       // Update execution with results
       const finalExecution = await this.completeExecution(executionId, result);
-      
+
       this.activeExecutions.delete(executionId);
-      
+
       return finalExecution;
     } catch (error: any) {
       this.logger.error(`Workflow execution failed: ${error.message}`);
-      
+
       // Update execution status
       await this.failExecution(executionId, error);
-      
+
       throw new BusinessException(
         'Workflow execution failed',
         'WORKFLOW_EXECUTION_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -92,7 +87,7 @@ export class WorkflowEngineService {
    */
   private async runTASALoop(
     execution: WorkflowExecution,
-    userId: string,
+    userId: string
   ): Promise<{
     analysis: WorkflowAnalysis;
     suggestions: WorkflowSuggestion[];
@@ -101,17 +96,17 @@ export class WorkflowEngineService {
   }> {
     // Update status: Analyzing
     await this.updateExecutionStatus(execution.id, ExecutionStatus.ANALYZING);
-    
+
     // Step 1: Analysis
     const analysis = await this.analysisService.analyzeWorkflow(
       userId,
       execution.trigger.id,
-      execution.trigger.metadata || {},
+      execution.trigger.metadata || {}
     );
-    
+
     // Update execution with analysis
     execution.analysis = analysis;
-    
+
     // Emit analysis complete event
     this.eventEmitter.emit('workflow.analysis.complete', {
       executionId: execution.id,
@@ -120,13 +115,13 @@ export class WorkflowEngineService {
 
     // Update status: Suggesting
     await this.updateExecutionStatus(execution.id, ExecutionStatus.SUGGESTING);
-    
+
     // Step 2: Generate Suggestions
     const suggestions = await this.suggestionService.generateSuggestions(analysis);
-    
+
     // Update analysis with suggestions
     analysis.suggestions = suggestions;
-    
+
     // Emit suggestions ready event
     this.eventEmitter.emit('workflow.suggestions.ready', {
       executionId: execution.id,
@@ -137,36 +132,28 @@ export class WorkflowEngineService {
     const approvedSuggestions = await this.getApprovedSuggestions(
       userId,
       execution.id,
-      suggestions,
+      suggestions
     );
-    
+
     execution.selectedSuggestions = approvedSuggestions.map(s => s.id);
 
     // Update status: Executing
     await this.updateExecutionStatus(execution.id, ExecutionStatus.EXECUTING);
-    
+
     // Step 4: Execute Actions
     const executedActions: ExecutedAction[] = [];
     const results: ExecutionResult[] = [];
-    
+
     for (const suggestion of approvedSuggestions) {
       for (const action of suggestion.actions) {
         // Prepare action parameters
-        const parameters = await this.prepareActionParameters(
-          action,
-          analysis.context,
-          suggestion,
-        );
-        
+        const parameters = await this.prepareActionParameters(action, analysis.context, suggestion);
+
         // Execute action
-        const executedAction = await this.actionService.executeAction(
-          userId,
-          action,
-          parameters,
-        );
-        
+        const executedAction = await this.actionService.executeAction(userId, action, parameters);
+
         executedActions.push(executedAction);
-        
+
         // Add result
         if (executedAction.status === 'success') {
           results.push({
@@ -183,7 +170,7 @@ export class WorkflowEngineService {
         }
       }
     }
-    
+
     // Emit execution complete event
     this.eventEmitter.emit('workflow.execution.complete', {
       executionId: execution.id,
@@ -205,27 +192,25 @@ export class WorkflowEngineService {
   private async getApprovedSuggestions(
     userId: string,
     executionId: string,
-    suggestions: WorkflowSuggestion[],
+    suggestions: WorkflowSuggestion[]
   ): Promise<WorkflowSuggestion[]> {
     // Log the approval check for audit trail
     this.logger.debug(`Checking suggestions for auto-approval: execution ${executionId}`);
-    
+
     // Check user preferences for auto-approval
     const preferences = await this.getUserWorkflowPreferences(userId);
-    
+
     if (preferences.autoApprove) {
       // Auto-approve high-confidence suggestions
-      return suggestions.filter(s => 
-        s.confidence >= preferences.autoApproveThreshold &&
-        s.priority >= preferences.minPriority
+      return suggestions.filter(
+        s =>
+          s.confidence >= preferences.autoApproveThreshold && s.priority >= preferences.minPriority
       );
     }
-    
+
     // In a real implementation, this would wait for user confirmation
     // For now, approve top suggestions
-    return suggestions
-      .filter(s => s.confidence >= 0.7)
-      .slice(0, preferences.maxAutoActions || 3);
+    return suggestions.filter(s => s.confidence >= 0.7).slice(0, preferences.maxAutoActions || 3);
   }
 
   /**
@@ -234,10 +219,10 @@ export class WorkflowEngineService {
   private async prepareActionParameters(
     action: any,
     context: any,
-    suggestion: WorkflowSuggestion,
+    suggestion: WorkflowSuggestion
   ): Promise<Record<string, any>> {
     const parameters: Record<string, any> = {};
-    
+
     // Fill in required parameters
     for (const [key, definition] of Object.entries(action.parameters.required)) {
       const paramDef = definition as ParameterDefinition;
@@ -246,11 +231,11 @@ export class WorkflowEngineService {
         parameters[key] = paramDef.default;
         continue;
       }
-      
+
       // Extract from context or suggestion
       parameters[key] = this.extractParameterValue(key, paramDef, context, suggestion);
     }
-    
+
     // Add optional parameters if available
     if (action.parameters.optional) {
       for (const [key, definition] of Object.entries(action.parameters.optional)) {
@@ -261,7 +246,7 @@ export class WorkflowEngineService {
         }
       }
     }
-    
+
     return parameters;
   }
 
@@ -272,18 +257,18 @@ export class WorkflowEngineService {
     key: string,
     definition: ParameterDefinition,
     context: AnalysisContext,
-    suggestion: WorkflowSuggestion,
+    suggestion: WorkflowSuggestion
   ): any {
     // Check suggestion data first
     if (suggestion.actions[0]?.parameters?.required[key]) {
       return suggestion.actions[0].parameters.required[key].default;
     }
-    
+
     // Check context trigger data
     if (context.triggerData[key] !== undefined) {
       return context.triggerData[key];
     }
-    
+
     // Generate based on type
     switch (definition.type) {
       case 'string':
@@ -312,7 +297,7 @@ export class WorkflowEngineService {
       subject: `Workflow notification`,
       message: `This is an automated message from your workflow`,
     };
-    
+
     return defaults[key] || `Generated ${key}`;
   }
 
@@ -323,7 +308,7 @@ export class WorkflowEngineService {
     const now = new Date();
     const timeOfDay = context.environmentContext.timeOfDay || '';
     const timeAdjustment = timeOfDay.includes('evening') ? 1 : 0;
-    
+
     switch (key) {
       case 'startTime':
         return new Date(now.getTime() + 60 * 60 * 1000); // 1 hour from now
@@ -345,12 +330,12 @@ export class WorkflowEngineService {
     executionId: string,
     userId: string,
     triggerId: string,
-    triggerData: Record<string, any>,
+    triggerData: Record<string, any>
   ): Promise<WorkflowExecution> {
     // Get trigger details
     const triggers = await this.triggerService.getUserTriggers(userId);
     const trigger = triggers.find(t => t.id === triggerId);
-    
+
     if (!trigger) {
       throw new Error(`Trigger ${triggerId} not found`);
     }
@@ -392,10 +377,7 @@ export class WorkflowEngineService {
   /**
    * Update execution status
    */
-  private async updateExecutionStatus(
-    executionId: string,
-    status: ExecutionStatus,
-  ): Promise<void> {
+  private async updateExecutionStatus(executionId: string, status: ExecutionStatus): Promise<void> {
     await this.prisma.workflowExecution.update({
       where: { id: executionId },
       data: { status },
@@ -415,10 +397,7 @@ export class WorkflowEngineService {
   /**
    * Complete workflow execution
    */
-  private async completeExecution(
-    executionId: string,
-    result: any,
-  ): Promise<WorkflowExecution> {
+  private async completeExecution(executionId: string, result: any): Promise<WorkflowExecution> {
     const execution = this.activeExecutions.get(executionId);
     if (!execution) {
       throw new Error(`Execution ${executionId} not found`);
@@ -452,10 +431,7 @@ export class WorkflowEngineService {
   /**
    * Fail workflow execution
    */
-  private async failExecution(
-    executionId: string,
-    error: any,
-  ): Promise<void> {
+  private async failExecution(executionId: string, error: any): Promise<void> {
     const workflowError: WorkflowError = {
       code: error.code || 'UNKNOWN_ERROR',
       message: error.message,
@@ -484,7 +460,7 @@ export class WorkflowEngineService {
       select: { preferences: true },
     });
 
-    const preferences = user?.preferences as any || {};
+    const preferences = (user?.preferences as any) || {};
 
     return {
       autoApprove: preferences?.workflowAutoApprove ?? true,
@@ -501,9 +477,11 @@ export class WorkflowEngineService {
     const duration = execution.completedAt!.getTime() - execution.startedAt.getTime();
     const successCount = execution.executedActions.filter(a => a.status === 'success').length;
     const timeSaved = this.calculateTimeSaved(execution);
-    
-    this.logger.debug(`Recording metrics for workflow ${execution.workflowId}: duration=${duration}ms, timeSaved=${timeSaved}min`);
-    
+
+    this.logger.debug(
+      `Recording metrics for workflow ${execution.workflowId}: duration=${duration}ms, timeSaved=${timeSaved}min`
+    );
+
     await this.prisma.workflowMetrics.upsert({
       where: { workflowId: execution.workflowId },
       create: {
@@ -527,14 +505,14 @@ export class WorkflowEngineService {
    */
   private calculateTimeSaved(execution: WorkflowExecution): number {
     let totalSaved = 0;
-    
+
     for (const suggestionId of execution.selectedSuggestions) {
       const suggestion = execution.analysis.suggestions.find(s => s.id === suggestionId);
       if (suggestion?.estimatedImpact?.timeSaved) {
         totalSaved += suggestion.estimatedImpact.timeSaved;
       }
     }
-    
+
     return totalSaved;
   }
 
@@ -587,7 +565,7 @@ export class WorkflowEngineService {
     if (!execution) {
       throw new BusinessException(
         'Execution not found or already completed',
-        'EXECUTION_NOT_FOUND',
+        'EXECUTION_NOT_FOUND'
       );
     }
 
@@ -634,15 +612,15 @@ export class WorkflowEngineService {
     if (!data || typeof data !== 'object') {
       throw new Error('Invalid analysis data provided');
     }
-    
+
     if (!data.id || !data.workflowId || !data.triggerId) {
       throw new Error('Analysis must have id, workflowId, and triggerId');
     }
-    
-    if (!data.context || !data.context.userId) {
+
+    if (!data.context?.userId) {
       throw new Error('Analysis must have valid context with userId');
     }
-    
+
     return {
       id: data.id,
       workflowId: data.workflowId,
@@ -654,14 +632,16 @@ export class WorkflowEngineService {
           currentTasks: data.context.userContext?.currentTasks || 0,
           upcomingEvents: data.context.userContext?.upcomingEvents || 0,
           recentActivity: data.context.userContext?.recentActivity || [],
-          preferences: data.context.userContext?.preferences || {}
+          preferences: data.context.userContext?.preferences || {},
         },
         environmentContext: {
           timeOfDay: data.context.environmentContext?.timeOfDay || new Date().toTimeString(),
-          dayOfWeek: data.context.environmentContext?.dayOfWeek || new Date().toLocaleDateString('en-US', { weekday: 'long' }),
+          dayOfWeek:
+            data.context.environmentContext?.dayOfWeek ||
+            new Date().toLocaleDateString('en-US', { weekday: 'long' }),
           location: data.context.environmentContext?.location,
-          device: data.context.environmentContext?.device
-        }
+          device: data.context.environmentContext?.device,
+        },
       },
       insights: data.insights || [],
       suggestions: data.suggestions || [],
@@ -679,32 +659,34 @@ export class WorkflowEngineService {
 
   private validateExecutedActions(data: any): ExecutedAction[] {
     if (Array.isArray(data)) {
-      return data.filter(item => {
-        return item && typeof item === 'object' && 
-               typeof item.actionId === 'string';
-      }).map(item => ({
-        actionId: item.actionId,
-        executedAt: item.executedAt ? new Date(item.executedAt) : new Date(),
-        duration: typeof item.duration === 'number' ? item.duration : 0,
-        status: item.status || 'completed',
-        input: item.input || {},
-        output: item.output || {},
-      }));
+      return data
+        .filter(item => {
+          return item && typeof item === 'object' && typeof item.actionId === 'string';
+        })
+        .map(item => ({
+          actionId: item.actionId,
+          executedAt: item.executedAt ? new Date(item.executedAt) : new Date(),
+          duration: typeof item.duration === 'number' ? item.duration : 0,
+          status: item.status || 'completed',
+          input: item.input || {},
+          output: item.output || {},
+        }));
     }
     return [];
   }
 
   private validateExecutionResults(data: any): ExecutionResult[] {
     if (Array.isArray(data)) {
-      return data.filter(item => {
-        return item && typeof item === 'object' && 
-               typeof item.type === 'string';
-      }).map(item => ({
-        type: item.type,
-        message: item.message || '',
-        data: item.data || {},
-        timestamp: item.timestamp ? new Date(item.timestamp) : new Date(),
-      }));
+      return data
+        .filter(item => {
+          return item && typeof item === 'object' && typeof item.type === 'string';
+        })
+        .map(item => ({
+          type: item.type,
+          message: item.message || '',
+          data: item.data || {},
+          timestamp: item.timestamp ? new Date(item.timestamp) : new Date(),
+        }));
     }
     return [];
   }

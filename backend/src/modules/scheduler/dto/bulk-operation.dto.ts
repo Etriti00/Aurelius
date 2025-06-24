@@ -13,9 +13,9 @@ export class BulkOperationDto {
   @IsString({ each: true })
   jobIds: string[] = [];
 
-  @ApiProperty({ 
-    enum: BulkOperationType, 
-    description: 'Operation to perform on selected jobs' 
+  @ApiProperty({
+    enum: BulkOperationType,
+    description: 'Operation to perform on selected jobs',
   })
   @IsEnum(BulkOperationType)
   operation: BulkOperationType = BulkOperationType.ENABLE;

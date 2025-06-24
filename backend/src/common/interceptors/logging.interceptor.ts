@@ -1,11 +1,5 @@
-import {
-  Injectable,
-  NestInterceptor,
-  ExecutionContext,
-  CallHandler,
-  Logger,
-} from '@nestjs/common';
-import { Observable } from 'rxjs';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger } from '@nestjs/common';
+import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Request } from 'express';
 import { RequestUser } from '../interfaces/user.interface';
@@ -15,38 +9,37 @@ interface RequestWithUser extends Request {
 }
 
 @Injectable()
-export class LoggingInterceptor implements NestInterceptor {
+export class LoggingInterceptor<T> implements NestInterceptor<T, T> {
   private readonly logger = new Logger('HTTP');
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(
+    context: ExecutionContext,
+    next: CallHandler<T>
+  ): Observable<T> | Promise<Observable<T>> {
     const request = context.switchToHttp().getRequest() as RequestWithUser;
     const { method, url, ip, headers } = request;
     const userAgent = headers['user-agent'] || '';
     const userId = request.user?.id || 'anonymous';
-    
+
     const now = Date.now();
-    
-    this.logger.log(
-      `[${method}] ${url} - User: ${userId} - IP: ${ip} - ${userAgent}`,
-    );
+
+    this.logger.log(`[${method}] ${url} - User: ${userId} - IP: ${ip} - ${userAgent}`);
 
     return next.handle().pipe(
       tap({
-        next: (data) => {
+        next: data => {
           const responseTime = Date.now() - now;
           const dataSize = data ? JSON.stringify(data).length : 0;
-          this.logger.log(
-            `[${method}] ${url} - ${responseTime}ms - Success - ${dataSize} bytes`,
-          );
+          this.logger.log(`[${method}] ${url} - ${responseTime}ms - Success - ${dataSize} bytes`);
         },
-        error: (error) => {
+        error: error => {
           const responseTime = Date.now() - now;
           this.logger.error(
             `[${method}] ${url} - ${responseTime}ms - Error: ${error.message}`,
-            error.stack,
+            error.stack
           );
         },
-      }),
+      })
     );
   }
 }

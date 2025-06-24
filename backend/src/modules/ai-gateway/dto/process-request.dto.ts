@@ -7,7 +7,7 @@ export class ProcessRequestDto {
     example: 'Analyze my calendar for next week and suggest optimal meeting times',
   })
   @IsString()
-  prompt!: string;
+  prompt: string;
 
   @ApiProperty({
     description: 'Additional context to help AI understand the request',
@@ -31,7 +31,7 @@ export class ProcessRequestDto {
     example: 'calendar-analysis',
   })
   @IsString()
-  action!: string;
+  action: string;
 
   @ApiProperty({
     description: 'Additional metadata for request processing',
@@ -46,6 +46,24 @@ export class ProcessRequestDto {
   metadata?: {
     urgency?: 'low' | 'normal' | 'high';
     type?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
+
+  constructor(data: {
+    prompt: string;
+    action: string;
+    context?: string;
+    systemPrompt?: string;
+    metadata?: {
+      urgency?: 'low' | 'normal' | 'high';
+      type?: string;
+      [key: string]: unknown;
+    };
+  }) {
+    this.prompt = data.prompt;
+    this.action = data.action;
+    this.context = data.context;
+    this.systemPrompt = data.systemPrompt;
+    this.metadata = data.metadata;
+  }
 }

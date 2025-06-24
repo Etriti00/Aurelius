@@ -1,21 +1,23 @@
 import { Process, Processor } from '@nestjs/bull';
 import { Job } from 'bull';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 @Processor('notifications')
 @Injectable()
 export class NotificationProcessor {
+  private readonly logger = new Logger(NotificationProcessor.name);
+
   @Process('send')
   async handleSend(job: Job) {
     const { userId, type } = job.data;
-    
+
     try {
       // TODO: Implement notification sending
-      console.log(`Sending ${type} notification to user ${userId}`);
-      
+      this.logger.log(`Sending ${type} notification to user ${userId}`);
+
       return { success: true, notificationId: `notif_${Date.now()}` };
     } catch (error) {
-      console.error('Failed to send notification:', error);
+      this.logger.error('Failed to send notification:', error);
       throw error;
     }
   }
@@ -23,14 +25,14 @@ export class NotificationProcessor {
   @Process('send-batch')
   async handleSendBatch(job: Job) {
     const { userIds, type } = job.data;
-    
+
     try {
       // TODO: Implement batch notification sending
-      console.log(`Sending ${type} notification to ${userIds.length} users`);
-      
+      this.logger.log(`Sending ${type} notification to ${userIds.length} users`);
+
       return { success: true, sent: userIds.length };
     } catch (error) {
-      console.error('Failed to send batch notifications:', error);
+      this.logger.error('Failed to send batch notifications:', error);
       throw error;
     }
   }

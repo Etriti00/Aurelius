@@ -9,7 +9,7 @@ interface CacheOptions {
 @Injectable()
 export class LRUCacheService {
   private caches = new Map<string, LRUCache<string, any>>();
-  
+
   /**
    * Create or get a named cache instance
    */
@@ -83,15 +83,15 @@ export class LRUCacheService {
     cacheName: string,
     key: string,
     factory: () => Promise<T>,
-    ttl?: number,
+    ttl?: number
   ): Promise<T> {
     let value = this.get<T>(cacheName, key);
-    
+
     if (value === undefined) {
       value = await factory();
       this.set(cacheName, key, value, ttl);
     }
-    
+
     return value;
   }
 }

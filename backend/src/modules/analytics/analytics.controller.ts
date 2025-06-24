@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-  Param,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -20,10 +14,7 @@ export class AnalyticsController {
 
   @Get('usage')
   @ApiOperation({ summary: 'Get usage analytics' })
-  async getUsageAnalytics(
-    @CurrentUser() user: any,
-    @Query() query: AnalyticsQueryDto,
-  ) {
+  async getUsageAnalytics(@CurrentUser() user: any, @Query() query: AnalyticsQueryDto) {
     return this.analyticsService.getUserUsageAnalytics(user.id, query);
   }
 
@@ -35,10 +26,7 @@ export class AnalyticsController {
 
   @Get('performance')
   @ApiOperation({ summary: 'Get performance metrics' })
-  async getPerformanceMetrics(
-    @CurrentUser() user: any,
-    @Query() query: AnalyticsQueryDto,
-  ) {
+  async getPerformanceMetrics(@CurrentUser() user: any, @Query() query: AnalyticsQueryDto) {
     return this.analyticsService.getPerformanceMetrics(user.id, query);
   }
 
@@ -50,10 +38,7 @@ export class AnalyticsController {
 
   @Get('activity')
   @ApiOperation({ summary: 'Get activity timeline' })
-  async getActivityTimeline(
-    @CurrentUser() user: any,
-    @Query() query: AnalyticsQueryDto,
-  ) {
+  async getActivityTimeline(@CurrentUser() user: any, @Query() query: AnalyticsQueryDto) {
     return this.analyticsService.getActivityTimeline(user.id, query);
   }
 
@@ -62,12 +47,8 @@ export class AnalyticsController {
   async getIntegrationAnalytics(
     @CurrentUser() user: any,
     @Param('provider') provider: string,
-    @Query() query: AnalyticsQueryDto,
+    @Query() query: AnalyticsQueryDto
   ) {
-    return this.analyticsService.getIntegrationAnalytics(
-      user.id,
-      provider,
-      query,
-    );
+    return this.analyticsService.getIntegrationAnalytics(user.id, provider, query);
   }
 }

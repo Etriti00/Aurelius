@@ -280,10 +280,13 @@ export class TaskInsightsDto {
     this.totalTasks = data.totalTasks !== undefined ? data.totalTasks : 0;
     this.completedTasks = data.completedTasks !== undefined ? data.completedTasks : 0;
     this.completionRate = data.completionRate !== undefined ? data.completionRate : 0;
-    this.averageCompletionTime = data.averageCompletionTime !== undefined ? data.averageCompletionTime : 0;
+    this.averageCompletionTime =
+      data.averageCompletionTime !== undefined ? data.averageCompletionTime : 0;
     this.overdueTasks = data.overdueTasks !== undefined ? data.overdueTasks : 0;
-    this.mostProductiveDay = data.mostProductiveDay !== undefined ? data.mostProductiveDay : 'Monday';
-    this.averageDailyCompletion = data.averageDailyCompletion !== undefined ? data.averageDailyCompletion : 0;
+    this.mostProductiveDay =
+      data.mostProductiveDay !== undefined ? data.mostProductiveDay : 'Monday';
+    this.averageDailyCompletion =
+      data.averageDailyCompletion !== undefined ? data.averageDailyCompletion : 0;
     this.insights = data.insights;
   }
 }

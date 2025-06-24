@@ -7,41 +7,42 @@ import { AnalyticsQueryDto } from '../dto/analytics-query.dto';
 export class AnalyticsService {
   constructor(
     private prisma: PrismaService,
-    private cacheService: CacheService,
+    private cacheService: CacheService
   ) {}
 
   async getUserUsageAnalytics(userId: string, query: AnalyticsQueryDto) {
-    const cacheKey = this.cacheService.generateHashKey(
-      `analytics:usage:${userId}`,
-      query,
-    );
+    const cacheKey = this.cacheService.generateHashKey(`analytics:usage:${userId}`, query);
 
-    return this.cacheService.getOrSet(cacheKey, async () => {
-      const startDate = query.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const endDate = query.endDate || new Date();
+    return this.cacheService.getOrSet(
+      cacheKey,
+      async () => {
+        const startDate = query.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const endDate = query.endDate || new Date();
 
-      const [usage, history] = await Promise.all([
-        this.prisma.usage.findUnique({
-          where: { userId },
-        }),
-        this.prisma.usageHistory.findMany({
-          where: {
-            userId,
-            periodStart: {
-              gte: startDate,
-              lte: endDate,
+        const [usage, history] = await Promise.all([
+          this.prisma.usage.findUnique({
+            where: { userId },
+          }),
+          this.prisma.usageHistory.findMany({
+            where: {
+              userId,
+              periodStart: {
+                gte: startDate,
+                lte: endDate,
+              },
             },
-          },
-          orderBy: { periodStart: 'desc' },
-        }),
-      ]);
+            orderBy: { periodStart: 'desc' },
+          }),
+        ]);
 
-      return {
-        current: usage,
-        history,
-        summary: this.calculateUsageSummary(history),
-      };
-    }, 300); // Cache for 5 minutes
+        return {
+          current: usage,
+          history,
+          summary: this.calculateUsageSummary(history),
+        };
+      },
+      300
+    ); // Cache for 5 minutes
   }
 
   async getCurrentPeriodUsage(userId: string) {
@@ -58,41 +59,42 @@ export class AnalyticsService {
   }
 
   async getPerformanceMetrics(userId: string, query: AnalyticsQueryDto) {
-    const cacheKey = this.cacheService.generateHashKey(
-      `analytics:performance:${userId}`,
-      query,
-    );
+    const cacheKey = this.cacheService.generateHashKey(`analytics:performance:${userId}`, query);
 
-    return this.cacheService.getOrSet(cacheKey, async () => {
-      const startDate = query.startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      const endDate = query.endDate || new Date();
+    return this.cacheService.getOrSet(
+      cacheKey,
+      async () => {
+        const startDate = query.startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const endDate = query.endDate || new Date();
 
-      const actionLogs = await this.prisma.actionLog.findMany({
-        where: {
-          userId,
-          createdAt: {
-            gte: startDate,
-            lte: endDate,
+        const actionLogs = await this.prisma.actionLog.findMany({
+          where: {
+            userId,
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
           },
-        },
-        select: {
-          type: true,
-          category: true,
-          duration: true,
-          fromCache: true,
-          status: true,
-          createdAt: true,
-        },
-      });
+          select: {
+            type: true,
+            category: true,
+            duration: true,
+            fromCache: true,
+            status: true,
+            createdAt: true,
+          },
+        });
 
-      return {
-        averageResponseTime: this.calculateAverageResponseTime(actionLogs),
-        cacheHitRate: this.calculateCacheHitRate(actionLogs),
-        successRate: this.calculateSuccessRate(actionLogs),
-        actionsByType: this.groupActionsByType(actionLogs),
-        performanceByHour: this.groupPerformanceByHour(actionLogs),
-      };
-    }, 300);
+        return {
+          averageResponseTime: this.calculateAverageResponseTime(actionLogs),
+          cacheHitRate: this.calculateCacheHitRate(actionLogs),
+          successRate: this.calculateSuccessRate(actionLogs),
+          actionsByType: this.groupActionsByType(actionLogs),
+          performanceByHour: this.groupPerformanceByHour(actionLogs),
+        };
+      },
+      300
+    );
   }
 
   async generateInsights(userId: string) {
@@ -101,17 +103,17 @@ export class AnalyticsService {
       this.prisma.task.aggregate({
         where: { userId },
         _count: { id: true },
-        _avg: { actualMinutes: true }
+        _avg: { actualMinutes: true },
       }),
       this.prisma.email.aggregate({
         where: { userId },
-        _count: { id: true }
+        _count: { id: true },
       }),
       this.prisma.aIUsageLog.aggregate({
         where: { userId },
         _count: { id: true },
-        _sum: { totalCost: true }
-      })
+        _sum: { totalCost: true },
+      }),
     ]);
 
     const insights = [];
@@ -122,7 +124,9 @@ export class AnalyticsService {
       insights.push({
         type: 'productivity_pattern',
         title: 'Task Completion Analysis',
-        description: `You've completed ${taskStats._count.id} tasks with an average duration of ${Math.round(avgTime)} minutes`,
+        description: `You've completed ${
+          taskStats._count.id
+        } tasks with an average duration of ${Math.round(avgTime)} minutes`,
         priority: 'medium',
       });
     }
@@ -142,7 +146,9 @@ export class AnalyticsService {
       insights.push({
         type: 'cost_optimization',
         title: 'AI Usage Optimization',
-        description: `Current AI usage cost: $${usageStats._sum.totalCost.toNumber().toFixed(2)}. Enable caching to reduce costs`,
+        description: `Current AI usage cost: $${usageStats._sum.totalCost
+          .toNumber()
+          .toFixed(2)}. Enable caching to reduce costs`,
         priority: 'high',
       });
     }
@@ -175,11 +181,7 @@ export class AnalyticsService {
     };
   }
 
-  async getIntegrationAnalytics(
-    userId: string,
-    provider: string,
-    query: AnalyticsQueryDto,
-  ) {
+  async getIntegrationAnalytics(userId: string, provider: string, query: AnalyticsQueryDto) {
     const integration = await this.prisma.integration.findUnique({
       where: {
         userId_provider: {
@@ -215,7 +217,7 @@ export class AnalyticsService {
 
     // Filter by provider in metadata
     const providerLogs = actionLogs.filter(log => {
-      const metadata = log.metadata as any;
+      const metadata = log.metadata as Record<string, string>;
       return metadata && metadata.provider === provider;
     });
 
@@ -229,8 +231,8 @@ export class AnalyticsService {
         startDate: query.startDate,
         endDate: query.endDate,
         limit: query.limit,
-        offset: query.offset
-      }
+        offset: query.offset,
+      },
     };
   }
 
@@ -253,7 +255,7 @@ export class AnalyticsService {
   private calculateAverageResponseTime(logs: any[]) {
     const logsWithDuration = logs.filter(log => log.duration);
     if (!logsWithDuration.length) return 0;
-    
+
     const totalDuration = logsWithDuration.reduce((sum, log) => sum + log.duration, 0);
     return Math.round(totalDuration / logsWithDuration.length);
   }
@@ -275,7 +277,7 @@ export class AnalyticsService {
       acc[log.type] = (acc[log.type] || 0) + 1;
       return acc;
     }, {});
-    
+
     return Object.entries(grouped)
       .map(([type, count]) => ({ type, count }))
       .sort((a, b) => (b.count as number) - (a.count as number));

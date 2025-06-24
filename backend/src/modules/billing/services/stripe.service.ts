@@ -10,7 +10,7 @@ export class StripeService {
 
   constructor(private configService: ConfigService) {
     this.stripe = new Stripe(this.configService.stripeSecretKey, {
-      apiVersion: '2023-10-16',
+      apiVersion: '2025-05-28.basil',
     });
   }
 
@@ -31,7 +31,7 @@ export class StripeService {
         'Failed to create customer',
         'STRIPE_CUSTOMER_CREATE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -43,7 +43,7 @@ export class StripeService {
       trialDays?: number;
       metadata?: any;
       paymentMethodId?: string;
-    },
+    }
   ): Promise<Stripe.Subscription> {
     try {
       const subscriptionData: Stripe.SubscriptionCreateParams = {
@@ -73,7 +73,7 @@ export class StripeService {
         'Failed to create subscription',
         'STRIPE_SUBSCRIPTION_CREATE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -84,7 +84,7 @@ export class StripeService {
       priceId?: string;
       quantity?: number;
       cancelAtPeriodEnd?: boolean;
-    },
+    }
   ): Promise<Stripe.Subscription> {
     try {
       const updateData: Stripe.SubscriptionUpdateParams = {};
@@ -119,7 +119,7 @@ export class StripeService {
         'Failed to update subscription',
         'STRIPE_SUBSCRIPTION_UPDATE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -135,14 +135,14 @@ export class StripeService {
         'Failed to cancel subscription',
         'STRIPE_SUBSCRIPTION_CANCEL_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
 
   async createPaymentMethod(
     customerId: string,
-    paymentMethodId: string,
+    paymentMethodId: string
   ): Promise<Stripe.PaymentMethod> {
     try {
       const paymentMethod = await this.stripe.paymentMethods.attach(paymentMethodId, {
@@ -162,7 +162,7 @@ export class StripeService {
         'Failed to add payment method',
         'STRIPE_PAYMENT_METHOD_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -171,7 +171,7 @@ export class StripeService {
     customerId: string,
     priceId: string,
     successUrl: string,
-    cancelUrl: string,
+    cancelUrl: string
   ): Promise<Stripe.Checkout.Session> {
     try {
       return await this.stripe.checkout.sessions.create({
@@ -194,14 +194,14 @@ export class StripeService {
         'Failed to create checkout session',
         'STRIPE_CHECKOUT_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
 
   async createBillingPortalSession(
     customerId: string,
-    returnUrl: string,
+    returnUrl: string
   ): Promise<Stripe.BillingPortal.Session> {
     try {
       return await this.stripe.billingPortal.sessions.create({
@@ -214,7 +214,7 @@ export class StripeService {
         'Failed to create billing portal session',
         'STRIPE_PORTAL_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -224,7 +224,7 @@ export class StripeService {
       return this.stripe.webhooks.constructEvent(
         payload,
         signature,
-        this.configService.stripeWebhookSecret,
+        this.configService.stripeWebhookSecret
       );
     } catch (error: any) {
       this.logger.error(`Webhook signature verification failed: ${error.message}`);
@@ -232,7 +232,7 @@ export class StripeService {
         'Invalid webhook signature',
         'STRIPE_WEBHOOK_INVALID',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -248,15 +248,12 @@ export class StripeService {
         'Failed to retrieve subscription',
         'STRIPE_SUBSCRIPTION_NOT_FOUND',
         undefined,
-        error,
+        error
       );
     }
   }
 
-  async listInvoices(
-    customerId: string,
-    limit: number = 10,
-  ): Promise<Stripe.Invoice[]> {
+  async listInvoices(customerId: string, limit: number = 10): Promise<Stripe.Invoice[]> {
     try {
       const invoices = await this.stripe.invoices.list({
         customer: customerId,
@@ -269,7 +266,7 @@ export class StripeService {
         'Failed to retrieve invoices',
         'STRIPE_INVOICES_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -277,25 +274,30 @@ export class StripeService {
   async createUsageRecord(
     subscriptionItemId: string,
     quantity: number,
-    timestamp?: number,
-  ): Promise<Stripe.UsageRecord> {
+    timestamp?: number
+  ): Promise<Stripe.Response<Stripe.Billing.MeterEvent>> {
     try {
-      return await this.stripe.subscriptionItems.createUsageRecord(
-        subscriptionItemId,
-        {
-          quantity,
-          timestamp: timestamp || Math.floor(Date.now() / 1000),
-          action: 'increment',
+      return await this.stripe.billing.meterEvents.create({
+        event_name: 'api_request',
+        payload: {
+          value: quantity.toString(),
+          stripe_customer_id: subscriptionItemId,
         },
-      );
-    } catch (error: any) {
-      this.logger.error(`Failed to create usage record: ${error.message}`);
-      throw new BusinessException(
-        'Failed to record usage',
-        'STRIPE_USAGE_RECORD_FAILED',
-        undefined,
-        error,
-      );
+        timestamp: timestamp || Math.floor(Date.now() / 1000),
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        this.logger.error(`Failed to create usage record: ${error.message}`);
+        throw new BusinessException(
+          'Failed to record usage',
+          'STRIPE_USAGE_RECORD_FAILED',
+          undefined,
+          error
+        );
+      } else {
+        this.logger.error('Failed to create usage record: Unknown error');
+        throw new BusinessException('Failed to record usage', 'STRIPE_USAGE_RECORD_FAILED');
+      }
     }
   }
 }

@@ -2,13 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { PrismaService } from '../../prisma/prisma.service';
-import {
-  ScheduledJob,
-  JobType,
-  JobSchedule,
-  ExecutionStatus,
-  JobAction,
-} from '../interfaces';
+import { ScheduledJob, JobType, JobSchedule, ExecutionStatus, JobAction } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 import * as cronParser from 'cron-parser';
 import { v4 as uuidv4 } from 'uuid';
@@ -20,7 +14,7 @@ export class JobSchedulerService {
 
   constructor(
     private schedulerRegistry: SchedulerRegistry,
-    private prisma: PrismaService,
+    private prisma: PrismaService
   ) {
     this.loadActiveJobs();
   }
@@ -64,7 +58,7 @@ export class JobSchedulerService {
         'Failed to schedule job',
         'JOB_SCHEDULE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -99,7 +93,7 @@ export class JobSchedulerService {
         'Failed to activate job',
         'JOB_ACTIVATION_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -128,7 +122,7 @@ export class JobSchedulerService {
         'Failed to deactivate job',
         'JOB_DEACTIVATION_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -136,10 +130,7 @@ export class JobSchedulerService {
   /**
    * Update job schedule
    */
-  async updateJobSchedule(
-    jobId: string,
-    newSchedule: JobSchedule,
-  ): Promise<void> {
+  async updateJobSchedule(jobId: string, newSchedule: JobSchedule): Promise<void> {
     try {
       // Validate new schedule
       this.validateSchedule(newSchedule);
@@ -178,7 +169,7 @@ export class JobSchedulerService {
         'Failed to update job schedule',
         'JOB_UPDATE_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -200,7 +191,7 @@ export class JobSchedulerService {
       },
       null,
       true,
-      job.schedule.timezone || 'UTC',
+      job.schedule.timezone || 'UTC'
     );
 
     this.schedulerRegistry.addCronJob(job.id, cronJob);
@@ -211,7 +202,7 @@ export class JobSchedulerService {
    */
   private async scheduleRecurringJob(job: ScheduledJob): Promise<void> {
     const cronExpression = this.buildCronExpression(job.schedule);
-    
+
     const cronJob = new CronJob(
       cronExpression,
       async () => {
@@ -220,7 +211,7 @@ export class JobSchedulerService {
       },
       null,
       true,
-      job.schedule.timezone || 'UTC',
+      job.schedule.timezone || 'UTC'
     );
 
     this.schedulerRegistry.addCronJob(job.id, cronJob);
@@ -242,7 +233,7 @@ export class JobSchedulerService {
       },
       null,
       true,
-      job.schedule.timezone || 'UTC',
+      job.schedule.timezone || 'UTC'
     );
 
     this.schedulerRegistry.addCronJob(job.id, cronJob);
@@ -253,7 +244,7 @@ export class JobSchedulerService {
    */
   private async scheduleIntervalJob(job: ScheduledJob): Promise<void> {
     const intervalMs = (job.schedule.intervalMinutes || 60) * 60 * 1000;
-    
+
     const executeAndReschedule = async () => {
       await this.executeJob(job);
       await this.updateNextRun(job.id);
@@ -265,7 +256,7 @@ export class JobSchedulerService {
     }
 
     const interval = setInterval(executeAndReschedule, intervalMs);
-    
+
     // Store interval reference
     this.schedulerRegistry.addInterval(`interval-${job.id}`, interval);
   }
@@ -275,7 +266,7 @@ export class JobSchedulerService {
    */
   private async scheduleDelayedJob(job: ScheduledJob): Promise<void> {
     const delayMs = (job.schedule.delayMinutes || 5) * 60 * 1000;
-    
+
     const timeout = setTimeout(async () => {
       await this.executeJob(job);
       // Disable job after execution
@@ -290,7 +281,7 @@ export class JobSchedulerService {
    */
   private async executeJob(job: ScheduledJob): Promise<void> {
     const executionId = uuidv4();
-    
+
     try {
       // Create execution record
       await this.prisma.jobExecution.create({
@@ -325,7 +316,7 @@ export class JobSchedulerService {
       this.logger.log(`Successfully executed job ${job.id}`);
     } catch (error: any) {
       this.logger.error(`Job execution failed: ${error.message}`);
-      
+
       // Update execution record
       await this.prisma.jobExecution.update({
         where: { id: executionId },
@@ -363,10 +354,7 @@ export class JobSchedulerService {
   /**
    * Handle job retry
    */
-  private async handleRetry(
-    job: ScheduledJob,
-    executionId: string,
-  ): Promise<void> {
+  private async handleRetry(job: ScheduledJob, executionId: string): Promise<void> {
     const execution = await this.prisma.jobExecution.findUnique({
       where: { id: executionId },
     });
@@ -379,7 +367,7 @@ export class JobSchedulerService {
 
     if (execution.retryCount < maxRetries) {
       const delay = retryDelayMs * Math.pow(backoffMultiplier, execution.retryCount);
-      
+
       setTimeout(async () => {
         await this.executeJob(job);
       }, delay);
@@ -427,10 +415,9 @@ export class JobSchedulerService {
       }
 
       if (schedule.cronExpression) {
-        const interval = cronParser.parseExpression(
-          schedule.cronExpression,
-          { tz: schedule.timezone },
-        );
+        const interval = cronParser.parseExpression(schedule.cronExpression, {
+          tz: schedule.timezone,
+        });
         return interval.next().toDate();
       }
 
@@ -444,10 +431,7 @@ export class JobSchedulerService {
 
       // For recurring jobs
       const cronExpression = this.buildCronExpression(schedule);
-      const interval = cronParser.parseExpression(
-        cronExpression,
-        { tz: schedule.timezone },
-      );
+      const interval = cronParser.parseExpression(cronExpression, { tz: schedule.timezone });
       return interval.next().toDate();
     } catch (error) {
       this.logger.warn(`Failed to calculate next run: ${error}`);
@@ -466,7 +450,7 @@ export class JobSchedulerService {
     if (!job) return;
 
     const nextRun = this.calculateNextRun(this.parseSchedule(job.schedule));
-    
+
     await this.prisma.scheduledJob.update({
       where: { id: jobId },
       data: { nextRun },
@@ -478,36 +462,24 @@ export class JobSchedulerService {
    */
   private validateSchedule(schedule: JobSchedule): void {
     if (schedule.type === JobType.ONE_TIME && !schedule.runAt) {
-      throw new BusinessException(
-        'One-time job requires runAt date',
-        'INVALID_SCHEDULE',
-      );
+      throw new BusinessException('One-time job requires runAt date', 'INVALID_SCHEDULE');
     }
 
     if (schedule.type === JobType.CRON && !schedule.cronExpression) {
-      throw new BusinessException(
-        'Cron job requires cronExpression',
-        'INVALID_SCHEDULE',
-      );
+      throw new BusinessException('Cron job requires cronExpression', 'INVALID_SCHEDULE');
     }
 
     if (schedule.cronExpression) {
       try {
         cronParser.parseExpression(schedule.cronExpression);
       } catch (error) {
-        throw new BusinessException(
-          'Invalid cron expression',
-          'INVALID_CRON_EXPRESSION',
-        );
+        throw new BusinessException('Invalid cron expression', 'INVALID_CRON_EXPRESSION');
       }
     }
 
     if (schedule.startDate && schedule.endDate) {
       if (new Date(schedule.startDate) >= new Date(schedule.endDate)) {
-        throw new BusinessException(
-          'Start date must be before end date',
-          'INVALID_DATE_RANGE',
-        );
+        throw new BusinessException('Start date must be before end date', 'INVALID_DATE_RANGE');
       }
     }
   }
@@ -550,7 +522,10 @@ export class JobSchedulerService {
     }
   }
 
-  private serializePayload(action: JobAction, metadata: Record<string, string | number | boolean | object>): Record<string, string | number | boolean | object> {
+  private serializePayload(
+    action: JobAction,
+    metadata: Record<string, string | number | boolean | object>
+  ): Record<string, string | number | boolean | object> {
     const result: Record<string, string | number | boolean | object> = {};
     result.action = {
       type: action.type,
@@ -559,13 +534,13 @@ export class JobSchedulerService {
       parameters: action.parameters || {},
       retryPolicy: action.retryPolicy || null,
     };
-    
+
     if (metadata) {
       result.metadata = metadata;
     } else {
       result.metadata = {};
     }
-    
+
     return result;
   }
 }

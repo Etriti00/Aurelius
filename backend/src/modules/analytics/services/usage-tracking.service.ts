@@ -6,12 +6,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 export class UsageTrackingService {
   constructor(private prisma: PrismaService) {}
 
-  async trackAction(
-    userId: string,
-    actionType: string,
-    model?: string,
-    cost?: number,
-  ) {
+  async trackAction(userId: string, actionType: string, model?: string, cost?: number) {
     // Update current usage
     const usage = await this.prisma.usage.findUnique({
       where: { userId },
@@ -66,9 +61,9 @@ export class UsageTrackingService {
     const newActionsUsed = usage.actionsUsed + 1;
     if (newActionsUsed > usage.monthlyAllocation) {
       updateData.overageActions = { increment: 1 };
-      
+
       if (cost) {
-        const overageRate = usage.user.subscription?.overageRate || 0.10;
+        const overageRate = usage.user.subscription?.overageRate || 0.1;
         const overageCost = new Decimal(overageRate);
         updateData.overageCost = { increment: overageCost };
       }
@@ -143,9 +138,7 @@ export class UsageTrackingService {
     const now = new Date();
     const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const allocation = this.getAllocationByTier(
-      usage.user.subscription?.tier || 'PROFESSIONAL',
-    );
+    const allocation = this.getAllocationByTier(usage.user.subscription?.tier || 'PROFESSIONAL');
 
     await this.prisma.usage.update({
       where: { id: usage.id },

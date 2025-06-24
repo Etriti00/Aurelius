@@ -45,7 +45,8 @@ export class SearchController {
   @Get()
   @ApiOperation({
     summary: 'Universal semantic search across all content',
-    description: 'Perform intelligent semantic search across all user content including tasks, emails, calendar events, notes, and documents. Uses AI embeddings for contextual understanding and relevance ranking.',
+    description:
+      'Perform intelligent semantic search across all user content including tasks, emails, calendar events, notes, and documents. Uses AI embeddings for contextual understanding and relevance ranking.',
   })
   @ApiQuery({
     name: 'query',
@@ -103,10 +104,7 @@ export class SearchController {
     description: 'Unauthorized - Invalid or missing JWT token',
     type: ErrorResponseDto,
   })
-  async search(
-    @CurrentUser() user: any,
-    @Query() query: SearchDto,
-  ): Promise<SearchResponseDto> {
+  async search(@CurrentUser() user: any, @Query() query: SearchDto): Promise<SearchResponseDto> {
     return this.searchService.search(user.id, query.query, {
       limit: query.limit,
       offset: query.offset,
@@ -119,7 +117,8 @@ export class SearchController {
   @Get('type/:type')
   @ApiOperation({
     summary: 'Targeted search within specific content type',
-    description: 'Search within a specific content type (tasks, emails, events, notes) for more focused and relevant results. Useful when you know exactly what type of content you\'re looking for.',
+    description:
+      "Search within a specific content type (tasks, emails, events, notes) for more focused and relevant results. Useful when you know exactly what type of content you're looking for.",
   })
   @ApiParam({
     name: 'type',
@@ -151,7 +150,7 @@ export class SearchController {
   async searchByType(
     @CurrentUser() user: any,
     @Param('type') type: SearchableType,
-    @Query() query: SearchDto,
+    @Query() query: SearchDto
   ): Promise<SearchResponseDto> {
     return this.searchService.searchByType(user.id, type, query.query, {
       limit: query.limit,
@@ -167,13 +166,9 @@ export class SearchController {
   @ApiResponse({ status: 200, type: SuggestionsResponseDto })
   async getSuggestions(
     @CurrentUser() user: any,
-    @Query() query: SearchSuggestionsDto,
+    @Query() query: SearchSuggestionsDto
   ): Promise<SuggestionsResponseDto> {
-    const suggestions = await this.searchService.getSuggestions(
-      user.id,
-      query.query,
-      query.limit,
-    );
+    const suggestions = await this.searchService.getSuggestions(user.id, query.query, query.limit);
 
     return { suggestions };
   }
@@ -184,13 +179,9 @@ export class SearchController {
   async findSimilar(
     @CurrentUser() user: any,
     @Param('itemId') itemId: string,
-    @Query('limit') limit?: number,
+    @Query('limit') limit?: number
   ): Promise<SimilarItemsResponseDto> {
-    const results = await this.searchService.findSimilar(
-      user.id,
-      itemId,
-      limit || 10,
-    );
+    const results = await this.searchService.findSimilar(user.id, itemId, limit || 10);
 
     return {
       items: results.map(r => ({
@@ -207,7 +198,8 @@ export class SearchController {
   @Post('index')
   @ApiOperation({
     summary: 'Index content for semantic search',
-    description: 'Add new content to the search index with AI-generated embeddings. The content becomes searchable immediately and can be found through semantic similarity matching.',
+    description:
+      'Add new content to the search index with AI-generated embeddings. The content becomes searchable immediately and can be found through semantic similarity matching.',
   })
   @ApiBody({
     type: IndexContentDto,
@@ -218,13 +210,14 @@ export class SearchController {
         value: {
           id: 'task-123e4567-e89b-12d3-a456-426614174000',
           type: 'task',
-          content: 'Complete quarterly financial report including revenue analysis and expense breakdown',
+          content:
+            'Complete quarterly financial report including revenue analysis and expense breakdown',
           metadata: {
             title: 'Q4 Financial Report',
             priority: 'high',
             dueDate: '2024-12-31T17:00:00Z',
-            labels: ['finance', 'quarterly', 'report']
-          }
+            labels: ['finance', 'quarterly', 'report'],
+          },
         },
       },
       email: {
@@ -232,12 +225,13 @@ export class SearchController {
         value: {
           id: 'email-456',
           type: 'email',
-          content: 'Subject: Project Timeline Update\n\nHi team, the new project deadline has been moved to January 15th...',
+          content:
+            'Subject: Project Timeline Update\n\nHi team, the new project deadline has been moved to January 15th...',
           metadata: {
             subject: 'Project Timeline Update',
             from: 'manager@company.com',
-            timestamp: '2024-12-24T09:30:00Z'
-          }
+            timestamp: '2024-12-24T09:30:00Z',
+          },
         },
       },
     },
@@ -260,7 +254,7 @@ export class SearchController {
   @HttpCode(HttpStatus.CREATED)
   async indexContent(
     @CurrentUser() user: any,
-    @Body() dto: IndexContentDto,
+    @Body() dto: IndexContentDto
   ): Promise<IndexResponseDto> {
     try {
       await this.searchService.bulkIndex(user.id, [
@@ -287,7 +281,7 @@ export class SearchController {
   @HttpCode(HttpStatus.CREATED)
   async bulkIndex(
     @CurrentUser() user: any,
-    @Body() dto: BulkIndexDto,
+    @Body() dto: BulkIndexDto
   ): Promise<BulkIndexResponseDto> {
     const results = {
       indexed: 0,
@@ -322,9 +316,7 @@ export class SearchController {
   @ApiOperation({ summary: 'Index a task for search' })
   @ApiResponse({ status: 201, type: IndexResponseDto })
   @HttpCode(HttpStatus.CREATED)
-  async indexTask(
-    @Param('taskId') taskId: string,
-  ): Promise<IndexResponseDto> {
+  async indexTask(@Param('taskId') taskId: string): Promise<IndexResponseDto> {
     try {
       await this.searchService.indexTask(taskId);
       return { success: true };
@@ -340,9 +332,7 @@ export class SearchController {
   @ApiOperation({ summary: 'Index an email for search' })
   @ApiResponse({ status: 201, type: IndexResponseDto })
   @HttpCode(HttpStatus.CREATED)
-  async indexEmail(
-    @Param('emailId') emailId: string,
-  ): Promise<IndexResponseDto> {
+  async indexEmail(@Param('emailId') emailId: string): Promise<IndexResponseDto> {
     try {
       await this.searchService.indexEmail(emailId);
       return { success: true };
@@ -358,9 +348,7 @@ export class SearchController {
   @ApiOperation({ summary: 'Index a calendar event for search' })
   @ApiResponse({ status: 201, type: IndexResponseDto })
   @HttpCode(HttpStatus.CREATED)
-  async indexCalendarEvent(
-    @Param('eventId') eventId: string,
-  ): Promise<IndexResponseDto> {
+  async indexCalendarEvent(@Param('eventId') eventId: string): Promise<IndexResponseDto> {
     try {
       await this.searchService.indexCalendarEvent(eventId);
       return { success: true };
@@ -376,9 +364,7 @@ export class SearchController {
   @ApiOperation({ summary: 'Index a memory/note for search' })
   @ApiResponse({ status: 201, type: IndexResponseDto })
   @HttpCode(HttpStatus.CREATED)
-  async indexMemory(
-    @Param('memoryId') memoryId: string,
-  ): Promise<IndexResponseDto> {
+  async indexMemory(@Param('memoryId') memoryId: string): Promise<IndexResponseDto> {
     try {
       await this.searchService.indexMemory(memoryId);
       return { success: true };
@@ -394,9 +380,7 @@ export class SearchController {
   @ApiOperation({ summary: 'Remove item from search index' })
   @ApiResponse({ status: 204 })
   @HttpCode(HttpStatus.NO_CONTENT)
-  async removeFromIndex(
-    @Param('itemId') itemId: string,
-  ): Promise<void> {
+  async removeFromIndex(@Param('itemId') itemId: string): Promise<void> {
     await this.searchService.removeFromIndex(itemId);
   }
 }

@@ -18,10 +18,10 @@ export enum ImageFit {
 }
 
 export class ImageTransformDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Target width',
     minimum: 1,
-    maximum: 4096
+    maximum: 4096,
   })
   @IsNumber()
   @Type(() => Number)
@@ -30,10 +30,10 @@ export class ImageTransformDto {
   @Max(4096)
   width?: number;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Target height',
     minimum: 1,
-    maximum: 4096
+    maximum: 4096,
   })
   @IsNumber()
   @Type(() => Number)
@@ -42,11 +42,11 @@ export class ImageTransformDto {
   @Max(4096)
   height?: number;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Image quality',
     minimum: 1,
     maximum: 100,
-    default: 85
+    default: 85,
   })
   @IsNumber()
   @Type(() => Number)
@@ -55,28 +55,28 @@ export class ImageTransformDto {
   @Max(100)
   quality?: number = 85;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     enum: ImageFormat,
     description: 'Output format',
-    default: ImageFormat.WEBP
+    default: ImageFormat.WEBP,
   })
   @IsEnum(ImageFormat)
   @IsOptional()
   format?: ImageFormat = ImageFormat.WEBP;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     enum: ImageFit,
     description: 'How to fit the image',
-    default: ImageFit.COVER
+    default: ImageFit.COVER,
   })
   @IsEnum(ImageFit)
   @IsOptional()
   fit?: ImageFit = ImageFit.COVER;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Blur radius',
     minimum: 0.3,
-    maximum: 1000
+    maximum: 1000,
   })
   @IsNumber()
   @Type(() => Number)
@@ -95,10 +95,10 @@ export class ImageTransformDto {
   @IsOptional()
   grayscale?: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Rotation angle',
     minimum: -360,
-    maximum: 360
+    maximum: 360,
   })
   @IsNumber()
   @Type(() => Number)
@@ -122,9 +122,7 @@ export class ImageUrlResponseDto {
   @ApiProperty({ description: 'Transformation parameters applied' })
   transformations: ImageTransformDto;
 
-  constructor(
-    url: string = ''
-  ) {
+  constructor(url: string = '') {
     this.url = url;
     this.transformations = new ImageTransformDto();
   }

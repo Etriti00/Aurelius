@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '../../config/config.service';
 import { CacheService } from '../../cache/services/cache.service';
-import { firstValueFrom } from 'rxjs';
 import { URLSearchParams } from 'url';
 import {
   OAuthProvider,
@@ -23,7 +22,7 @@ export class OAuthService {
   constructor(
     private httpService: HttpService,
     private configService: ConfigService,
-    private cacheService: CacheService,
+    private cacheService: CacheService
   ) {
     this.initializeProviders();
   }
@@ -99,23 +98,23 @@ export class OAuthService {
   getAuthorizationUrl(
     provider: OAuthProvider,
     userId: string,
-    additionalParams?: Record<string, string>,
+    additionalParams?: Record<string, string>
   ): string {
     const config = this.providers.get(provider);
     if (!config) {
       throw new BusinessException(
         `OAuth provider ${provider} not configured`,
-        'OAUTH_PROVIDER_NOT_CONFIGURED',
+        'OAUTH_PROVIDER_NOT_CONFIGURED'
       );
     }
 
     const state = uuidv4();
-    
+
     // Store state for verification
     this.cacheService.set(
       `oauth:state:${state}`,
       { userId, provider },
-      600, // 10 minutes
+      600 // 10 minutes
     );
 
     const params = new URLSearchParams({
@@ -138,7 +137,7 @@ export class OAuthService {
   async exchangeCodeForTokens(
     provider: OAuthProvider,
     code: string,
-    state: string,
+    state: string
   ): Promise<{ tokens: OAuthTokens; userId: string }> {
     try {
       // Verify state
@@ -154,7 +153,7 @@ export class OAuthService {
       if (!config) {
         throw new BusinessException(
           `OAuth provider ${provider} not configured`,
-          'OAUTH_PROVIDER_NOT_CONFIGURED',
+          'OAUTH_PROVIDER_NOT_CONFIGURED'
         );
       }
 
@@ -166,20 +165,20 @@ export class OAuthService {
         grant_type: 'authorization_code',
       });
 
-      const response = await firstValueFrom(
-        this.httpService.post<OAuthTokenResponse>(config.tokenUrl, params.toString(), {
+      const response = await this.httpService.axiosRef.post<OAuthTokenResponse>(
+        config.tokenUrl,
+        params.toString(),
+        {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
-        }),
+        }
       );
 
       const tokens: OAuthTokens = {
         accessToken: response.data.access_token,
         refreshToken: response.data.refresh_token,
-        expiresAt: new Date(
-          Date.now() + (response.data.expires_in || 3600) * 1000,
-        ),
+        expiresAt: new Date(Date.now() + (response.data.expires_in || 3600) * 1000),
         tokenType: response.data.token_type || 'Bearer',
         scope: this.convertScopeToArray(response.data.scope),
       };
@@ -188,13 +187,14 @@ export class OAuthService {
         tokens,
         userId: stateData.userId,
       };
-    } catch (error: any) {
-      this.logger.error(`Failed to exchange code for tokens: ${error.message}`);
+    } catch (error) {
+      const axiosError = error as { message: string };
+      this.logger.error(`Failed to exchange code for tokens: ${axiosError.message}`);
       throw new BusinessException(
         'Failed to exchange authorization code',
         'OAUTH_TOKEN_EXCHANGE_FAILED',
         undefined,
-        error,
+        axiosError
       );
     }
   }
@@ -202,16 +202,13 @@ export class OAuthService {
   /**
    * Refresh access token
    */
-  async refreshAccessToken(
-    provider: OAuthProvider,
-    refreshToken: string,
-  ): Promise<OAuthTokens> {
+  async refreshAccessToken(provider: OAuthProvider, refreshToken: string): Promise<OAuthTokens> {
     try {
       const config = this.providers.get(provider);
       if (!config) {
         throw new BusinessException(
           `OAuth provider ${provider} not configured`,
-          'OAUTH_PROVIDER_NOT_CONFIGURED',
+          'OAUTH_PROVIDER_NOT_CONFIGURED'
         );
       }
 
@@ -222,30 +219,31 @@ export class OAuthService {
         grant_type: 'refresh_token',
       });
 
-      const response = await firstValueFrom(
-        this.httpService.post<OAuthTokenResponse>(config.tokenUrl, params.toString(), {
+      const response = await this.httpService.axiosRef.post<OAuthTokenResponse>(
+        config.tokenUrl,
+        params.toString(),
+        {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
-        }),
+        }
       );
 
       return {
         accessToken: response.data.access_token,
         refreshToken: response.data.refresh_token || refreshToken,
-        expiresAt: new Date(
-          Date.now() + (response.data.expires_in || 3600) * 1000,
-        ),
+        expiresAt: new Date(Date.now() + (response.data.expires_in || 3600) * 1000),
         tokenType: response.data.token_type || 'Bearer',
         scope: this.convertScopeToArray(response.data.scope),
       };
-    } catch (error: any) {
-      this.logger.error(`Failed to refresh token: ${error.message}`);
+    } catch (error) {
+      const axiosError = error as { message: string };
+      this.logger.error(`Failed to refresh token: ${axiosError.message}`);
       throw new BusinessException(
         'Failed to refresh access token',
         'OAUTH_TOKEN_REFRESH_FAILED',
         undefined,
-        error,
+        axiosError
       );
     }
   }
@@ -253,16 +251,13 @@ export class OAuthService {
   /**
    * Get user info
    */
-  async getUserInfo(
-    provider: OAuthProvider,
-    accessToken: string,
-  ): Promise<OAuthUserInfo> {
+  async getUserInfo(provider: OAuthProvider, accessToken: string): Promise<OAuthUserInfo> {
     try {
       const config = this.providers.get(provider);
-      if (!config || !config.userInfoUrl) {
+      if (!config?.userInfoUrl) {
         throw new BusinessException(
           `OAuth provider ${provider} not configured`,
-          'OAUTH_PROVIDER_NOT_CONFIGURED',
+          'OAUTH_PROVIDER_NOT_CONFIGURED'
         );
       }
 
@@ -272,28 +267,25 @@ export class OAuthService {
 
       // Slack requires token in POST body
       if (provider === OAuthProvider.SLACK) {
-        const response = await firstValueFrom(
-          this.httpService.post(
-            config.userInfoUrl,
-            { token: accessToken },
-            { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
-          ),
+        const response = await this.httpService.axiosRef.post(
+          config.userInfoUrl,
+          { token: accessToken },
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
         );
         return this.mapUserInfo(provider, response.data);
       }
 
-      const response = await firstValueFrom(
-        this.httpService.get(config.userInfoUrl, { headers }),
-      );
+      const response = await this.httpService.axiosRef.get(config.userInfoUrl, { headers });
 
       return this.mapUserInfo(provider, response.data);
-    } catch (error: any) {
-      this.logger.error(`Failed to get user info: ${error.message}`);
+    } catch (error) {
+      const axiosError = error as { message: string };
+      this.logger.error(`Failed to get user info: ${axiosError.message}`);
       throw new BusinessException(
         'Failed to get user info',
         'OAUTH_USER_INFO_FAILED',
         undefined,
-        error,
+        axiosError
       );
     }
   }
@@ -301,10 +293,7 @@ export class OAuthService {
   /**
    * Revoke tokens
    */
-  async revokeTokens(
-    provider: OAuthProvider,
-    tokens: OAuthTokens,
-  ): Promise<void> {
+  async revokeTokens(provider: OAuthProvider, tokens: OAuthTokens): Promise<void> {
     try {
       switch (provider) {
         case OAuthProvider.GOOGLE:
@@ -320,8 +309,9 @@ export class OAuthService {
         default:
           this.logger.warn(`Token revocation not implemented for ${provider}`);
       }
-    } catch (error: any) {
-      this.logger.error(`Failed to revoke tokens: ${error.message}`);
+    } catch (error) {
+      const axiosError = error as { message: string };
+      this.logger.error(`Failed to revoke tokens: ${axiosError.message}`);
       // Don't throw - token revocation failure shouldn't block operations
     }
   }
@@ -329,10 +319,7 @@ export class OAuthService {
   /**
    * Validate tokens
    */
-  async validateTokens(
-    provider: OAuthProvider,
-    tokens: OAuthTokens,
-  ): Promise<boolean> {
+  async validateTokens(provider: OAuthProvider, tokens: OAuthTokens): Promise<boolean> {
     try {
       // Check expiration
       if (tokens.expiresAt && new Date() > new Date(tokens.expiresAt)) {
@@ -382,7 +369,7 @@ export class OAuthService {
       default:
         throw new BusinessException(
           `User info mapping not implemented for ${provider}`,
-          'OAUTH_PROVIDER_NOT_SUPPORTED',
+          'OAUTH_PROVIDER_NOT_SUPPORTED'
         );
     }
   }
@@ -396,13 +383,11 @@ export class OAuthService {
       token: tokens.refreshToken || tokens.accessToken,
     });
 
-    await firstValueFrom(
-      this.httpService.post(revokeUrl, params.toString(), {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }),
-    );
+    await this.httpService.axiosRef.post(revokeUrl, params.toString(), {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
   }
 
   /**
@@ -410,18 +395,16 @@ export class OAuthService {
    */
   private async revokeSlackTokens(tokens: OAuthTokens): Promise<void> {
     const revokeUrl = 'https://slack.com/api/auth.revoke';
-    
-    await firstValueFrom(
-      this.httpService.post(
-        revokeUrl,
-        { token: tokens.accessToken },
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            Authorization: `Bearer ${tokens.accessToken}`,
-          },
+
+    await this.httpService.axiosRef.post(
+      revokeUrl,
+      { token: tokens.accessToken },
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Authorization: `Bearer ${tokens.accessToken}`,
         },
-      ),
+      }
     );
   }
 

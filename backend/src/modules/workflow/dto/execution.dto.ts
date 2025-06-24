@@ -14,9 +14,9 @@ export class ExecutionInsightDto {
   @ApiProperty({ description: 'Additional data' })
   data: Record<string, any>;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: ['low', 'medium', 'high', 'critical'],
-    description: 'Importance level'
+    description: 'Importance level',
   })
   importance: 'low' | 'medium' | 'high' | 'critical';
 
@@ -80,9 +80,9 @@ export class ExecutedActionDto {
   @ApiProperty({ description: 'Execution duration in ms' })
   duration: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: ['success', 'failed', 'skipped'],
-    description: 'Execution status'
+    description: 'Execution status',
   })
   status: 'success' | 'failed' | 'skipped';
 
@@ -105,9 +105,9 @@ export class ExecutedActionDto {
 }
 
 export class ExecutionResultDto {
-  @ApiProperty({ 
+  @ApiProperty({
     enum: ['success', 'warning', 'error', 'info'],
-    description: 'Result type'
+    description: 'Result type',
   })
   type: 'success' | 'warning' | 'error' | 'info';
 

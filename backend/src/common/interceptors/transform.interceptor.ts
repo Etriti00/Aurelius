@@ -1,28 +1,20 @@
-import {
-  Injectable,
-  NestInterceptor,
-  ExecutionContext,
-  CallHandler,
-  Logger,
-} from '@nestjs/common';
-import { Observable } from 'rxjs';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger } from '@nestjs/common';
+import type { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ResponseDto } from '../dto/response.dto';
 
 @Injectable()
-export class TransformInterceptor<T>
-  implements NestInterceptor<T, ResponseDto<T>>
-{
+export class TransformInterceptor<T> implements NestInterceptor<T, ResponseDto<T>> {
   private readonly logger = new Logger(TransformInterceptor.name);
   intercept(
     context: ExecutionContext,
-    next: CallHandler,
-  ): Observable<ResponseDto<T>> {
+    next: CallHandler<T>
+  ): Observable<ResponseDto<T>> | Promise<Observable<ResponseDto<T>>> {
     const request = context.switchToHttp().getRequest();
     this.logger?.debug(`Transform interceptor applied to ${request.method} ${request.url}`);
-    
+
     return next.handle().pipe(
-      map((data) => {
+      map(data => {
         // If data is already a ResponseDto, return it as is
         if (data instanceof ResponseDto) {
           return data;
@@ -35,8 +27,7 @@ export class TransformInterceptor<T>
 
         // Otherwise, wrap in standard response format
         return ResponseDto.success(data);
-      }),
+      })
     );
-  }
   }
 }

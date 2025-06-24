@@ -25,11 +25,11 @@ export class ImageService {
   constructor(
     private configService: ConfigService,
     private s3Service: S3Service,
-    private cdnService: CdnService,
+    private cdnService: CdnService
   ) {
     const maxSize = this.configService.getOptional<number>('IMAGE_MAX_SIZE');
     const maxDim = this.configService.getOptional<number>('IMAGE_MAX_DIMENSION');
-    
+
     this.maxFileSize = maxSize !== undefined ? maxSize : 10 * 1024 * 1024; // 10MB
     this.maxDimension = maxDim !== undefined ? maxDim : 4096;
   }
@@ -37,10 +37,7 @@ export class ImageService {
   /**
    * Process and optimize an image
    */
-  async processImage(
-    buffer: Buffer,
-    options: ImageTransformOptions = {},
-  ): Promise<ProcessedImage> {
+  async processImage(buffer: Buffer, options: ImageTransformOptions = {}): Promise<ProcessedImage> {
     try {
       // Validate image
       const metadata = await sharp(buffer).metadata();
@@ -109,7 +106,7 @@ export class ImageService {
         'Failed to process image',
         'IMAGE_PROCESSING_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -119,7 +116,7 @@ export class ImageService {
    */
   async generateResponsiveVariants(
     buffer: Buffer,
-    baseKey: string,
+    baseKey: string
   ): Promise<Record<string, string>> {
     const variants = {
       thumbnail: { width: 150, height: 150, fit: 'cover' as const },
@@ -134,7 +131,7 @@ export class ImageService {
     try {
       for (const [variant, options] of Object.entries(variants)) {
         let processedImage: ProcessedImage;
-        
+
         if (variant === 'original') {
           processedImage = await this.processImage(buffer, {
             format: 'webp',
@@ -168,7 +165,7 @@ export class ImageService {
         'Failed to generate image variants',
         'IMAGE_VARIANTS_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -193,9 +190,10 @@ export class ImageService {
       const metadata = await sharp(buffer).metadata();
       const stats = await sharp(buffer).stats();
 
-      const aspectRatio = metadata.width && metadata.height
-        ? this.calculateAspectRatio(metadata.width, metadata.height)
-        : 'unknown';
+      const aspectRatio =
+        metadata.width && metadata.height
+          ? this.calculateAspectRatio(metadata.width, metadata.height)
+          : 'unknown';
 
       // Use stats for color analysis if needed
       const channelCount = Array.isArray(stats.channels) ? stats.channels.length : 0;
@@ -219,7 +217,7 @@ export class ImageService {
         'Failed to analyze image',
         'IMAGE_ANALYSIS_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -230,10 +228,7 @@ export class ImageService {
   async generateBlurhash(buffer: Buffer): Promise<string> {
     try {
       // Resize image to small size for blurhash generation
-      const smallBuffer = await sharp(buffer)
-        .resize(32, 32, { fit: 'inside' })
-        .raw()
-        .toBuffer();
+      const smallBuffer = await sharp(buffer).resize(32, 32, { fit: 'inside' }).raw().toBuffer();
 
       // This would use a blurhash library
       // Placeholder implementation
@@ -251,7 +246,7 @@ export class ImageService {
   async createThumbnail(
     buffer: Buffer,
     width: number = 200,
-    height: number = 200,
+    height: number = 200
   ): Promise<Buffer> {
     try {
       return await sharp(buffer)
@@ -267,7 +262,7 @@ export class ImageService {
         'Failed to create thumbnail',
         'THUMBNAIL_CREATION_FAILED',
         undefined,
-        error,
+        error
       );
     }
   }
@@ -281,7 +276,7 @@ export class ImageService {
         'Unsupported image format',
         'INVALID_IMAGE_FORMAT',
         HttpStatus.BAD_REQUEST,
-        { format: metadata.format },
+        { format: metadata.format }
       );
     }
 
@@ -290,7 +285,7 @@ export class ImageService {
         'Image file too large',
         'IMAGE_TOO_LARGE',
         HttpStatus.BAD_REQUEST,
-        { size: metadata.size, maxSize: this.maxFileSize },
+        { size: metadata.size, maxSize: this.maxFileSize }
       );
     }
 
@@ -302,11 +297,11 @@ export class ImageService {
         'Image dimensions too large',
         'IMAGE_DIMENSIONS_TOO_LARGE',
         HttpStatus.BAD_REQUEST,
-        { 
+        {
           width: metadata.width,
           height: metadata.height,
           maxDimension: this.maxDimension,
-        },
+        }
       );
     }
   }
@@ -359,10 +354,6 @@ export class ImageService {
    * Generate hash for blurhash
    */
   private generateHash(buffer: Buffer): string {
-    return crypto
-      .createHash('sha256')
-      .update(buffer)
-      .digest('base64')
-      .substring(0, 30);
+    return crypto.createHash('sha256').update(buffer).digest('base64').substring(0, 30);
   }
 }

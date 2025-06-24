@@ -42,9 +42,11 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       const result = await this.authService.handleOAuthLoginWithTokens(oauthUser, {
         accessToken,
         refreshToken,
-        tokenExpiry: profile._json.expires_in ? new Date(Date.now() + profile._json.expires_in * 1000) : undefined,
+        tokenExpiry: profile._json.expires_in
+          ? new Date(Date.now() + profile._json.expires_in * 1000)
+          : undefined,
       });
-      
+
       // Return user with application tokens
       const user = {
         ...result.user,

@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-jwt';
 import { Request } from 'express';
@@ -9,24 +10,41 @@ import { JwtPayload, RequestUser } from '../../../common/interfaces/user.interfa
 
 @Injectable()
 export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
-  constructor(private readonly authService: AuthService) {
+  private readonly logger = new Logger(RefreshTokenStrategy.name);
+
+  constructor(
+    private readonly authService: AuthService,
+    configService: ConfigService
+  ) {
+    const refreshSecret = configService.get<string>('jwt.refreshToken.secret');
+
+    if (!refreshSecret) {
+      throw new Error(
+        'JWT refresh token secret is not configured. ' +
+          'Please ensure JWT_REFRESH_SECRET is set in your environment variables.'
+      );
+    }
+
     super({
       jwtFromRequest: (req: Request) => {
         const token = req.body?.refreshToken || req.query?.refreshToken;
         return token || null;
       },
       ignoreExpiration: true, // We'll handle expiration manually
-      secretOrKey: process.env.REFRESH_TOKEN_SECRET,
+      secretOrKey: refreshSecret,
       passReqToCallback: true,
     });
   }
 
-  async validate(req: Request, payload: JwtPayload): Promise<RequestUser & { refreshToken: string }> {
+  async validate(
+    req: Request,
+    payload: JwtPayload
+  ): Promise<RequestUser & { refreshToken: string }> {
     // Log the JWT payload for debugging
-    console.log('Refresh token payload:', payload.sub);
-    
+    this.logger.debug('Refresh token payload:', payload.sub);
+
     const refreshToken = req.body?.refreshToken || req.query?.refreshToken;
-    
+
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token required');
     }
