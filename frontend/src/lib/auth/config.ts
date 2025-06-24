@@ -1,6 +1,6 @@
 import { NextAuthConfig } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
-import AzureAD from 'next-auth/providers/azure-ad'
+import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id'
 import CredentialsProvider from 'next-auth/providers/credentials'
 
 // Note: Token refresh is handled by marking expired tokens with error flag
@@ -17,10 +17,10 @@ export const authConfig: NextAuthConfig = {
         },
       },
     }),
-    AzureAD({
+    MicrosoftEntraID({
       clientId: process.env.AUTH_AZURE_AD_CLIENT_ID as string,
       clientSecret: process.env.AUTH_AZURE_AD_CLIENT_SECRET as string,
-      tenantId: process.env.AUTH_AZURE_AD_TENANT_ID,
+      issuer: `https://login.microsoftonline.com/${process.env.AUTH_AZURE_AD_TENANT_ID}/v2.0`,
       authorization: {
         params: {
           scope: 'openid email profile https://graph.microsoft.com/mail.read https://graph.microsoft.com/calendars.readwrite https://graph.microsoft.com/files.read',

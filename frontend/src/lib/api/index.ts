@@ -9,6 +9,7 @@ export * from './voice'
 export * from './billing'
 export * from './integrations'
 export * from './dashboard'
+export * from './workflow'
 
 // Re-export commonly used hooks and functions
 export {
@@ -120,3 +121,4 @@ export { voiceApi } from './voice'
 export { billingApi } from './billing'
 export { integrationsApi } from './integrations'
 export { dashboardApi } from './dashboard'
+export { workflowApi } from './workflow'
