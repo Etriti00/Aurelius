@@ -9,6 +9,8 @@ import { TasksKanban } from '@/components/dashboard/TasksKanban'
 import { SuggestionsPanel } from '@/components/dashboard/SuggestionsPanel'
 import { Calendar, CheckSquare, Inbox, Sparkles, TrendingUp } from 'lucide-react'
 import { FloatingActionButton } from '@/components/dashboard/FloatingActionButton'
+import { motion, AnimatePresence } from 'framer-motion'
+import { layoutTransition } from '@/lib/utils/animations'
 import { 
   generateDashboardCards,
   useTaskStats,
@@ -19,6 +21,7 @@ import {
   BillingUsageDto 
 } from '@/lib/api'
 import { useWebSocketUpdates, useWebSocketNotifications } from '@/lib/websocket/websocket.service'
+import { useResponsiveLayout } from '@/lib/hooks/useResponsiveLayout'
 
 // Transform BillingUsageDto to UsageMetrics for dashboard compatibility
 const transformBillingUsageToMetrics = (billingUsage: BillingUsageDto): UsageMetrics => {
@@ -44,6 +47,7 @@ const transformBillingUsageToMetrics = (billingUsage: BillingUsageDto): UsageMet
 
 export default function DashboardPage() {
   const { data: session } = useSession()
+  const layout = useResponsiveLayout()
 
   // Fetch real data from APIs
   const { stats: taskStats, isLoading: tasksLoading, error: tasksError, mutate: refreshTasks } = useTaskStats()
@@ -130,24 +134,24 @@ export default function DashboardPage() {
   const cardsToDisplay = hasError ? fallbackCards : (dashboardCards.length > 0 ? dashboardCards : fallbackCards)
 
   return (
-    <div className="min-h-screen bg-white relative overflow-hidden">
+    <div className="min-h-screen bg-white dark:bg-gray-900 relative overflow-hidden">
       {/* Enhanced Apple-inspired global background matching landing page */}
       <div className="fixed inset-0 -z-10 pointer-events-none">
         {/* Base gradient with more sophistication */}
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white via-gray-50/30 to-slate-50/40" />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white via-gray-50/30 to-slate-50/40 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950/40" />
         
         {/* Primary floating orbs with enhanced motion */}
-        <div className="absolute -left-96 top-0 w-[1000px] h-[1000px] bg-gradient-to-r from-slate-300/15 via-gray-300/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
-        <div className="absolute -right-96 top-1/2 w-[800px] h-[800px] bg-gradient-to-l from-slate-400/15 via-gray-400/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '3s', animationDuration: '10s' }} />
+        <div className="absolute -left-96 top-0 w-[1000px] h-[1000px] bg-gradient-to-r from-slate-300/15 via-gray-300/10 to-transparent dark:from-blue-500/10 dark:via-blue-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
+        <div className="absolute -right-96 top-1/2 w-[800px] h-[800px] bg-gradient-to-l from-slate-400/15 via-gray-400/10 to-transparent dark:from-purple-500/10 dark:via-purple-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '3s', animationDuration: '10s' }} />
         
         {/* Mid-layer atmospheric orbs */}
         <div className="absolute left-1/4 top-1/4 w-[500px] h-[500px] bg-gradient-to-br from-cyan-300/20 to-blue-300/15 rounded-full blur-2xl opacity-70 animate-pulse" style={{ animationDelay: '1s', animationDuration: '12s' }} />
         <div className="absolute right-1/4 bottom-1/3 w-[400px] h-[400px] bg-gradient-to-tl from-indigo-300/20 to-purple-300/15 rounded-full blur-2xl opacity-60 animate-pulse" style={{ animationDelay: '5s', animationDuration: '9s' }} />
         
-        {/* Floating interaction elements */}
-        <div className="absolute top-1/5 left-3/4 w-40 h-40 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-full blur-xl animate-bounce" style={{ animationDuration: '4s', animationDelay: '0.5s' }} />
-        <div className="absolute bottom-1/4 left-1/5 w-32 h-32 bg-gradient-to-l from-violet-500/20 to-purple-500/20 rounded-full blur-xl animate-bounce" style={{ animationDuration: '5s', animationDelay: '2s' }} />
-        <div className="absolute top-2/3 right-1/5 w-28 h-28 bg-gradient-to-br from-indigo-500/20 to-blue-500/20 rounded-full blur-xl animate-bounce" style={{ animationDuration: '6s', animationDelay: '1s' }} />
+        {/* Floating interaction elements - Reduced for smoother performance */}
+        <div className="absolute top-1/5 left-3/4 w-40 h-40 bg-gradient-to-r from-blue-500/15 to-cyan-500/15 rounded-full blur-xl animate-pulse" style={{ animationDuration: '8s', animationDelay: '0.5s' }} />
+        <div className="absolute bottom-1/4 left-1/5 w-32 h-32 bg-gradient-to-l from-violet-500/15 to-purple-500/15 rounded-full blur-xl animate-pulse" style={{ animationDuration: '10s', animationDelay: '2s' }} />
+        <div className="absolute top-2/3 right-1/5 w-28 h-28 bg-gradient-to-br from-indigo-500/15 to-blue-500/15 rounded-full blur-xl animate-pulse" style={{ animationDuration: '12s', animationDelay: '1s' }} />
         
         {/* Geometric pattern overlays */}
         <div className="absolute inset-0 opacity-[0.02]">
@@ -191,36 +195,44 @@ export default function DashboardPage() {
         <div className="absolute top-0 right-1/3 w-px h-full bg-gradient-to-b from-violet-400/15 via-transparent to-blue-400/15 opacity-25 animate-pulse" style={{ animationDuration: '20s', animationDelay: '4s' }} />
       </div>
 
-      <div className="relative space-y-8 container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Header */}
-        <div className="liquid-glass-accent rounded-2xl sm:rounded-3xl p-6 sm:p-8">
-          <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+      <motion.div 
+        layout
+        transition={layoutTransition}
+        className={`relative ${layout.spacing} container mx-auto ${layout.containerPadding}`}
+      >
+        {/* Welcome Header - Responsive */}
+        <div className={`liquid-glass-accent rounded-2xl ${layout.cardPadding}`}>
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
           <div className="relative flex items-center justify-between">
             <div className="flex-1">
-              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
+              <h1 className={`${layout.textSizes.h1} font-bold text-gray-900 dark:text-gray-100 tracking-tight`}>
                 {welcomeMessage()}, {session?.user?.name?.split(' ')[0] || 'there'}!
               </h1>
-              <p className="text-base sm:text-lg text-gray-600 mt-2 leading-relaxed max-w-2xl">
+              <p className={`${layout.textSizes.body} text-gray-600 dark:text-gray-300 mt-1 leading-relaxed max-w-2xl`}>
                 Your AI chief of staff is here to help. Review your insights below or click the brain to get started.
               </p>
             </div>
-            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-black rounded-2xl flex items-center justify-center shadow-lg shadow-black/25 ml-4">
-              <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+            <div className={`${layout.isCompressed ? 'w-8 h-8 sm:w-10 sm:h-10' : 'w-10 h-10 sm:w-12 sm:h-12'} bg-black dark:bg-white rounded-xl flex items-center justify-center shadow-lg shadow-black/25 dark:shadow-white/25 ml-4`}>
+              <Sparkles className={`${layout.isCompressed ? 'w-4 h-4 sm:w-5 sm:h-5' : 'w-5 h-5 sm:w-6 sm:h-6'} text-white dark:text-black`} />
             </div>
           </div>
         </div>
 
-        {/* Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* Overview Cards - Responsive */}
+        <motion.div 
+          layout
+          transition={layoutTransition}
+          className={`grid ${layout.gridCols.cards} ${layout.gridGap}`}
+        >
           {isLoading ? (
             // Loading skeleton with landing page style
             Array.from({ length: 4 }).map((_, index) => (
               <div key={index} className="liquid-glass-accent rounded-2xl sm:rounded-3xl p-6 animate-pulse">
                 <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
                 <div className="relative">
-                  <div className="h-4 bg-gray-200/60 rounded mb-4"></div>
-                  <div className="h-8 bg-gray-200/60 rounded mb-2"></div>
-                  <div className="h-3 bg-gray-200/60 rounded w-2/3"></div>
+                  <div className="h-4 bg-gray-200/60 dark:bg-gray-700/60 rounded mb-4"></div>
+                  <div className="h-8 bg-gray-200/60 dark:bg-gray-700/60 rounded mb-2"></div>
+                  <div className="h-3 bg-gray-200/60 dark:bg-gray-700/60 rounded w-2/3"></div>
                 </div>
               </div>
             ))
@@ -228,7 +240,7 @@ export default function DashboardPage() {
             // Error state with fallback
             <div className="col-span-full liquid-glass-accent rounded-2xl sm:rounded-3xl p-6">
               <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
-              <div className="relative flex items-center space-x-3 text-amber-600">
+              <div className="relative flex items-center space-x-3 text-amber-600 dark:text-amber-400">
                 <Sparkles className="w-5 h-5" />
                 <p>Using cached data while reconnecting to services...</p>
               </div>
@@ -256,34 +268,64 @@ export default function DashboardPage() {
             />
           )
         })}
-        </div>
+        </motion.div>
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-          {/* Left Column - Primary workspace (Tasks) */}
-          <div className="lg:col-span-2 space-y-6">
+        {/* Main Grid - Responsive Layout */}
+        <motion.div 
+          layout
+          transition={layoutTransition}
+          className={`grid ${layout.gridCols.main} ${layout.gridGap}`}
+        >
+          {/* Tasks Section */}
+          <div className={`${layout.isCompressed ? 'space-y-3' : 'space-y-4 lg:col-span-2'}`}>
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+              <h2 className={`${layout.textSizes.h2} font-bold text-gray-900 dark:text-gray-100 tracking-tight`}>
                 Your Tasks
               </h2>
-              <span className="text-sm text-gray-500">Drag & drop to organize</span>
+              <span className={`${layout.textSizes.small} text-gray-500 dark:text-gray-400`}>Drag & drop to organize</span>
             </div>
             <TasksKanban />
           </div>
 
-          {/* Right Column - Context & Actions */}
-          <div className="space-y-6">
+          {/* Context Section - Stack on mobile when compressed */}
+          {!layout.isCompressed && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className={`${layout.textSizes.h2} font-bold text-gray-900 dark:text-gray-100 tracking-tight`}>
+                  Today's Context
+                </h2>
+              </div>
+              <CalendarWidget />
+              <InboxWidget />
+              <SuggestionsPanel />
+            </div>
+          )}
+        </motion.div>
+
+        {/* Context Section - When compressed, show as separate section */}
+        <AnimatePresence>
+          {layout.isCompressed && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={layoutTransition}
+              className="space-y-3"
+            >
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+              <h2 className={`${layout.textSizes.h2} font-bold text-gray-900 dark:text-gray-100 tracking-tight`}>
                 Today's Context
               </h2>
             </div>
-            <CalendarWidget />
-            <InboxWidget />
-            <SuggestionsPanel />
-          </div>
-        </div>
-      </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <CalendarWidget />
+              <InboxWidget />
+              <SuggestionsPanel />
+            </div>
+          </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
       {/* Floating Action Button */}
       <FloatingActionButton />

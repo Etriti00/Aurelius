@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/lib/providers/session-provider'
+import { ThemeProvider } from '@/lib/hooks/useTheme'
 import '@/styles/globals.css'
 
 const inter = Inter({
@@ -85,8 +86,37 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#ffffff" />
+        <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                function getCookie(name) {
+                  const value = '; ' + document.cookie;
+                  const parts = value.split('; ' + name + '=');
+                  if (parts.length === 2) return parts.pop().split(';').shift();
+                  return null;
+                }
+                
+                const savedTheme = getCookie('theme');
+                let actualTheme = 'light';
+                
+                if (savedTheme === 'light' || savedTheme === 'dark') {
+                  actualTheme = savedTheme;
+                } else {
+                  // Default to system preference if no saved theme
+                  actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                
+                document.documentElement.classList.remove('light', 'dark');
+                document.documentElement.classList.add(actualTheme);
+                document.documentElement.style.colorScheme = actualTheme;
+              })();
+            `
+          }}
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -117,9 +147,11 @@ export default function RootLayout({
         />
       </head>
       <body className={`font-inter antialiased`}>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

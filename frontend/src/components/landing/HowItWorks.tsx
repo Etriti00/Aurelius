@@ -33,9 +33,9 @@ const steps = [
             repeat: Infinity,
             ease: "easeInOut"
           }}
-          className="absolute inset-0 bg-gradient-to-br from-purple-300 to-pink-300 rounded-full blur-3xl"
+          className="absolute inset-0 bg-gradient-to-br from-purple-300 to-pink-300 dark:from-purple-600 dark:to-pink-600 rounded-full blur-3xl"
         />
-        <Brain className="w-32 h-32 text-purple-600 relative z-10" />
+        <Brain className="w-32 h-32 text-purple-600 dark:text-purple-400 relative z-10" />
       </div>
     ),
   },
@@ -50,14 +50,14 @@ const steps = [
           animate={{ y: [-15, 15, -15] }}
           transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
         >
-          <Rocket className="w-32 h-32 text-orange-600 rotate-45" />
+          <Rocket className="w-32 h-32 text-orange-600 dark:text-orange-400 rotate-45" />
         </motion.div>
         <motion.div
           animate={{ scale: [0, 1, 0] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeOut" }}
           className="absolute inset-0 flex items-center justify-center"
         >
-          <div className="w-full h-full border-4 border-orange-300 rounded-full" />
+          <div className="w-full h-full border-4 border-orange-300 dark:border-orange-500 rounded-full" />
         </motion.div>
       </div>
     ),
@@ -74,12 +74,12 @@ export function HowItWorks() {
   const x = useTransform(scrollYProgress, [0, 1], [0, -100])
 
   return (
-    <section ref={containerRef} className="py-16 sm:py-24 lg:py-32 bg-gradient-to-b from-white to-gray-50 relative overflow-hidden granular-bg">
+    <section id="how-it-works" ref={containerRef} className="py-16 sm:py-24 lg:py-32 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 relative overflow-hidden granular-bg">
       {/* Animated background */}
       <div className="absolute inset-0 -z-10">
         <motion.div
           style={{ x }}
-          className="absolute top-1/2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"
+          className="absolute top-1/2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent"
         />
       </div>
 
@@ -101,13 +101,13 @@ export function HowItWorks() {
           >
             <LiquidGlassIcon icon={Sparkles} size="xl" />
           </motion.div>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-4 sm:mb-6">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">
             Up and running in
-            <span className="block mt-2 bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 bg-clip-text text-transparent">
+            <span className="block mt-2 bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 dark:from-slate-400 dark:via-slate-300 dark:to-slate-200 bg-clip-text text-transparent">
               3 simple steps
             </span>
           </h2>
-          <p className="text-base sm:text-lg md:text-xl text-gray-600 max-w-3xl mx-auto px-4 sm:px-0">
+          <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto px-4 sm:px-0">
             No consultants. No training. Just connect your tools and let Aurelius 
             start working. Most users see their first automated task within 5 minutes.
           </p>
@@ -135,15 +135,15 @@ export function HowItWorks() {
                     className="space-y-4 sm:space-y-6"
                   >
                     <div className="flex items-center justify-center lg:justify-start gap-3 sm:gap-4">
-                      <span className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-200">
+                      <span className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-200 dark:text-gray-700">
                         {step.number}
                       </span>
                       <LiquidGlassIcon icon={step.icon} size="xl" />
                     </div>
-                    <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                    <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
                       {step.title}
                     </h3>
-                    <p className="text-base sm:text-lg text-gray-600 leading-relaxed max-w-md mx-auto lg:mx-0">
+                    <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 leading-relaxed max-w-md mx-auto lg:mx-0">
                       {step.description}
                     </p>
                   </motion.div>
@@ -173,7 +173,7 @@ export function HowItWorks() {
           className="text-center mt-12 sm:mt-16 lg:mt-20"
         >
           <div className="inline-flex flex-col items-center">
-            <p className="text-lg text-gray-600 mb-8">
+            <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
               Join 10,000+ professionals already using Aurelius
             </p>
             <Link href="/signup">
@@ -184,7 +184,7 @@ export function HowItWorks() {
                 </Button>
               </motion.div>
             </Link>
-            <p className="text-sm text-gray-500 mt-4">
+            <p className="text-sm text-gray-500 dark:text-gray-500 mt-4">
               Professional AI productivity starts here
             </p>
           </div>

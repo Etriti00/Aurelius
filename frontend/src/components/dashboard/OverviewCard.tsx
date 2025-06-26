@@ -27,11 +27,31 @@ export function OverviewCard({ title, value, change, icon: Icon, trend }: Overvi
   const getTrendColor = () => {
     switch (trend) {
       case 'up':
-        return 'text-green-600 bg-green-50'
+        return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30'
       case 'down':
-        return 'text-red-600 bg-red-50'
+        return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30'
       default:
-        return 'text-gray-600 bg-gray-50'
+        return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50'
+    }
+  }
+
+  const handleCardClick = () => {
+    // Navigate to detailed view based on card title
+    switch (title.toLowerCase()) {
+      case "today's tasks":
+        window.location.href = '/dashboard#tasks'
+        break
+      case 'unread emails':
+        window.location.href = '/email'
+        break
+      case 'meetings today':
+        window.location.href = '/calendar'
+        break
+      case 'ai actions':
+        alert(`AI Actions Usage: ${value}\n${change}\n\nView detailed usage in billing section.`)
+        break
+      default:
+        alert(`${title}: ${value}\n${change}`)
     }
   }
 
@@ -43,26 +63,29 @@ export function OverviewCard({ title, value, change, icon: Icon, trend }: Overvi
       whileHover={{ scale: 1.02 }}
       className="group"
     >
-      <div className="relative liquid-glass-accent rounded-2xl sm:rounded-3xl p-6 h-full hover:scale-[1.02] transition-all duration-500">
+      <button 
+        onClick={handleCardClick}
+        className="relative liquid-glass-accent rounded-xl sm:rounded-2xl p-4 sm:p-5 h-full hover:scale-[1.02] transition-all duration-500 w-full text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20"
+      >
         {/* Subtle inner glow */}
-        <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
         
         <div className="relative">
           <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-600">{title}</p>
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">{value}</p>
-              <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getTrendColor()}`}>
+            <div className="space-y-1.5 sm:space-y-2 flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">{title}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{value}</p>
+              <div className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${getTrendColor()}`}>
                 {getTrendIcon()}
-                <span className="ml-1">{change}</span>
+                <span className="ml-1 truncate">{change}</span>
               </div>
             </div>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-black rounded-xl flex items-center justify-center shadow-lg shadow-black/25">
-              <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-black dark:bg-white rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg shadow-black/25 dark:shadow-white/25 ml-2 flex-shrink-0">
+              <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white dark:text-black" />
             </div>
           </div>
         </div>
-      </div>
+      </button>
     </motion.div>
   )
 }

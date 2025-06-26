@@ -9,6 +9,7 @@ interface Brain3DLogoProps {
   size?: 'sm' | 'md' | 'lg'
   showText?: boolean
   static?: boolean
+  href?: string
 }
 
 function LogoAnimatedParticle({ 
@@ -60,7 +61,7 @@ function LogoAnimatedParticle({
   )
 }
 
-export function Brain3DLogo({ className = '', size = 'md', showText = true, static: isStatic = false }: Brain3DLogoProps) {
+export function Brain3DLogo({ className = '', size = 'md', showText = true, static: isStatic = false, href = '/' }: Brain3DLogoProps) {
   const brainRef = useRef<HTMLDivElement>(null)
 
   const sizes = {
@@ -120,7 +121,7 @@ export function Brain3DLogo({ className = '', size = 'md', showText = true, stat
   }))
 
   return (
-    <Link href="/" className={`flex items-center gap-2 sm:gap-3 whitespace-nowrap ${className}`}>
+    <Link href={href} className={`flex items-center gap-2 sm:gap-3 whitespace-nowrap ${className}`}>
       <motion.div
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
@@ -198,7 +199,7 @@ export function Brain3DLogo({ className = '', size = 'md', showText = true, stat
       {showText && (
         <motion.span 
           whileHover={{ x: 2 }}
-          className={`${sizeConfig.text} font-bold text-gray-900 tracking-tight whitespace-nowrap flex-shrink-0 min-w-0`}
+          className={`${sizeConfig.text} font-bold text-gray-900 dark:text-gray-100 tracking-tight whitespace-nowrap flex-shrink-0 min-w-0`}
         >
           Aurelius
         </motion.span>

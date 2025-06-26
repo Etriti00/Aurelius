@@ -258,7 +258,7 @@ export default function FeaturesPage() {
                   </div>
                 ))}
               </div>
-              <Link href="/integrations">
+              <Link href="/showcase/integrations">
                 <Button variant="outline" className="w-full mt-6">
                   View All Integrations
                   <ArrowRight className="ml-2 h-4 w-4" />

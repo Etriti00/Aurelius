@@ -38,6 +38,20 @@ export const authConfig: NextAuthConfig = {
           return null
         }
 
+        // Development-only mock user for testing
+        if (process.env.NODE_ENV === 'development') {
+          if (credentials.email === 'demo@aurelius.ai' && credentials.password === 'demo123') {
+            return {
+              id: 'demo-user-id',
+              email: 'demo@aurelius.ai',
+              name: 'Demo User',
+              image: null,
+              accessToken: 'demo-access-token',
+              refreshToken: 'demo-refresh-token',
+            }
+          }
+        }
+
         try {
           const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
             method: 'POST',

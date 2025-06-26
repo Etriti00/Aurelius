@@ -39,11 +39,11 @@ const blogPosts = [
 
 export default function BlogPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-gray-900">
       <Navbar />
       
       {/* Hero Section */}
-      <section className="pt-32 pb-20 bg-gradient-to-b from-slate-50 to-white granular-bg">
+      <section className="pt-32 pb-20 bg-gradient-to-b from-slate-50 to-white dark:from-gray-950 dark:to-gray-900 granular-bg">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -51,13 +51,13 @@ export default function BlogPage() {
             transition={{ duration: 0.8 }}
             className="text-center max-w-4xl mx-auto"
           >
-            <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 mb-6 tracking-tight">
+            <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 dark:text-gray-100 mb-6 tracking-tight">
               Aurelius
-              <span className="block mt-2 bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 bg-clip-text text-transparent">
+              <span className="block mt-2 bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 dark:from-slate-400 dark:via-slate-300 dark:to-slate-200 bg-clip-text text-transparent">
                 Blog
               </span>
             </h1>
-            <p className="text-xl text-gray-600 mb-12 leading-relaxed">
+            <p className="text-xl text-gray-600 dark:text-gray-400 mb-12 leading-relaxed">
               Insights on AI, productivity, and the future of work from the Aurelius team.
             </p>
           </motion.div>
@@ -65,7 +65,7 @@ export default function BlogPage() {
       </section>
 
       {/* Blog Posts */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-white dark:bg-gray-900">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto space-y-8">
             {blogPosts.map((post, index) => (
@@ -79,10 +79,10 @@ export default function BlogPage() {
                   <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex-1 mb-6 lg:mb-0 lg:mr-8">
                       <div className="flex items-center gap-4 mb-4">
-                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                           {post.category}
                         </span>
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                           <div className="flex items-center gap-1">
                             <Calendar className="w-4 h-4" />
                             <span>{post.date}</span>
@@ -93,9 +93,9 @@ export default function BlogPage() {
                           </div>
                         </div>
                       </div>
-                      <h2 className="text-2xl font-bold text-gray-900 mb-4">{post.title}</h2>
-                      <p className="text-gray-600 mb-6 leading-relaxed">{post.excerpt}</p>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">{post.title}</h2>
+                      <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">{post.excerpt}</p>
+                      <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                         <User className="w-4 h-4" />
                         <span>By {post.author}</span>
                       </div>
@@ -127,7 +127,7 @@ export default function BlogPage() {
       </section>
 
       {/* Newsletter Signup */}
-      <section className="py-20 bg-gray-50 granular-bg">
+      <section className="py-20 bg-gray-50 dark:bg-gray-800 granular-bg">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -136,10 +136,10 @@ export default function BlogPage() {
             className="text-center max-w-2xl mx-auto"
           >
             <div className="liquid-glass rounded-3xl p-8">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
                 Stay Updated
               </h2>
-              <p className="text-gray-600 mb-8 leading-relaxed">
+              <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
                 Get the latest insights on AI, productivity, and workplace innovation 
                 delivered to your inbox.
               </p>
@@ -147,7 +147,7 @@ export default function BlogPage() {
                 <input
                   type="email"
                   placeholder="Enter your email"
-                  className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-4 py-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <Button variant="primary">
                   Subscribe

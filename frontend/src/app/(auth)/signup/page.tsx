@@ -14,6 +14,7 @@ import { AlertCircle, Check, ArrowLeft } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Brain3DLogo } from '@/components/shared/Brain3DLogo'
+import { ThemeToggle } from '@/components/shared/ThemeToggle'
 
 export default function SignUpPage() {
   const [name, setName] = useState('')
@@ -104,16 +105,19 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30 granular-bg">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900/50 granular-bg">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10">
         <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <Brain3DLogo size="md" className="flex-nowrap" />
-            <Link href="/" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-sm font-medium">Back to home</span>
-            </Link>
+            <Brain3DLogo size="md" className="flex-nowrap" static={true} />
+            <div className="flex items-center gap-3">
+              <ThemeToggle variant="minimal" />
+              <Link href="/" className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-sm font-medium">Back to home</span>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -126,10 +130,10 @@ export default function SignUpPage() {
           transition={{ duration: 0.8 }}
           className="w-full max-w-md"
         >
-          <Card className="liquid-glass rounded-3xl border-0 shadow-xl">
+          <Card className="liquid-glass rounded-3xl border-0 shadow-xl dark:bg-slate-800/50 dark:backdrop-blur-xl">
             <CardHeader className="text-center pb-8">
-              <CardTitle className="text-3xl font-bold text-gray-900 mb-2">Create your account</CardTitle>
-              <CardDescription className="text-gray-600">
+              <CardTitle className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Create your account</CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">
                 Start your 14-day free trial of Aurelius
               </CardDescription>
             </CardHeader>
@@ -145,7 +149,7 @@ export default function SignUpPage() {
               <Button
                 onClick={handleGoogleSignUp}
                 variant="outline"
-                className="w-full liquid-glass-subtle border-gray-200 hover:shadow-lg transition-all duration-300 rounded-xl"
+                className="w-full liquid-glass-subtle border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 rounded-xl dark:bg-slate-700/50 dark:hover:bg-slate-600/50"
                 disabled={isLoading}
               >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -174,7 +178,7 @@ export default function SignUpPage() {
               <Separator className="w-full" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-gray-500">Or continue with email</span>
+              <span className="bg-white dark:bg-slate-800 px-2 text-gray-500 dark:text-gray-400">Or continue with email</span>
             </div>
           </div>
 
@@ -225,7 +229,7 @@ export default function SignUpPage() {
                 ) : (
                   <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
                 )}
-                <span className={password.length >= 8 ? 'text-green-600' : 'text-gray-500'}>
+                <span className={password.length >= 8 ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
                   At least 8 characters
                 </span>
               </div>
@@ -252,13 +256,13 @@ export default function SignUpPage() {
                 onCheckedChange={(checked) => setAgreeToTerms(checked as boolean)}
                 disabled={isLoading}
               />
-              <Label htmlFor="terms" className="text-sm leading-none">
+              <Label htmlFor="terms" className="text-sm leading-none dark:text-gray-300">
                 I agree to the{' '}
-                <Link href="/terms" className="text-blue-600 hover:text-blue-700">
+                <Link href="/terms" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
                   Terms of Service
                 </Link>{' '}
                 and{' '}
-                <Link href="/privacy" className="text-blue-600 hover:text-blue-700">
+                <Link href="/privacy" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
                   Privacy Policy
                 </Link>
               </Label>
@@ -276,8 +280,8 @@ export default function SignUpPage() {
             </form>
 
             <div className="text-center text-sm">
-              <span className="text-gray-600">Already have an account? </span>
-              <Link href="/signin" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
+              <span className="text-gray-600 dark:text-gray-400">Already have an account? </span>
+              <Link href="/signin" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors">
                 Sign in
               </Link>
             </div>

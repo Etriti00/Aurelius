@@ -58,8 +58,8 @@ export default function IntegrationsPage() {
 
   // Redirect if not authenticated
   if (status === 'loading') {
-    return <div className="min-h-screen bg-white flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+    return <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black dark:border-white"></div>
     </div>
   }
 
@@ -134,24 +134,24 @@ export default function IntegrationsPage() {
   // Loading state
   if (integrationsLoading || availableLoading) {
     return (
-      <div className="min-h-screen bg-white relative overflow-hidden">
+      <div className="min-h-screen bg-white dark:bg-gray-900 relative overflow-hidden">
         <div className="fixed inset-0 -z-10 pointer-events-none">
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-50/40" />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-50/40 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950/40" />
         </div>
         
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="space-y-8">
             <div className="liquid-glass-accent rounded-3xl p-8 animate-pulse">
-              <div className="h-8 bg-gray-200/60 rounded mb-4 w-1/3"></div>
-              <div className="h-4 bg-gray-200/60 rounded w-2/3"></div>
+              <div className="h-8 bg-gray-200/60 dark:bg-gray-700/60 rounded mb-4 w-1/3"></div>
+              <div className="h-4 bg-gray-200/60 dark:bg-gray-700/60 rounded w-2/3"></div>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {Array.from({ length: 4 }).map((_, index) => (
                 <div key={index} className="liquid-glass-accent rounded-3xl p-6 animate-pulse">
-                  <div className="h-6 bg-gray-200/60 rounded mb-4"></div>
-                  <div className="h-8 bg-gray-200/60 rounded mb-2"></div>
-                  <div className="h-4 bg-gray-200/60 rounded w-2/3"></div>
+                  <div className="h-6 bg-gray-200/60 dark:bg-gray-700/60 rounded mb-4"></div>
+                  <div className="h-8 bg-gray-200/60 dark:bg-gray-700/60 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200/60 dark:bg-gray-700/60 rounded w-2/3"></div>
                 </div>
               ))}
             </div>
@@ -164,9 +164,9 @@ export default function IntegrationsPage() {
   // Error state
   if (integrationsError) {
     return (
-      <div className="min-h-screen bg-white relative overflow-hidden">
+      <div className="min-h-screen bg-white dark:bg-gray-900 relative overflow-hidden">
         <div className="fixed inset-0 -z-10 pointer-events-none">
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-50/40" />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-50/40 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950/40" />
         </div>
         
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -185,12 +185,12 @@ export default function IntegrationsPage() {
   const healthyIntegrations = integrations.filter(isIntegrationHealthy)
 
   return (
-    <div className="min-h-screen bg-white relative overflow-hidden">
+    <div className="min-h-screen bg-white dark:bg-gray-900 relative overflow-hidden">
       {/* Enhanced Apple-inspired background */}
       <div className="fixed inset-0 -z-10 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white via-gray-50/30 to-slate-50/40" />
-        <div className="absolute -left-96 top-0 w-[1000px] h-[1000px] bg-gradient-to-r from-slate-300/15 via-gray-300/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
-        <div className="absolute -right-96 top-1/2 w-[800px] h-[800px] bg-gradient-to-l from-slate-400/15 via-gray-400/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '3s', animationDuration: '10s' }} />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white via-gray-50/30 to-slate-50/40 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950/40" />
+        <div className="absolute -left-96 top-0 w-[1000px] h-[1000px] bg-gradient-to-r from-slate-300/15 via-gray-300/10 to-transparent dark:from-blue-500/10 dark:via-blue-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
+        <div className="absolute -right-96 top-1/2 w-[800px] h-[800px] bg-gradient-to-l from-slate-400/15 via-gray-400/10 to-transparent dark:from-purple-500/10 dark:via-purple-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '3s', animationDuration: '10s' }} />
       </div>
 
       <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -200,15 +200,15 @@ export default function IntegrationsPage() {
             <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
             <div className="relative flex items-center justify-between">
               <div className="flex-1">
-                <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
+                <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
                   Integrations
                 </h1>
-                <p className="text-base sm:text-lg text-gray-600 mt-2 leading-relaxed max-w-2xl">
+                <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 mt-2 leading-relaxed max-w-2xl">
                   Connect your favorite tools and unlock the full power of AI automation.
                 </p>
               </div>
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-black rounded-2xl flex items-center justify-center shadow-lg shadow-black/25 ml-4">
-                <Link className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-black dark:bg-white rounded-2xl flex items-center justify-center shadow-lg shadow-black/25 dark:shadow-white/25 ml-4">
+                <Link className="w-6 h-6 sm:w-8 sm:h-8 text-white dark:text-black" />
               </div>
             </div>
           </div>
@@ -217,8 +217,8 @@ export default function IntegrationsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="liquid-glass-accent border-0">
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Link className="w-5 h-5 text-blue-600" />
+                <CardTitle className="text-lg flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                  <Link className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   Connected
                   <Button
                     variant="ghost"
@@ -232,17 +232,17 @@ export default function IntegrationsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600 mb-1">
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-1">
                   {connectedIntegrations.length}
                 </div>
-                <p className="text-sm text-gray-600">Active integrations</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Active integrations</p>
                 {showConnectionStatus && (
                   <div className="mt-2 pt-2 border-t">
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       Connection errors: {Object.keys(connectionErrors).length}
                     </p>
                     {Object.entries(connectionErrors).map(([provider, error]) => (
-                      <div key={provider} className="text-xs text-red-600 mt-1">
+                      <div key={provider} className="text-xs text-red-600 dark:text-red-400 mt-1">
                         {provider}: {error}
                       </div>
                     ))}
@@ -253,31 +253,31 @@ export default function IntegrationsPage() {
 
             <Card className="liquid-glass-accent border-0">
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-green-600" />
+                <CardTitle className="text-lg flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                  <Activity className="w-5 h-5 text-green-600 dark:text-green-400" />
                   Healthy
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600 mb-1">
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
                   {healthyIntegrations.length}
                 </div>
-                <p className="text-sm text-gray-600">Syncing properly</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Syncing properly</p>
               </CardContent>
             </Card>
 
             <Card className="liquid-glass-accent border-0">
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Plus className="w-5 h-5 text-purple-600" />
+                <CardTitle className="text-lg flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                  <Plus className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   Available
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-purple-600 mb-1">
+                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-1">
                   {AVAILABLE_INTEGRATIONS.filter(i => i.isAvailable).length}
                 </div>
-                <p className="text-sm text-gray-600">Ready to connect</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Ready to connect</p>
               </CardContent>
             </Card>
           </div>
@@ -301,18 +301,18 @@ export default function IntegrationsPage() {
                         <CardContent className="p-6">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl">
+                              <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center text-2xl">
                                 {getIntegrationIcon(integration.provider)}
                               </div>
                               <div>
-                                <h3 className="font-semibold text-lg">
+                                <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
                                   {getIntegrationDisplayName(integration.provider)}
                                 </h3>
                                 <div className="flex items-center gap-3 mt-1">
                                   <Badge className={status.color}>
                                     {status.label}
                                   </Badge>
-                                  <span className="text-sm text-gray-600 flex items-center gap-1">
+                                  <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                                     <Clock className="w-3 h-3" />
                                     {formatLastSync(integration.lastSync)}
                                   </span>
@@ -344,7 +344,7 @@ export default function IntegrationsPage() {
                                 size="sm"
                                 onClick={() => handleDisconnect(integration.provider)}
                                 disabled={operationLoading}
-                                className="h-8 text-red-600 hover:text-red-700"
+                                className="h-8 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
                               >
                                 <Unlink className="w-4 h-4" />
                               </Button>
@@ -367,11 +367,11 @@ export default function IntegrationsPage() {
               ) : (
                 <Card className="liquid-glass-accent border-0">
                   <CardContent className="text-center py-12">
-                    <Link className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    <Link className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
                       No Integrations Connected
                     </h3>
-                    <p className="text-gray-600 mb-6">
+                    <p className="text-gray-600 dark:text-gray-400 mb-6">
                       Connect your first integration to start automating your workflow.
                     </p>
                     <Button onClick={() => (document.querySelector('[value="available"]') as HTMLElement)?.click()}>
@@ -409,11 +409,11 @@ export default function IntegrationsPage() {
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">
+                            <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center text-xl">
                               {integration.icon}
                             </div>
                             <div>
-                              <CardTitle className="text-lg">{integration.name}</CardTitle>
+                              <CardTitle className="text-lg text-gray-900 dark:text-gray-100">{integration.name}</CardTitle>
                               <Badge variant="outline" className="text-xs">
                                 {getCategoryDisplayName(integration.category)}
                               </Badge>
@@ -433,21 +433,21 @@ export default function IntegrationsPage() {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
                           {integration.description}
                         </p>
                         
                         <div>
-                          <h4 className="font-medium text-sm mb-2">Features:</h4>
-                          <ul className="space-y-1 text-xs text-gray-600">
+                          <h4 className="font-medium text-sm mb-2 text-gray-900 dark:text-gray-100">Features:</h4>
+                          <ul className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
                             {integration.features.slice(0, 3).map((feature, index) => (
                               <li key={index} className="flex items-center gap-2">
-                                <Check className="w-3 h-3 text-green-600" />
+                                <Check className="w-3 h-3 text-green-600 dark:text-green-400" />
                                 {feature}
                               </li>
                             ))}
                             {integration.features.length > 3 && (
-                              <li className="text-gray-500">
+                              <li className="text-gray-500 dark:text-gray-500">
                                 +{integration.features.length - 3} more features
                               </li>
                             )}
@@ -493,38 +493,38 @@ export default function IntegrationsPage() {
             <TabsContent value="settings" className="space-y-6">
               <Card className="liquid-glass-accent border-0">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                     <Settings className="w-5 h-5" />
                     Integration Settings
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-gray-600 dark:text-gray-400">
                     Manage global integration preferences and security settings
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
-                      <h3 className="font-medium flex items-center gap-2">
+                      <h3 className="font-medium flex items-center gap-2 text-gray-900 dark:text-gray-100">
                         <Shield className="w-4 h-4" />
                         Security Settings
                       </h3>
                       <div className="space-y-3 text-sm">
                         <div className="flex justify-between items-center">
-                          <span>Token encryption</span>
+                          <span className="text-gray-700 dark:text-gray-300">Token encryption</span>
                           <Badge className="text-green-600 bg-green-50 border-green-200">
                             <Check className="w-3 h-3 mr-1" />
                             Enabled
                           </Badge>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span>Auto token refresh</span>
+                          <span className="text-gray-700 dark:text-gray-300">Auto token refresh</span>
                           <Badge className="text-green-600 bg-green-50 border-green-200">
                             <Check className="w-3 h-3 mr-1" />
                             Enabled
                           </Badge>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span>Connection monitoring</span>
+                          <span className="text-gray-700 dark:text-gray-300">Connection monitoring</span>
                           <Badge className="text-green-600 bg-green-50 border-green-200">
                             <Check className="w-3 h-3 mr-1" />
                             Active
@@ -534,24 +534,24 @@ export default function IntegrationsPage() {
                     </div>
                     
                     <div className="space-y-4">
-                      <h3 className="font-medium flex items-center gap-2">
+                      <h3 className="font-medium flex items-center gap-2 text-gray-900 dark:text-gray-100">
                         <Zap className="w-4 h-4" />
                         Sync Preferences
                       </h3>
                       <div className="space-y-3 text-sm">
                         <div className="flex justify-between items-center">
-                          <span>Default sync frequency</span>
+                          <span className="text-gray-700 dark:text-gray-300">Default sync frequency</span>
                           <Badge variant="outline">Hourly</Badge>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span>Retry failed syncs</span>
+                          <span className="text-gray-700 dark:text-gray-300">Retry failed syncs</span>
                           <Badge className="text-green-600 bg-green-50 border-green-200">
                             <Check className="w-3 h-3 mr-1" />
                             Enabled
                           </Badge>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span>Sync notifications</span>
+                          <span className="text-gray-700 dark:text-gray-300">Sync notifications</span>
                           <Badge variant="outline">Errors only</Badge>
                         </div>
                       </div>
@@ -560,9 +560,9 @@ export default function IntegrationsPage() {
                   
                   <Separator />
                   
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-medium mb-2">Need Help?</h4>
-                    <p className="text-sm text-gray-600 mb-3">
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                    <h4 className="font-medium mb-2 text-gray-900 dark:text-gray-100">Need Help?</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                       Having trouble with integrations? Our support team can help you get connected.
                     </p>
                     <Button variant="outline" size="sm">

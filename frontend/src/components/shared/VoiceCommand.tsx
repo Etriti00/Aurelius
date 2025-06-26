@@ -171,12 +171,15 @@ export function VoiceCommand({ onCommand, isProcessing = false }: VoiceCommandPr
     <motion.button
       onClick={handleVoiceToggle}
       disabled={voiceState === 'processing'}
-      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full backdrop-blur-md bg-white/30 shadow-lg flex items-center justify-center relative overflow-hidden ${
+      className={`w-12 h-12 rounded-full backdrop-blur-md bg-white/30 shadow-lg flex items-center justify-center relative overflow-hidden ${
         voiceState === 'processing' ? 'cursor-not-allowed' : 'cursor-pointer'
       }`}
-      whileHover={{ scale: voiceState !== 'processing' ? 1.05 : 1 }}
+      whileHover={{ scale: voiceState !== 'processing' ? 1.1 : 1 }}
       whileTap={{ scale: voiceState !== 'processing' ? 0.95 : 1 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+      initial={{ scale: 0, rotate: -90 }}
+      animate={{ scale: 1, rotate: 0 }}
+      exit={{ scale: 0, rotate: 90 }}
       title={
         voiceState === 'listening' 
           ? 'Listening... Click to stop'

@@ -40,6 +40,7 @@ export interface TaskStats {
 export interface CreateTaskDto {
   title: string
   description?: string
+  status?: TaskStatus
   priority?: Priority
   dueDate?: string
   labels?: string[]
@@ -63,11 +64,13 @@ export interface EmailThread {
   id: string
   subject: string
   participants: string[]
-  provider: 'gmail' | 'outlook'
+  provider?: 'gmail' | 'outlook'
   threadId: string
   messageCount: number
   lastMessageAt: string
+  isRead?: boolean
   isStarred?: boolean
+  labels?: string[]
   metadata?: Record<string, unknown>
   createdAt: string
   updatedAt: string
@@ -82,10 +85,13 @@ export interface EmailMessage {
   messageId: string
   sender: string
   recipients: string[]
+  from?: string
+  to?: string[]
   subject: string
   body: string
   htmlBody?: string
   sentAt: string
+  date?: string
   isRead: boolean
   attachments?: string[]
   metadata?: Record<string, unknown>

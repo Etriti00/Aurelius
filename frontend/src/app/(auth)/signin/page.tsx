@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import { AlertCircle, ArrowLeft } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Brain3DLogo } from '@/components/shared/Brain3DLogo'
+import { ThemeToggle } from '@/components/shared/ThemeToggle'
 
 export default function SignInPage() {
   const [email, setEmail] = useState('')
@@ -58,16 +59,19 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30 granular-bg">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900/50 granular-bg">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10">
         <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <Brain3DLogo size="md" className="flex-nowrap" />
-            <Link href="/" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-sm font-medium">Back to home</span>
-            </Link>
+            <Brain3DLogo size="md" className="flex-nowrap" static={true} />
+            <div className="flex items-center gap-3">
+              <ThemeToggle variant="minimal" />
+              <Link href="/" className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-sm font-medium">Back to home</span>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -80,10 +84,10 @@ export default function SignInPage() {
           transition={{ duration: 0.8 }}
           className="w-full max-w-md"
         >
-          <Card className="liquid-glass rounded-3xl border-0 shadow-xl">
+          <Card className="liquid-glass rounded-3xl border-0 shadow-xl dark:bg-slate-800/50 dark:backdrop-blur-xl">
             <CardHeader className="text-center pb-8">
-              <CardTitle className="text-3xl font-bold text-gray-900 mb-2">Welcome back</CardTitle>
-              <CardDescription className="text-gray-600">
+              <CardTitle className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Welcome back</CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">
                 Sign in to your Aurelius account to continue
               </CardDescription>
             </CardHeader>
@@ -96,10 +100,21 @@ export default function SignInPage() {
                 </Alert>
               )}
 
+              {process.env.NODE_ENV === 'development' && (
+                <Alert className="rounded-xl bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800">
+                  <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <AlertDescription className="text-blue-900 dark:text-blue-100">
+                    <strong>Demo Credentials:</strong><br />
+                    Email: demo@aurelius.ai<br />
+                    Password: demo123
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <Button
                 onClick={handleGoogleSignIn}
                 variant="outline"
-                className="w-full liquid-glass-subtle border-gray-200 hover:shadow-lg transition-all duration-300 rounded-xl"
+                className="w-full liquid-glass-subtle border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 rounded-xl dark:bg-slate-700/50 dark:hover:bg-slate-600/50"
                 disabled={isLoading}
               >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -128,7 +143,7 @@ export default function SignInPage() {
               <Separator className="w-full" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-gray-500">Or continue with email</span>
+              <span className="bg-white dark:bg-slate-800 px-2 text-gray-500 dark:text-gray-400">Or continue with email</span>
             </div>
           </div>
 
@@ -173,14 +188,14 @@ export default function SignInPage() {
             </form>
 
             <div className="text-center text-sm">
-              <span className="text-gray-600">Don&apos;t have an account? </span>
-              <Link href="/signup" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
+              <span className="text-gray-600 dark:text-gray-400">Don&apos;t have an account? </span>
+              <Link href="/signup" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors">
                 Sign up
               </Link>
             </div>
 
-            <div className="text-center text-xs text-gray-500">
-              <Link href="/forgot-password" className="hover:text-gray-700 transition-colors">
+            <div className="text-center text-xs text-gray-500 dark:text-gray-400">
+              <Link href="/forgot-password" className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
                 Forgot your password?
               </Link>
             </div>

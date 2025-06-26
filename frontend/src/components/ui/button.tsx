@@ -9,13 +9,13 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-black text-white rounded-2xl shadow-lg shadow-black/25 hover:bg-gray-900 hover:shadow-xl hover:shadow-black/30 hover:scale-[1.02]",
-        destructive: "bg-black text-white rounded-2xl shadow-lg shadow-black/25 hover:bg-gray-900 hover:shadow-xl hover:shadow-black/30 hover:scale-[1.02]",
-        outline: "border-2 border-gray-300/60 bg-white/90 backdrop-blur-sm text-black rounded-2xl shadow-sm hover:bg-gray-50 hover:border-gray-400 hover:shadow-md hover:scale-[1.02]",
-        secondary: "bg-white text-black rounded-2xl shadow-sm border border-gray-200 hover:bg-gray-50 hover:shadow-md hover:scale-[1.02]",
-        ghost: "text-black rounded-2xl hover:bg-gray-100 hover:text-black hover:scale-[1.02]",
-        link: "text-black underline-offset-4 hover:underline hover:text-gray-800",
-        primary: "bg-black text-white rounded-2xl shadow-lg shadow-black/25 hover:bg-gray-900 hover:shadow-xl hover:shadow-black/30 hover:scale-[1.02]",
+        default: "bg-black text-white rounded-2xl shadow-lg shadow-black/25 hover:bg-gray-900 hover:shadow-xl hover:shadow-black/30 hover:scale-[1.02] dark:bg-white dark:text-black dark:shadow-white/25 dark:hover:bg-gray-100 dark:hover:shadow-white/30",
+        destructive: "bg-red-600 text-white rounded-2xl shadow-lg shadow-red-600/25 hover:bg-red-700 hover:shadow-xl hover:shadow-red-600/30 hover:scale-[1.02]",
+        outline: "border-2 border-gray-300/60 bg-white/90 backdrop-blur-sm text-black rounded-2xl shadow-sm hover:bg-gray-50 hover:border-gray-400 hover:shadow-md hover:scale-[1.02] dark:border-gray-600/60 dark:bg-gray-900/90 dark:text-white dark:hover:bg-gray-800 dark:hover:border-gray-500",
+        secondary: "bg-white text-black rounded-2xl shadow-sm border border-gray-200 hover:bg-gray-50 hover:shadow-md hover:scale-[1.02] dark:bg-gray-900 dark:text-white dark:border-gray-700 dark:hover:bg-gray-800",
+        ghost: "text-black rounded-2xl hover:bg-gray-100 hover:text-black hover:scale-[1.02] dark:text-white dark:hover:bg-gray-800 dark:hover:text-white",
+        link: "text-black underline-offset-4 hover:underline hover:text-gray-800 dark:text-white dark:hover:text-gray-200",
+        primary: "bg-black text-white rounded-2xl shadow-lg shadow-black/25 hover:bg-gray-900 hover:shadow-xl hover:shadow-black/30 hover:scale-[1.02] dark:bg-white dark:text-black dark:shadow-white/25 dark:hover:bg-gray-100 dark:hover:shadow-white/30",
         dark: "bg-black text-white rounded-2xl shadow-lg shadow-black/25 hover:bg-gray-900 hover:shadow-xl hover:shadow-black/30 hover:scale-[1.02]",
       },
       size: {

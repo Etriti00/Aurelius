@@ -76,31 +76,41 @@ export function CalendarWidget() {
       <div className="relative">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight flex items-center">
-              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center mr-3 shadow-lg shadow-black/25">
-                <Calendar className="w-4 h-4 text-white" />
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight flex items-center">
+              <div className="w-8 h-8 bg-black dark:bg-white rounded-lg flex items-center justify-center mr-3 shadow-lg shadow-black/25 dark:shadow-white/25">
+                <Calendar className="w-4 h-4 text-white dark:text-black" />
               </div>
               Today&apos;s Schedule
             </h3>
             {isLoading && (
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
                 <Loader2 className="w-4 h-4 animate-spin" />
               </div>
             )}
             {error && (
-              <div className="flex items-center space-x-2 text-sm text-amber-600">
+              <div className="flex items-center space-x-2 text-sm text-amber-600 dark:text-amber-400">
                 <AlertCircle className="w-4 h-4" />
               </div>
             )}
           </div>
-          <button className="p-2 bg-black text-white rounded-2xl shadow-lg shadow-black/25 hover:bg-gray-900 hover:shadow-xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-200">
+          <button 
+            onClick={() => {
+              // Create new calendar event
+              const title = prompt('Event title:')
+              if (title) {
+                alert(`Creating event: ${title}`)
+                // In a real app, this would call an API to create the event
+              }
+            }}
+            className="p-2 bg-black dark:bg-white text-white dark:text-black rounded-2xl shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
+          >
             <Plus className="w-4 h-4" />
           </button>
         </div>
         <div className="space-y-4">
         {events.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
             <p className="text-sm">No events scheduled for today</p>
           </div>
         ) : (
@@ -125,7 +135,7 @@ export function CalendarWidget() {
                 <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
                 <div className="relative space-y-3">
                   <div className="flex items-start justify-between">
-                    <h4 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {event.title}
                     </h4>
                     <div className="flex items-center space-x-2">
@@ -146,20 +156,20 @@ export function CalendarWidget() {
                   </div>
                   
                   <div className="space-y-2">
-                    <div className="flex items-center text-sm text-gray-600">
+                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                       <Clock className="w-4 h-4 mr-2" />
                       {formatEventTime(event.startTime, event.endTime, event.isAllDay)}
                     </div>
                     
                     {event.location && (
-                      <div className="flex items-center text-sm text-gray-600">
+                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                         <MapPin className="w-4 h-4 mr-2" />
                         {event.location}
                       </div>
                     )}
                     
                     {event.attendees && event.attendees.length > 0 && (
-                      <div className="flex items-center text-sm text-gray-600">
+                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                         <Users className="w-4 h-4 mr-2" />
                         {event.attendees.length} attendee{event.attendees.length !== 1 ? 's' : ''}
                       </div>
@@ -171,7 +181,13 @@ export function CalendarWidget() {
           })
         )}
         
-        <button className="w-full px-4 py-2 bg-black text-white text-sm font-semibold rounded-2xl shadow-lg shadow-black/25 hover:bg-gray-900 hover:shadow-xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-200">
+        <button 
+          onClick={() => {
+            // Navigate to full calendar view
+            window.location.href = '/calendar'
+          }}
+          className="w-full px-4 py-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold rounded-2xl shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
+        >
           View Full Calendar
         </button>
         </div>

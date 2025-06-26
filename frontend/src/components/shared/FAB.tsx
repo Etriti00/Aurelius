@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { CommandModal } from './CommandModal'
 import { VoiceCommand } from './VoiceCommand'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useCommandStore } from '@/lib/stores/commandStore'
 import { useAICommand } from '@/lib/api'
-import { useRouter } from 'next/navigation'
+import { useAICommandCenter } from '@/lib/stores/aiCommandCenterStore'
+import { usePathname } from 'next/navigation'
+// import { useRouter } from 'next/navigation'
 import { 
   Calendar, 
   Mail, 
@@ -30,35 +32,35 @@ const quickActions: QuickAction[] = [
     icon: MessageSquare,
     label: 'Voice Command',
     command: 'voice',
-    color: 'from-blue-400 to-blue-600'
+    color: 'special' // Keep voice button special
   },
   {
     id: 'schedule',
     icon: Calendar,
     label: 'Schedule Meeting',
     command: 'schedule meeting',
-    color: 'from-green-400 to-green-600'
+    color: 'standard'
   },
   {
     id: 'task',
     icon: CheckSquare,
     label: 'Create Task',
     command: 'create task',
-    color: 'from-purple-400 to-purple-600'
+    color: 'standard'
   },
   {
     id: 'search',
     icon: Search,
     label: 'Search',
     command: 'search',
-    color: 'from-yellow-400 to-yellow-600'
+    color: 'standard'
   },
   {
     id: 'email',
     icon: Mail,
     label: 'Draft Email',
     command: 'draft email',
-    color: 'from-red-400 to-red-600'
+    color: 'standard'
   }
 ]
 
@@ -66,13 +68,74 @@ export function FAB() {
   const [isCommandModalOpen, setIsCommandModalOpen] = useState(false)
   const { showQuickActions, toggleQuickActions, isProcessing, setProcessing, addRecentCommand } = useCommandStore()
   const { execute: executeCommand } = useAICommand()
-  const router = useRouter()
+  const { isOpen: isCommandCenterOpen, toggle: toggleCommandCenter } = useAICommandCenter()
+  const pathname = usePathname()
+
+  // Hide FAB on specific pages where it shouldn't appear
+  const hiddenRoutes = [
+    '/integrations',
+    '/billing', 
+    '/dashboard/settings',
+    '/settings' // In case settings is at root level
+  ]
+  
+  const shouldHideFAB = hiddenRoutes.some(route => pathname.startsWith(route))
+  
+  // Auto-close command center when navigating to forbidden pages
+  React.useEffect(() => {
+    if (shouldHideFAB && isCommandCenterOpen) {
+      toggleCommandCenter() // Close command center when navigating to hidden routes
+    }
+  }, [shouldHideFAB, isCommandCenterOpen, toggleCommandCenter])
+  
+  if (shouldHideFAB) {
+    return null
+  }
 
   const handleFABClick = () => {
-    if (showQuickActions) {
-      setIsCommandModalOpen(true)
-    } else {
-      toggleQuickActions()
+    // Toggle command center instead of quick actions
+    toggleCommandCenter()
+  }
+
+  const handleScheduleAction = () => {
+    const title = prompt('Event title:')
+    if (title) {
+      const startTime = prompt('Start time (HH:MM):')
+      const date = prompt('Date (YYYY-MM-DD):') ?? new Date().toISOString().split('T')[0]
+      if (startTime) {
+        alert(`Creating event: "${title}" on ${date} at ${startTime}`)
+        // In real app, this would create the event via API
+      }
+    }
+  }
+
+  const handleTaskAction = () => {
+    const taskTitle = prompt('Task title:')
+    if (taskTitle) {
+      const taskDescription = prompt('Task description (optional):')
+      const priority = prompt('Priority (high/medium/low):') ?? 'medium'
+      alert(`Creating task: "${taskTitle}"\nDescription: ${taskDescription ?? 'None'}\nPriority: ${priority}`)
+      // In real app, this would create the task via API
+    }
+  }
+
+  const handleSearchAction = () => {
+    const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
+    if (searchInput) {
+      searchInput.focus()
+      searchInput.select()
+    }
+  }
+
+  const handleEmailAction = () => {
+    const recipient = prompt('To:')
+    if (recipient) {
+      const subject = prompt('Subject:')
+      if (subject) {
+        const body = prompt('Message:')
+        alert(`Composing email:\nTo: ${recipient}\nSubject: ${subject}\nMessage: ${body ?? '(empty)'}`)
+        // In real app, this would open email composer or send email
+      }
     }
   }
 
@@ -93,67 +156,29 @@ export function FAB() {
       setProcessing(true)
       
       switch (action.id) {
-        case 'schedule':
-          // Navigate to calendar first, then execute command
-          router.push('/dashboard/calendar')
-          // Give navigation time to complete
-          setTimeout(async () => {
-            try {
-              await executeCommand({
-                command: 'schedule meeting for next available time',
-                context: { source: 'fab_quick_action', action: 'schedule' }
-              })
-            } catch (error) {
-              // If command fails, still show calendar page
-              console.warn('AI scheduling failed, showing calendar:', error)
-            }
-            setProcessing(false)
-          }, 500)
-          return // Exit early to prevent setProcessing(false) below
-          
-        case 'task':
-          // Navigate to tasks first, then execute command  
-          router.push('/dashboard/tasks')
-          setTimeout(async () => {
-            try {
-              await executeCommand({
-                command: 'create a new high priority task',
-                context: { source: 'fab_quick_action', action: 'create_task' }
-              })
-            } catch (error) {
-              console.warn('AI task creation failed, showing tasks page:', error)
-            }
-            setProcessing(false)
-          }, 500)
-          return
-          
-        case 'search':
-          // Open command modal for search
-          setIsCommandModalOpen(true)
+        case 'schedule': {
+          handleScheduleAction()
           break
-          
-        case 'email':
-          // Navigate to inbox first, then execute command
-          router.push('/dashboard/inbox')
-          setTimeout(async () => {
-            try {
-              await executeCommand({
-                command: 'draft a professional email',
-                context: { source: 'fab_quick_action', action: 'draft_email' }
-              })
-            } catch (error) {
-              console.warn('AI email drafting failed, showing inbox:', error)
-            }
-            setProcessing(false)
-          }, 500)
-          return
-          
-        default:
+        }
+        case 'task': {
+          handleTaskAction()
+          break
+        }
+        case 'search': {
+          handleSearchAction()
+          break
+        }
+        case 'email': {
+          handleEmailAction()
+          break
+        }
+        default: {
           // Fallback to command modal
           setIsCommandModalOpen(true)
+          break
+        }
       }
     } catch (error) {
-      console.error('Quick action navigation failed:', error)
       // Fallback to command modal on navigation error
       setIsCommandModalOpen(true)
     } finally {
@@ -195,18 +220,21 @@ export function FAB() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="fixed inset-0 z-40 bg-black/10 backdrop-blur-sm"
             onClick={handleClickOutside}
           />
         )}
       </AnimatePresence>
 
-      <motion.div
-        className="fixed bottom-6 left-[calc(100%-7rem)] sm:bottom-8 sm:left-[calc(100%-8.5rem)] z-50"
-        initial={{ scale: 0 }}
-        animate={{ scale: 1.15 }}
-        transition={{ delay: 0.5, type: 'spring', stiffness: 260, damping: 20 }}
-      >
+      {/* Hide FAB when command center is open */}
+      {!isCommandCenterOpen && (
+        <motion.div
+          className="fixed bottom-6 left-[calc(100%-7rem+7mm)] sm:bottom-8 sm:left-[calc(100%-8.5rem+3mm)] z-50"
+          initial={{ scale: 0 }}
+          animate={{ scale: 1.15 }}
+          transition={{ delay: 0.5, type: 'spring', stiffness: 260, damping: 20 }}
+        >
         {/* Quick Actions */}
         <AnimatePresence>
           {showQuickActions && (
@@ -220,34 +248,43 @@ export function FAB() {
                     key={action.id}
                     initial={{ 
                       scale: 0, 
-                      x: 20, 
+                      x: 50, 
                       opacity: 0,
-                      rotate: -10 
+                      y: 20,
+                      rotate: 45
                     }}
                     animate={{ 
                       scale: 1, 
                       x: 0, 
                       opacity: 1,
+                      y: 0,
                       rotate: 0
                     }}
                     exit={{ 
                       scale: 0, 
-                      x: 20, 
+                      x: 50, 
                       opacity: 0,
-                      rotate: 10
+                      y: 20,
+                      rotate: -45
                     }}
                     transition={{ 
-                      delay: index * 0.1, 
+                      delay: index * 0.05, 
                       type: 'spring', 
                       stiffness: 400, 
-                      damping: 25 
+                      damping: 25,
+                      mass: 0.6
                     }}
-                    className="flex items-center space-x-3"
+                    className="flex items-center space-x-4"
                   >
                     {/* Action Label */}
                     <motion.div
-                      className="bg-black text-white text-sm font-medium px-3 py-2 rounded-lg shadow-lg whitespace-nowrap"
-                      whileHover={{ scale: 1.05 }}
+                      className="bg-black dark:bg-white text-white dark:text-black text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 whitespace-nowrap backdrop-blur-xl"
+                      whileHover={{ scale: 1.05, y: -1 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
                     >
                       {action.label}
                     </motion.div>
@@ -261,13 +298,15 @@ export function FAB() {
                     ) : (
                       <motion.button
                         onClick={() => handleQuickAction(action)}
-                        className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full backdrop-blur-md bg-white/30 shadow-lg flex items-center justify-center relative overflow-hidden`}
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                        className="w-12 h-12 rounded-full bg-black dark:bg-white shadow-lg shadow-black/25 dark:shadow-white/25 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 flex items-center justify-center backdrop-blur-xl border border-white/20 dark:border-black/20"
+                        whileHover={{ scale: 1.1, y: -2 }}
+                        whileTap={{ scale: 0.95 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                        initial={{ scale: 0, rotate: -90 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        exit={{ scale: 0, rotate: 90 }}
                       >
-                        <div className={`absolute inset-0 bg-gradient-to-br ${action.color}`} />
-                        <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 text-white relative z-10" />
+                        <IconComponent className="w-5 h-5 text-white dark:text-black" />
                       </motion.button>
                     )}
                   </motion.div>
@@ -280,52 +319,85 @@ export function FAB() {
         {/* Main FAB Button */}
         <motion.button
           onClick={handleFABClick}
-          className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-transparent backdrop-blur-xl shadow-2xl shadow-gray-400/20 overflow-hidden hover:shadow-xl transition-all duration-500 group relative"
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.92 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+          className="w-16 h-16 sm:w-18 sm:h-18 rounded-full backdrop-blur-xl bg-white/60 dark:bg-gray-900/60 border border-white/30 dark:border-gray-800/30 shadow-2xl hover:shadow-xl transition-all duration-300 group relative overflow-hidden"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
           style={{ right: showQuickActions ? '10px' : '0px' }} // Adjust positioning when quick actions are open
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-white/90 via-white/60 to-white/30" />
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-100/30 via-pink-50/20 to-amber-50/30" />
+          {/* Subtle inner glow matching dashboard design */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
           
           {/* Tooltip */}
-          <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-black text-white text-sm font-medium px-3 py-2 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
-            Ask Aurelius
-            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-black"></div>
+          <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-black dark:bg-white text-white dark:text-black text-sm font-medium px-3 py-2 rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+            {(() => {
+              if (isCommandCenterOpen) return 'Close Aurelius'
+              if (showQuickActions) return 'Close Actions'
+              return 'Ask Aurelius'
+            })()}
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-black dark:border-t-white"></div>
           </div>
           
           {/* Main Icon */}
           <div className="relative z-10 w-full h-full flex items-center justify-center">
-            {showQuickActions ? (
-              <motion.div
-                animate={{
-                  rotate: 45
-                }}
-                transition={{ duration: 0.2 }}
-                className="text-2xl font-bold bg-gradient-to-br from-gray-800 via-gray-600 to-gray-800 bg-clip-text text-transparent"
-              >
-                ×
-              </motion.div>
-            ) : (
-              <motion.div
-                animate={{
-                  scale: [1, 1.1, 1],
-                }}
-                transition={{
-                  duration: 2.5,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-                className="relative z-10"
-              >
-                <BrainIcon size="md" static={true} />
-              </motion.div>
-            )}
+            {(() => {
+              if (isCommandCenterOpen) {
+                return (
+                  <motion.div
+                    animate={{
+                      rotate: 0,
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ 
+                      rotate: { duration: 0.3, ease: 'easeInOut' },
+                      scale: { duration: 0.5, repeat: Infinity, ease: 'easeInOut' }
+                    }}
+                    className="text-2xl font-bold bg-gradient-to-br from-gray-800 via-gray-600 to-gray-800 bg-clip-text text-transparent"
+                  >
+                    ×
+                  </motion.div>
+                )
+              }
+              
+              if (showQuickActions) {
+                return (
+                  <motion.div
+                    animate={{
+                      rotate: 45,
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ 
+                      rotate: { duration: 0.3, ease: 'easeInOut' },
+                      scale: { duration: 0.5, repeat: Infinity, ease: 'easeInOut' }
+                    }}
+                    className="text-xl font-bold bg-gradient-to-br from-gray-800 via-gray-600 to-gray-800 bg-clip-text text-transparent"
+                  >
+                    ×
+                  </motion.div>
+                )
+              }
+              
+              return (
+                <motion.div
+                  animate={{
+                    scale: [1, 1.1, 1],
+                  }}
+                  transition={{
+                    duration: 2.5,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="relative z-10"
+                >
+                  <BrainIcon size="md" static={true} />
+                </motion.div>
+              )
+            })()}
           </div>
           
         </motion.button>
       </motion.div>
+      )}
 
       <CommandModal 
         open={isCommandModalOpen} 

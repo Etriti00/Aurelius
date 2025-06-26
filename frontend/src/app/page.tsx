@@ -44,15 +44,15 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <Navbar />
-      <main className="min-h-screen bg-white relative overflow-hidden">
+      <main className="min-h-screen bg-white dark:bg-gray-900 relative overflow-hidden">
         {/* Enhanced Apple-inspired global background */}
         <div className="fixed inset-0 -z-10 pointer-events-none">
           {/* Base gradient with more sophistication */}
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white via-gray-50/30 to-slate-50/40" />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white via-gray-50/30 to-slate-50/40 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950/40" />
           
           {/* Primary floating orbs with enhanced motion */}
-          <div className="absolute -left-96 top-0 w-[1000px] h-[1000px] bg-gradient-to-r from-slate-300/15 via-gray-300/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
-          <div className="absolute -right-96 top-1/2 w-[800px] h-[800px] bg-gradient-to-l from-slate-400/15 via-gray-400/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '3s', animationDuration: '10s' }} />
+          <div className="absolute -left-96 top-0 w-[1000px] h-[1000px] bg-gradient-to-r from-slate-300/15 via-gray-300/10 to-transparent dark:from-blue-500/10 dark:via-blue-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
+          <div className="absolute -right-96 top-1/2 w-[800px] h-[800px] bg-gradient-to-l from-slate-400/15 via-gray-400/10 to-transparent dark:from-purple-500/10 dark:via-purple-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '3s', animationDuration: '10s' }} />
           
           {/* Mid-layer atmospheric orbs */}
           <div className="absolute left-1/4 top-1/4 w-[500px] h-[500px] bg-gradient-to-br from-cyan-300/20 to-blue-300/15 rounded-full blur-2xl opacity-70 animate-pulse" style={{ animationDelay: '1s', animationDuration: '12s' }} />

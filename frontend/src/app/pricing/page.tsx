@@ -11,43 +11,43 @@ import { Footer } from '@/components/landing/Footer'
 
 const plans = [
   {
-    id: 'starter',
-    name: 'Starter',
-    price: { monthly: 0, yearly: 0 },
-    description: 'Perfect for trying out Aurelius',
-    icon: Star,
-    color: 'from-gray-500 to-gray-600',
-    bgGradient: 'from-gray-50/50 to-gray-50/30',
-    features: [
-      { text: '1 workspace', included: true },
-      { text: '2 integrations', included: true },
-      { text: '100 AI actions monthly', included: true },
-      { text: 'Basic email automation', included: true },
-      { text: 'Community support', included: true },
-      { text: '1GB storage', included: true },
-      { text: 'Advanced workflows', included: false },
-      { text: 'API access', included: false },
-    ],
-    popular: false,
-    ctaText: 'Get Started Free',
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: { monthly: 40, yearly: 400 },
+    id: 'professional',
+    name: 'Professional',
+    price: { monthly: 30, yearly: 324 },
     description: 'Essential AI productivity for individuals',
-    icon: Zap,
+    icon: Star,
     color: 'from-blue-500 to-indigo-600',
     bgGradient: 'from-blue-50/50 to-indigo-50/30',
     features: [
-      { text: '1 workspace + 10 integrations', included: true },
-      { text: '1,200 AI actions monthly', included: true },
+      { text: '1 workspace + 3 integrations', included: true },
+      { text: '1,000 AI actions monthly', included: true },
       { text: 'Email & calendar automation', included: true },
       { text: 'Smart task management', included: true },
       { text: 'iOS & macOS apps', included: true },
       { text: '10GB secure storage', included: true },
-      { text: 'Priority support', included: true },
+      { text: 'Advanced workflows', included: false },
       { text: 'API access', included: false },
+    ],
+    popular: false,
+    ctaText: 'Start Free Trial',
+  },
+  {
+    id: 'team',
+    name: 'Team',
+    price: { monthly: 50, yearly: 540 },
+    description: 'Enhanced productivity for growing teams',
+    icon: Zap,
+    color: 'from-indigo-600 to-purple-600',
+    bgGradient: 'from-indigo-50/50 to-purple-50/30',
+    features: [
+      { text: 'Everything in Professional', included: true },
+      { text: '1,500 AI actions monthly', included: true },
+      { text: 'Team collaboration tools', included: true },
+      { text: 'Advanced workflows', included: true },
+      { text: 'Priority support', included: true },
+      { text: '50GB secure storage', included: true },
+      { text: 'Full API access', included: true },
+      { text: 'Admin controls', included: true },
     ],
     popular: true,
     ctaText: 'Start Free Trial',
@@ -55,41 +55,20 @@ const plans = [
   {
     id: 'max',
     name: 'Max',
-    price: { monthly: 80, yearly: 800 },
-    description: 'Unlimited AI power for professionals',
-    icon: Sparkles,
-    color: 'from-indigo-600 to-purple-600',
-    bgGradient: 'from-indigo-50/50 to-purple-50/30',
-    features: [
-      { text: 'Unlimited integrations', included: true },
-      { text: '5,000 AI actions monthly', included: true },
-      { text: 'Cross-platform workflows', included: true },
-      { text: 'AI insights & analytics', included: true },
-      { text: 'Custom automations', included: true },
-      { text: '100GB secure storage', included: true },
-      { text: 'Full API access', included: true },
-      { text: 'White-glove onboarding', included: true },
-    ],
-    popular: false,
-    ctaText: 'Start Free Trial',
-  },
-  {
-    id: 'teams',
-    name: 'Teams',
-    price: { monthly: 50, yearly: 500 },
-    description: 'Collaborative AI for growing teams',
+    price: { monthly: 100, yearly: 1080 },
+    description: 'Maximum power for large organizations',
     icon: Shield,
     color: 'from-emerald-500 to-green-600',
     bgGradient: 'from-emerald-50/50 to-green-50/30',
     features: [
-      { text: 'Shared team workspace', included: true },
-      { text: '2,000 AI actions per user', included: true },
-      { text: 'Admin controls & analytics', included: true },
-      { text: 'Team collaboration tools', included: true },
-      { text: 'Enterprise support', included: true },
-      { text: '50GB storage per user', included: true },
+      { text: 'Everything in Team', included: true },
+      { text: '2,000 AI actions monthly', included: true },
+      { text: 'Unlimited integrations', included: true },
+      { text: 'Max security features', included: true },
       { text: 'SSO & SAML integration', included: true },
+      { text: '100GB secure storage', included: true },
       { text: 'Custom team workflows', included: true },
+      { text: 'Dedicated support', included: true },
     ],
     popular: false,
     ctaText: 'Contact Sales',
@@ -128,11 +107,11 @@ export default function PricingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-gray-900">
       <Navbar />
       
       {/* Hero Section */}
-      <section className="pt-32 pb-20 bg-gradient-to-b from-slate-50 to-white granular-bg">
+      <section className="pt-32 pb-20 bg-gradient-to-b from-slate-50 to-white dark:from-gray-950 dark:to-gray-900 granular-bg">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -140,13 +119,13 @@ export default function PricingPage() {
             transition={{ duration: 0.8 }}
             className="text-center max-w-4xl mx-auto"
           >
-            <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 mb-6 tracking-tight">
+            <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 dark:text-gray-100 mb-6 tracking-tight">
               Choose your
-              <span className="block mt-2 bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 bg-clip-text text-transparent">
+              <span className="block mt-2 bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 dark:from-slate-400 dark:via-slate-300 dark:to-slate-200 bg-clip-text text-transparent">
                 intelligence level
               </span>
             </h1>
-            <p className="text-xl text-gray-600 mb-12 leading-relaxed">
+            <p className="text-xl text-gray-600 dark:text-gray-400 mb-12 leading-relaxed">
               Professional AI productivity for individuals and teams. 
               Start free, upgrade anytime. No contracts, no commitments.
             </p>
@@ -157,8 +136,8 @@ export default function PricingPage() {
                 onClick={() => setBillingPeriod('monthly')}
                 className={`px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                   billingPeriod === 'monthly'
-                    ? 'bg-gray-900 text-white shadow-lg'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-lg'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
               >
                 Monthly
@@ -167,8 +146,8 @@ export default function PricingPage() {
                 onClick={() => setBillingPeriod('yearly')}
                 className={`px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                   billingPeriod === 'yearly'
-                    ? 'bg-gray-900 text-white shadow-lg'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-lg'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
               >
                 Annual
@@ -182,27 +161,27 @@ export default function PricingPage() {
       </section>
 
       {/* Pricing Cards */}
-      <section className="pb-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+      <section className="pt-16 pb-20 bg-white dark:bg-gray-900">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row lg:flex-row gap-8 lg:gap-10 max-w-5xl mx-auto justify-center items-stretch flex-wrap">
             {plans.map((plan, index) => (
               <motion.div
                 key={plan.id}
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: index * 0.1 }}
-                className="relative group"
+                className="relative group flex-1 w-full md:w-80 lg:w-72 max-w-sm"
               >
                 {plan.popular && (
-                  <div className="absolute -top-4 left-0 right-0 flex justify-center z-10">
+                  <div className="absolute -top-2.5 left-0 right-0 flex justify-center z-10">
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", delay: 0.5 }}
-                      className="inline-flex items-center gap-2 px-6 py-3 liquid-glass rounded-2xl shadow-lg border-2 border-white/30"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 liquid-glass rounded-xl shadow-md border border-white/30"
                     >
                       <LiquidGlassIcon icon={Sparkles} size="sm" animate={true} />
-                      <span className="text-slate-700 font-semibold text-sm">Most Popular</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium text-xs">Most Popular</span>
                     </motion.div>
                   </div>
                 )}
@@ -212,7 +191,7 @@ export default function PricingPage() {
                   transition={{ type: "spring", stiffness: 300, damping: 25 }}
                   className={`relative h-full rounded-3xl p-8 transition-all duration-300 ${
                     plan.popular
-                      ? 'bg-gradient-to-b from-gray-900 to-gray-800 text-white border border-gray-700/50 shadow-xl shadow-gray-900/25'
+                      ? 'bg-gradient-to-b from-gray-900 to-gray-800 dark:from-gray-100 dark:to-gray-200 text-white dark:text-gray-900 border border-gray-700/50 dark:border-gray-300/50 shadow-xl shadow-gray-900/25 dark:shadow-gray-100/25'
                       : 'liquid-glass'
                   }`}
                 >
@@ -225,10 +204,10 @@ export default function PricingPage() {
                           size="lg" 
                         />
                       </div>
-                      <h3 className={`text-2xl font-bold mb-2 tracking-tight ${plan.popular ? 'text-white' : 'text-gray-900'}`}>
+                      <h3 className={`text-2xl font-bold mb-2 tracking-tight ${plan.popular ? 'text-white dark:text-gray-900' : 'text-gray-900 dark:text-gray-100'}`}>
                         {plan.name}
                       </h3>
-                      <p className={`text-base leading-relaxed ${plan.popular ? 'text-gray-300' : 'text-gray-600'}`}>
+                      <p className={`text-base leading-relaxed ${plan.popular ? 'text-gray-300 dark:text-gray-600' : 'text-gray-600 dark:text-gray-400'}`}>
                         {plan.description}
                       </p>
                     </div>
@@ -237,27 +216,27 @@ export default function PricingPage() {
                     <div className="mb-8">
                       <div className="flex items-baseline mb-2">
                         {plan.price[billingPeriod] === 0 ? (
-                          <span className={`text-5xl font-bold ${plan.popular ? 'text-white' : 'text-gray-900'}`}>
+                          <span className={`text-5xl font-bold ${plan.popular ? 'text-white dark:text-gray-900' : 'text-gray-900 dark:text-gray-100'}`}>
                             Free
                           </span>
                         ) : (
                           <>
-                            <span className={`text-5xl font-bold ${plan.popular ? 'text-white' : 'text-gray-900'}`}>
+                            <span className={`text-5xl font-bold ${plan.popular ? 'text-white dark:text-gray-900' : 'text-gray-900 dark:text-gray-100'}`}>
                               ${plan.price[billingPeriod]}
                             </span>
-                            <span className={`ml-2 text-lg font-medium ${plan.popular ? 'text-gray-300' : 'text-gray-600'}`}>
+                            <span className={`ml-2 text-lg font-medium ${plan.popular ? 'text-gray-300 dark:text-gray-600' : 'text-gray-600 dark:text-gray-400'}`}>
                               /{billingPeriod === 'yearly' ? 'year' : 'month'}
                             </span>
                           </>
                         )}
                       </div>
                       {plan.id === 'teams' && plan.price[billingPeriod] > 0 && (
-                        <p className={`text-sm ${plan.popular ? 'text-gray-300' : 'text-gray-600'}`}>
+                        <p className={`text-sm ${plan.popular ? 'text-gray-300 dark:text-gray-600' : 'text-gray-600 dark:text-gray-400'}`}>
                           per user
                         </p>
                       )}
                       {billingPeriod === 'yearly' && plan.price.yearly > 0 && (
-                        <p className={`text-sm font-semibold ${plan.popular ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                        <p className={`text-sm font-semibold ${plan.popular ? 'text-emerald-400 dark:text-emerald-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
                           Save ${plan.price.monthly * 12 - plan.price.yearly} annually
                         </p>
                       )}
@@ -269,23 +248,23 @@ export default function PricingPage() {
                         <li key={featureIndex} className="flex items-center gap-3">
                           {feature.included ? (
                             <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                              plan.popular ? 'bg-emerald-500/20' : 'bg-emerald-100'
+                              plan.popular ? 'bg-emerald-500/20 dark:bg-emerald-500/30' : 'bg-emerald-100 dark:bg-emerald-900'
                             }`}>
                               <Check className={`w-3 h-3 ${
-                                plan.popular ? 'text-emerald-400' : 'text-emerald-600'
+                                plan.popular ? 'text-emerald-400 dark:text-emerald-400' : 'text-emerald-600 dark:text-emerald-400'
                               }`} />
                             </div>
                           ) : (
                             <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                              plan.popular ? 'bg-gray-700' : 'bg-gray-200'
+                              plan.popular ? 'bg-gray-700 dark:bg-gray-600' : 'bg-gray-200 dark:bg-gray-700'
                             }`}>
-                              <span className={`text-xs ${plan.popular ? 'text-gray-500' : 'text-gray-400'}`}>–</span>
+                              <span className={`text-xs ${plan.popular ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500'}`}>–</span>
                             </div>
                           )}
                           <span className={`text-sm leading-relaxed ${
                             plan.popular 
-                              ? feature.included ? 'text-gray-100' : 'text-gray-500'
-                              : feature.included ? 'text-gray-700' : 'text-gray-400'
+                              ? feature.included ? 'text-gray-100 dark:text-gray-800' : 'text-gray-500 dark:text-gray-400'
+                              : feature.included ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'
                           }`}>
                             {feature.text}
                           </span>
@@ -312,7 +291,7 @@ export default function PricingPage() {
       </section>
 
       {/* Enterprise CTA */}
-      <section className="py-20 bg-gray-50 granular-bg">
+      <section className="py-20 bg-gray-50 dark:bg-gray-800 granular-bg">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -322,25 +301,25 @@ export default function PricingPage() {
             className="text-center max-w-4xl mx-auto"
           >
             <div className="liquid-glass rounded-3xl p-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                Enterprise Solutions
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                Max Solutions
               </h2>
-              <p className="text-lg text-gray-600 mb-8">
-                Custom AI workflows, dedicated support, and enterprise-grade security 
+              <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
+                Custom AI workflows, dedicated support, and max-grade security 
                 for organizations with 100+ users.
               </p>
               <div className="grid md:grid-cols-3 gap-6 mb-8">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900 mb-1">Unlimited</div>
-                  <div className="text-sm text-gray-600">AI Actions</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Unlimited</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">AI Actions</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900 mb-1">24/7</div>
-                  <div className="text-sm text-gray-600">Premium Support</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">24/7</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Premium Support</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900 mb-1">Custom</div>
-                  <div className="text-sm text-gray-600">Integrations</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Custom</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Integrations</div>
                 </div>
               </div>
               <Link href="/contact">
@@ -355,7 +334,7 @@ export default function PricingPage() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-white dark:bg-gray-900">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -364,8 +343,8 @@ export default function PricingPage() {
             transition={{ duration: 0.8 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Frequently Asked Questions</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-6">Frequently Asked Questions</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
               Everything you need to know about our pricing and plans.
             </p>
           </motion.div>
@@ -385,8 +364,8 @@ export default function PricingPage() {
                   className="w-full text-left liquid-glass rounded-2xl p-6 transition-all duration-300 hover:shadow-lg"
                 >
                   <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-gray-900 pr-4">{faq.question}</h3>
-                    <HelpCircle className={`w-5 h-5 text-gray-500 transition-transform duration-300 ${
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 pr-4">{faq.question}</h3>
+                    <HelpCircle className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-300 ${
                       openFaq === index ? 'rotate-45' : ''
                     }`} />
                   </div>
@@ -396,9 +375,9 @@ export default function PricingPage() {
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="mt-4 pt-4 border-t border-gray-200"
+                      className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700"
                     >
-                      <p className="text-gray-600 leading-relaxed">{faq.answer}</p>
+                      <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{faq.answer}</p>
                     </motion.div>
                   )}
                 </button>

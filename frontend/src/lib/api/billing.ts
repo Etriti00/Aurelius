@@ -585,7 +585,7 @@ export const PRICING_PLANS = {
       'Admin controls & analytics',
       'Team performance insights',
       '24/7 priority support',
-      'Enterprise security'
+      'Max security features'
     ]
   }
 }

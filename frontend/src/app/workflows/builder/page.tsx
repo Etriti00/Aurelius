@@ -68,8 +68,8 @@ export default function WorkflowBuilderPage() {
 
   // Redirect if not authenticated
   if (status === 'loading') {
-    return <div className="min-h-screen bg-white flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+    return <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black dark:border-white"></div>
     </div>
   }
 
@@ -151,9 +151,9 @@ export default function WorkflowBuilderPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white relative overflow-hidden">
+    <div className="min-h-screen bg-white dark:bg-gray-900 relative overflow-hidden">
       <div className="fixed inset-0 -z-10 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-50/40" />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-50/40 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950/40" />
       </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -168,7 +168,7 @@ export default function WorkflowBuilderPage() {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
-              <h1 className="text-2xl font-bold">Create Workflow</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create Workflow</h1>
             </div>
             <div className="flex items-center gap-2">
               <Switch
@@ -180,14 +180,14 @@ export default function WorkflowBuilderPage() {
           </div>
 
           {/* Basic Info */}
-          <Card className="liquid-glass">
+          <Card className="liquid-glass-accent">
             <CardHeader>
-              <CardTitle>Workflow Details</CardTitle>
-              <CardDescription>Give your workflow a name and description</CardDescription>
+              <CardTitle className="text-gray-900 dark:text-gray-100">Workflow Details</CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">Give your workflow a name and description</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name" className="text-gray-700 dark:text-gray-300">Name</Label>
                 <Input
                   id="name"
                   placeholder="My Awesome Workflow"
@@ -196,7 +196,7 @@ export default function WorkflowBuilderPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="description">Description (optional)</Label>
+                <Label htmlFor="description" className="text-gray-700 dark:text-gray-300">Description (optional)</Label>
                 <Textarea
                   id="description"
                   placeholder="Describe what this workflow does..."
@@ -208,21 +208,21 @@ export default function WorkflowBuilderPage() {
           </Card>
 
           {/* Triggers */}
-          <Card className="liquid-glass">
+          <Card className="liquid-glass-accent">
             <CardHeader>
-              <CardTitle>When to Run</CardTitle>
-              <CardDescription>Choose what triggers this workflow</CardDescription>
+              <CardTitle className="text-gray-900 dark:text-gray-100">When to Run</CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">Choose what triggers this workflow</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Existing triggers */}
               {workflow.triggers?.map((trigger) => (
-                <div key={trigger.id} className="flex items-center justify-between p-4 rounded-lg border bg-muted/20">
+                <div key={trigger.id} className="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/60">
                   <div className="flex items-center gap-3">
                     <Zap className="h-5 w-5 text-primary" />
                     <div>
-                      <p className="font-medium">{getTriggerTypeLabel(trigger.type)}</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{getTriggerTypeLabel(trigger.type)}</p>
                       {trigger.type === 'time_based' && trigger.schedule && (
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
                           {trigger.schedule.frequency} at {trigger.schedule.time}
                         </p>
                       )}
@@ -240,7 +240,7 @@ export default function WorkflowBuilderPage() {
 
               {/* Add trigger */}
               <div>
-                <Label>Add Trigger</Label>
+                <Label className="text-gray-700 dark:text-gray-300">Add Trigger</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
                   {TRIGGER_TYPES.map((type) => (
                     <Button
@@ -259,10 +259,10 @@ export default function WorkflowBuilderPage() {
           </Card>
 
           {/* Actions */}
-          <Card className="liquid-glass">
+          <Card className="liquid-glass-accent">
             <CardHeader>
-              <CardTitle>What to Do</CardTitle>
-              <CardDescription>Define the actions to take when triggered</CardDescription>
+              <CardTitle className="text-gray-900 dark:text-gray-100">What to Do</CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">Define the actions to take when triggered</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Existing actions */}
@@ -271,14 +271,14 @@ export default function WorkflowBuilderPage() {
                   <div key={action.id}>
                     {index > 0 && (
                       <div className="flex justify-center py-2">
-                        <ArrowDown className="h-4 w-4 text-muted-foreground" />
+                        <ArrowDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                       </div>
                     )}
-                    <div className="p-4 rounded-lg border bg-muted/20 space-y-3">
+                    <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/60 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <Badge variant="secondary">{index + 1}</Badge>
-                          <p className="font-medium">{getActionTypeLabel(action.type)}</p>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">{getActionTypeLabel(action.type)}</p>
                         </div>
                         <Button
                           variant="ghost"
@@ -293,7 +293,7 @@ export default function WorkflowBuilderPage() {
                       {action.type === 'create_task' && (
                         <div className="space-y-3">
                           <div>
-                            <Label>Task Title</Label>
+                            <Label className="text-gray-700 dark:text-gray-300">Task Title</Label>
                             <Input
                               placeholder="New task"
                               value={action.parameters.taskTitle || ''}
@@ -304,7 +304,7 @@ export default function WorkflowBuilderPage() {
                             />
                           </div>
                           <div>
-                            <Label>Task Description</Label>
+                            <Label className="text-gray-700 dark:text-gray-300">Task Description</Label>
                             <Textarea
                               placeholder="Task details..."
                               value={action.parameters.taskDescription || ''}
@@ -320,7 +320,7 @@ export default function WorkflowBuilderPage() {
                       {action.type === 'send_email' && (
                         <div className="space-y-3">
                           <div>
-                            <Label>To</Label>
+                            <Label className="text-gray-700 dark:text-gray-300">To</Label>
                             <Input
                               placeholder="recipient@example.com"
                               value={action.parameters.emailTo || ''}
@@ -331,7 +331,7 @@ export default function WorkflowBuilderPage() {
                             />
                           </div>
                           <div>
-                            <Label>Subject</Label>
+                            <Label className="text-gray-700 dark:text-gray-300">Subject</Label>
                             <Input
                               placeholder="Email subject"
                               value={action.parameters.emailSubject || ''}
@@ -346,7 +346,7 @@ export default function WorkflowBuilderPage() {
                       
                       {action.type === 'notify' && (
                         <div>
-                          <Label>Notification Message</Label>
+                          <Label className="text-gray-700 dark:text-gray-300">Notification Message</Label>
                           <Textarea
                             placeholder="Your notification message..."
                             value={action.parameters.notificationMessage || ''}
@@ -364,7 +364,7 @@ export default function WorkflowBuilderPage() {
 
               {/* Add action */}
               <div>
-                <Label>Add Action</Label>
+                <Label className="text-gray-700 dark:text-gray-300">Add Action</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
                   {ACTION_TYPES.map((type) => (
                     <Button
@@ -384,13 +384,13 @@ export default function WorkflowBuilderPage() {
 
           {/* AI Processing Actions */}
           {workflow.actions?.some(a => a.type === 'ai_process') && (
-            <Card className="liquid-glass">
+            <Card className="liquid-glass-accent">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                   <FileText className="h-5 w-5" />
                   AI Processing Templates
                 </CardTitle>
-                <CardDescription>Choose from common AI processing templates</CardDescription>
+                <CardDescription className="text-gray-600 dark:text-gray-400">Choose from common AI processing templates</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">

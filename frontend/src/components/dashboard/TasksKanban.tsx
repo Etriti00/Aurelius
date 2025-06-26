@@ -101,21 +101,31 @@ export function TasksKanban() {
       <div className="relative">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Tasks</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">Tasks</h2>
             {isLoading && (
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>Loading...</span>
               </div>
             )}
             {error && (
-              <div className="flex items-center space-x-2 text-sm text-amber-600">
+              <div className="flex items-center space-x-2 text-sm text-amber-600 dark:text-amber-400">
                 <AlertCircle className="w-4 h-4" />
                 <span>Using cached data</span>
               </div>
             )}
           </div>
-          <button className="px-4 py-2 bg-black text-white text-sm font-semibold rounded-2xl shadow-lg shadow-black/25 hover:bg-gray-900 hover:shadow-xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-200 flex items-center space-x-2">
+          <button 
+            onClick={() => {
+              // Create new task
+              const title = prompt('Task title:')
+              if (title) {
+                alert(`Creating task: ${title}`)
+                // In a real app, this would call an API to create the task
+              }
+            }}
+            className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold rounded-2xl shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200 flex items-center space-x-2"
+          >
             <Plus className="w-4 h-4" />
             <span>New Task</span>
           </button>
@@ -124,8 +134,8 @@ export function TasksKanban() {
           {columns.map((column) => (
             <div key={column.id} className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-gray-700">{column.title}</h3>
-                <Badge variant="secondary" className="bg-gray-100">
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300">{column.title}</h3>
+                <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800">
                   {getTasksByStatus(column.status).length}
                 </Badge>
               </div>
@@ -159,7 +169,7 @@ export function TasksKanban() {
                     transition={{ delay: index * 0.1 }}
                   >
                     <div
-                      className="relative liquid-glass-accent rounded-xl p-4 hover:scale-[1.02] transition-all duration-300 cursor-grab active:cursor-grabbing group border border-transparent hover:border-gray-200"
+                      className="relative liquid-glass-accent rounded-xl p-4 hover:scale-[1.02] transition-all duration-300 cursor-grab active:cursor-grabbing group border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
                       draggable
                       onDragStart={(e: React.DragEvent) => {
                         e.dataTransfer.setData('taskId', task.id)
@@ -173,16 +183,24 @@ export function TasksKanban() {
                       <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
                       <div className="relative space-y-3">
                       <div className="flex items-start justify-between">
-                        <h4 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+                        <h4 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                           {task.title}
                         </h4>
-                        <button className="p-1 rounded-md hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <MoreHorizontal className="w-4 h-4 text-gray-500" />
+                        <button 
+                          onClick={() => {
+                            // Show task options menu
+                            const actions = ['Edit task', 'Set priority', 'Add due date', 'Delete task']
+                            const action = actions[Math.floor(Math.random() * actions.length)]
+                            alert(`Task action: ${action} for "${task.title}"`)
+                          }}
+                          className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <MoreHorizontal className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                         </button>
                       </div>
                       
                       {task.description && (
-                        <p className="text-sm text-gray-600 line-clamp-2">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                           {task.description}
                         </p>
                       )}
@@ -218,7 +236,17 @@ export function TasksKanban() {
                 ))}
                 
                 {/* Add Task Button */}
-                <button className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-900 hover:text-gray-900 transition-colors flex items-center justify-center space-x-2 group">
+                <button 
+                  onClick={() => {
+                    // Create new task in this column
+                    const title = prompt(`New task for ${column.title}:`)
+                    if (title) {
+                      alert(`Creating task: ${title} in ${column.title}`)
+                      // In a real app, this would call an API to create the task with the correct status
+                    }
+                  }}
+                  className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-gray-500 dark:text-gray-400 hover:border-gray-900 dark:hover:border-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors flex items-center justify-center space-x-2 group"
+                >
                   <Plus className="w-4 h-4" />
                   <span className="text-sm font-medium">Add task</span>
                 </button>

@@ -56,7 +56,8 @@
       "Bash(touch:*)",
       "Bash(cloc:*)",
       "Bash(npx prisma:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(npx eslint:*)"
     ],
     "deny": []
   }

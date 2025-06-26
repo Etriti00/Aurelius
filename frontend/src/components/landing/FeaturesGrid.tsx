@@ -53,11 +53,11 @@ const features = [
 
 export function FeaturesGrid() {
   return (
-    <section className="py-16 sm:py-24 md:py-32 bg-white relative overflow-hidden granular-bg">
+    <section className="py-16 sm:py-24 md:py-32 bg-white dark:bg-gray-900 relative overflow-hidden granular-bg">
       {/* Background elements */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute top-0 left-1/4 w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 bg-gradient-to-r from-blue-100/40 to-indigo-100/40 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 bg-gradient-to-l from-purple-100/40 to-violet-100/40 rounded-full blur-3xl" />
+        <div className="absolute top-0 left-1/4 w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 bg-gradient-to-r from-blue-100/40 to-indigo-100/40 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 bg-gradient-to-l from-purple-100/40 to-violet-100/40 dark:from-purple-900/20 dark:to-violet-900/20 rounded-full blur-3xl" />
       </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -68,13 +68,13 @@ export function FeaturesGrid() {
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
           >
-            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-4 sm:mb-6 tracking-tight">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6 tracking-tight">
               Intelligence that
-              <span className="block mt-2 bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 bg-clip-text text-transparent">
+              <span className="block mt-2 bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 dark:from-slate-400 dark:via-slate-300 dark:to-slate-200 bg-clip-text text-transparent">
                 anticipates
               </span>
             </h2>
-            <p className="text-base sm:text-lg md:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed px-4 sm:px-0">
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed px-4 sm:px-0">
               Built from the ground up to understand context, learn preferences, 
               and execute with the precision you'd expect from your best assistant.
             </p>
@@ -103,7 +103,7 @@ export function FeaturesGrid() {
                       className="flex-shrink-0"
                     />
                     <div className="flex-1">
-                      <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 sm:mb-2 tracking-tight">
+                      <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1 sm:mb-2 tracking-tight">
                         {feature.title}
                       </h3>
                       <p className={`text-xs sm:text-sm font-semibold ${feature.accent} mb-3 sm:mb-4`}>
@@ -112,13 +112,13 @@ export function FeaturesGrid() {
                     </div>
                   </div>
                   
-                  <p className="text-gray-700 leading-relaxed mb-4 sm:mb-6 text-sm sm:text-base">
+                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-4 sm:mb-6 text-sm sm:text-base">
                     {feature.description}
                   </p>
                   
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl sm:text-3xl font-bold text-gray-900">{feature.stats}</span>
-                    <span className="text-xs sm:text-sm text-gray-600 font-medium">{feature.statLabel}</span>
+                    <span className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">{feature.stats}</span>
+                    <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium">{feature.statLabel}</span>
                   </div>
                 </div>
               </div>

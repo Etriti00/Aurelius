@@ -33,6 +33,8 @@ export {
   getEmailPreview,
   formatEmailDate,
   isEmailUnread,
+  isThreadUnread,
+  getEmailSender,
 } from './email'
 
 export {

@@ -99,19 +99,19 @@ export function SuggestionsPanel() {
       <div className="relative">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight flex items-center">
-              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center mr-3 shadow-lg shadow-black/25">
-                <Sparkles className="w-4 h-4 text-white" />
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight flex items-center">
+              <div className="w-8 h-8 bg-black dark:bg-white rounded-lg flex items-center justify-center mr-3 shadow-lg shadow-black/25 dark:shadow-white/25">
+                <Sparkles className="w-4 h-4 text-white dark:text-black" />
               </div>
               AI Suggestions
             </h3>
             {isLoading && (
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
                 <Loader2 className="w-4 h-4 animate-spin" />
               </div>
             )}
             {error && (
-              <div className="flex items-center space-x-2 text-sm text-amber-600">
+              <div className="flex items-center space-x-2 text-sm text-amber-600 dark:text-amber-400">
                 <AlertCircle className="w-4 h-4" />
               </div>
             )}
@@ -120,8 +120,8 @@ export function SuggestionsPanel() {
         <div className="space-y-4">
         {suggestions.length === 0 ? (
           <div className="text-center py-8">
-            <Sparkles className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-sm">All caught up! No suggestions right now.</p>
+            <Sparkles className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400 text-sm">All caught up! No suggestions right now.</p>
           </div>
         ) : (
           suggestions.map((suggestion, index) => (
@@ -146,24 +146,24 @@ export function SuggestionsPanel() {
                   </div>
                   <button
                     onClick={() => handleDismiss(suggestion.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto rounded-md hover:bg-gray-100/60"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto rounded-md hover:bg-gray-100/60 dark:hover:bg-gray-800/60"
                   >
-                    <X className="w-3 h-3 text-gray-500" />
+                    <X className="w-3 h-3 text-gray-500 dark:text-gray-400" />
                   </button>
                 </div>
                 
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-1">
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-1">
                     {suggestion.title}
                   </h4>
-                  <p className="text-sm text-gray-600 leading-relaxed">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                     {suggestion.description}
                   </p>
                 </div>
                 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       {new Date(suggestion.createdAt).toLocaleTimeString('en-US', { 
                         hour: 'numeric', 
                         minute: '2-digit' 
@@ -172,7 +172,7 @@ export function SuggestionsPanel() {
                   </div>
                   <button
                     onClick={() => handleExecute(suggestion)}
-                    className="px-3 py-1.5 bg-black text-white text-sm font-semibold rounded-2xl shadow-lg shadow-black/25 hover:bg-gray-900 hover:shadow-xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-200 flex items-center space-x-1 group/btn"
+                    className="px-3 py-1.5 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold rounded-2xl shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200 flex items-center space-x-1 group/btn"
                   >
                     <span>{suggestion.action}</span>
                     <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" />
@@ -185,7 +185,7 @@ export function SuggestionsPanel() {
         
         {suggestions.length > 0 && (
           <button 
-            className="w-full px-4 py-2 bg-black text-white text-sm font-semibold rounded-2xl shadow-lg shadow-black/25 hover:bg-gray-900 hover:shadow-xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-200"
+            className="w-full px-4 py-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold rounded-2xl shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
             onClick={handleRefresh}
           >
             Refresh Suggestions

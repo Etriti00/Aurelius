@@ -31,8 +31,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -45,9 +44,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
+import { useResponsiveLayout } from '@/lib/hooks/useResponsiveLayout'
 
 export default function WorkflowsPage() {
   const { data: session, status } = useSession()
+  const layout = useResponsiveLayout()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'active' | 'inactive'>('all')
   const [showFilters, setShowFilters] = useState(false)
@@ -76,8 +77,8 @@ export default function WorkflowsPage() {
 
   // Redirect if not authenticated
   if (status === 'loading') {
-    return <div className="min-h-screen bg-white flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+    return <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black dark:border-white"></div>
     </div>
   }
 
@@ -155,26 +156,26 @@ export default function WorkflowsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white relative overflow-hidden">
+    <div className="min-h-screen bg-white dark:bg-gray-900 relative overflow-hidden">
       <div className="fixed inset-0 -z-10 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-50/40" />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-50/40 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950/40" />
       </div>
 
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-8">
+      <div className={`container mx-auto ${layout.containerPadding}`}>
+        <div className={layout.spacing}>
           {/* Header */}
-          <div className="liquid-glass-accent rounded-3xl p-8">
+          <div className={`liquid-glass-accent rounded-3xl ${layout.cardPadding}`}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Workflow Automation</h1>
-                <p className="text-gray-600 mt-2">
+                <h1 className={`${layout.textSizes.h1} font-bold text-gray-900 dark:text-white`}>Workflow Automation</h1>
+                <p className={`${layout.textSizes.body} text-gray-600 dark:text-gray-300 mt-2`}>
                   Create powerful automations to streamline your work
                 </p>
               </div>
               <Button
-                size="lg"
+                size={layout.isCompressed ? 'sm' : 'lg'}
                 onClick={() => window.location.href = '/workflows/builder'}
-                className="bg-black text-white hover:bg-gray-800"
+                className="bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-100"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Create Workflow
@@ -183,14 +184,15 @@ export default function WorkflowsPage() {
           </div>
 
           {/* Search and Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className={`flex flex-col sm:flex-row ${layout.isCompressed ? 'gap-2' : 'gap-4'}`}>
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-gray-400" />
+              <input
+                type="text"
                 placeholder="Search workflows..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className={`w-full pl-12 pr-4 ${layout.isCompressed ? 'py-1.5' : 'py-2'} backdrop-blur-xl bg-white/60 dark:bg-gray-800/60 border border-white/40 dark:border-gray-700/40 rounded-2xl shadow-lg focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 focus:border-white/60 dark:focus:border-gray-600/60 focus:bg-white/80 dark:focus:bg-gray-800/80 focus:shadow-xl transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 ${layout.textSizes.body}`}
               />
             </div>
             <Button
@@ -212,8 +214,8 @@ export default function WorkflowsPage() {
 
           {/* Advanced Filters */}
           {showFilters && (
-            <Card className="liquid-glass p-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className={`liquid-glass ${layout.cardPadding}`}>
+              <div className={`grid grid-cols-1 ${layout.isCompressed ? 'gap-2' : 'md:grid-cols-3 gap-4'}`}>
                 <div>
                   <Label>Trigger Type</Label>
                   <Select>
@@ -262,17 +264,16 @@ export default function WorkflowsPage() {
             </Card>
           )}
 
-          {/* Workflows Content */}
-          <TabsContent value={selectedCategory} className="mt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Workflows Grid */}
+          <div className={`grid ${layout.gridCols.cards} ${layout.gridGap}`}>
             {filteredWorkflows.map((workflow) => (
               <Card key={workflow.id} className="liquid-glass hover:shadow-lg transition-all duration-200">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-lg">{workflow.name}</CardTitle>
+                      <CardTitle className={layout.textSizes.h3}>{workflow.name}</CardTitle>
                       {workflow.description && (
-                        <CardDescription className="mt-1">
+                        <CardDescription className={`mt-1 ${layout.textSizes.body}`}>
                           {workflow.description}
                         </CardDescription>
                       )}
@@ -287,10 +288,10 @@ export default function WorkflowsPage() {
                     />
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className={layout.spacing}>
                   {/* Triggers */}
                   <div>
-                    <p className="text-sm font-medium mb-2">Triggers</p>
+                    <p className={`${layout.textSizes.small} font-medium mb-2`}>Triggers</p>
                     <div className="flex flex-wrap gap-2">
                       {workflow.triggers.map((trigger) => (
                         <Badge key={trigger.id} variant="secondary" className="text-xs">
@@ -303,7 +304,7 @@ export default function WorkflowsPage() {
 
                   {/* Actions */}
                   <div>
-                    <p className="text-sm font-medium mb-2">Actions</p>
+                    <p className={`${layout.textSizes.small} font-medium mb-2 text-gray-900 dark:text-gray-100`}>Actions</p>
                     <div className="flex items-center gap-1">
                       {workflow.actions.slice(0, 3).map((action, index) => (
                         <React.Fragment key={action.id}>
@@ -311,12 +312,12 @@ export default function WorkflowsPage() {
                             <span className="text-lg">{getActionTypeIcon(action.type)}</span>
                           </div>
                           {index < Math.min(workflow.actions.length - 1, 2) && (
-                            <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                            <ArrowRight className="h-3 w-3 text-muted-foreground dark:text-gray-500" />
                           )}
                         </React.Fragment>
                       ))}
                       {workflow.actions.length > 3 && (
-                        <span className="text-xs text-muted-foreground ml-1">
+                        <span className="text-xs text-muted-foreground dark:text-gray-400 ml-1">
                           +{workflow.actions.length - 3} more
                         </span>
                       )}
@@ -324,7 +325,7 @@ export default function WorkflowsPage() {
                   </div>
 
                   {/* Stats */}
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground dark:text-gray-400">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {workflow.lastExecutedAt 
@@ -335,7 +336,7 @@ export default function WorkflowsPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 pt-2">
+                  <div className={`flex items-center ${layout.isCompressed ? 'gap-1 pt-1' : 'gap-2 pt-2'}`}>
                     <Button
                       variant="outline"
                       size="sm"
@@ -356,7 +357,7 @@ export default function WorkflowsPage() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
+                          <MoreHorizontal className="h-4 w-4 dark:text-gray-400" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -382,32 +383,31 @@ export default function WorkflowsPage() {
               </Card>
             ))}
             </div>
-          </TabsContent>
 
-          {/* Empty State */}
-          {filteredWorkflows.length === 0 && (
-            <Card className="liquid-glass-accent p-12 text-center">
-              <Zap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No workflows found</h3>
-              <p className="text-muted-foreground mb-4">
-                Create your first workflow to start automating your tasks
-              </p>
-              <Button onClick={() => window.location.href = '/workflows/builder'}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Workflow
-              </Button>
-            </Card>
-          )}
+            {/* Empty State */}
+            {filteredWorkflows.length === 0 && (
+              <Card className={`liquid-glass-accent ${layout.isCompressed ? 'p-6' : 'p-12'} text-center`}>
+                <Zap className={`${layout.isCompressed ? 'h-8 w-8' : 'h-12 w-12'} mx-auto text-muted-foreground dark:text-gray-600 mb-4`} />
+                <h3 className={`${layout.textSizes.h3} font-semibold mb-2 text-gray-900 dark:text-white`}>No workflows found</h3>
+                <p className={`${layout.textSizes.body} text-muted-foreground dark:text-gray-400 mb-4`}>
+                  Create your first workflow to start automating your tasks
+                </p>
+                <Button onClick={() => window.location.href = '/workflows/builder'}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Workflow
+                </Button>
+              </Card>
+            )}
 
-          {/* Recent Executions */}
-          {executions?.data && executions.data.length > 0 && (
-            <div className="liquid-glass rounded-3xl p-6">
-              <h2 className="text-xl font-semibold mb-4">Recent Executions</h2>
-              <div className="space-y-2">
+            {/* Recent Executions */}
+            {executions?.data && executions.data.length > 0 && (
+            <div className={`liquid-glass rounded-3xl ${layout.cardPadding}`}>
+              <h2 className={`${layout.textSizes.h2} font-semibold mb-4 text-gray-900 dark:text-white`}>Recent Executions</h2>
+              <div className={layout.isCompressed ? 'space-y-1' : 'space-y-2'}>
                 {executions.data.slice(0, 5).map((execution: WorkflowExecution) => (
                   <div
                     key={execution.id}
-                    className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                    className={`flex items-center justify-between ${layout.isCompressed ? 'p-2' : 'p-3'} rounded-lg hover:bg-muted/50 transition-colors`}
                   >
                     <div className="flex items-center gap-3">
                       <div className={cn(
@@ -420,14 +420,14 @@ export default function WorkflowsPage() {
                         {execution.status === 'pending' && <AlertCircle className="h-4 w-4" />}
                       </div>
                       <div>
-                        <p className="text-sm font-medium">{execution.workflowId}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className={`${layout.textSizes.small} font-medium text-gray-900 dark:text-white`}>{execution.workflowId}</p>
+                        <p className="text-xs text-muted-foreground dark:text-gray-400">
                           {formatDistanceToNow(new Date(execution.startedAt), { addSuffix: true })}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm">
+                      <p className={`${layout.textSizes.small} text-gray-900 dark:text-gray-100`}>
                         {execution.actionsCompleted}/{execution.totalActions} actions
                       </p>
                       {execution.error && (
