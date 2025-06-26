@@ -22,7 +22,7 @@ export function HeroSection() {
     <section ref={containerRef} className="relative min-h-screen flex items-center overflow-hidden bg-transparent granular-bg">
       {/* Apple-inspired gradient background */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-50 via-white to-blue-50/30" />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-50 via-white to-blue-50/30 dark:from-gray-950 dark:via-gray-900 dark:to-blue-950/30" />
         <motion.div
           animate={{
             scale: [1, 1.1, 1],
@@ -64,9 +64,9 @@ export function HeroSection() {
               transition={{ duration: 0.6 }}
               className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 rounded-full liquid-glass-subtle mb-6 sm:mb-8"
             >
-              <Brain className="w-3 h-3 sm:w-4 sm:h-4 text-slate-600 mr-1.5 sm:mr-2" />
-              <span className="text-xs sm:text-sm font-medium text-slate-700">AI learns your style</span>
-              <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-slate-600 ml-1.5 sm:ml-2" />
+              <Brain className="w-3 h-3 sm:w-4 sm:h-4 text-slate-600 dark:text-slate-400 mr-1.5 sm:mr-2" />
+              <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">AI learns your style</span>
+              <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 text-slate-600 dark:text-slate-400 ml-1.5 sm:ml-2" />
             </motion.div>
 
             {/* Main headline */}
@@ -75,11 +75,11 @@ export function HeroSection() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.1 }}
-                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-gray-900 leading-tight"
+                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-gray-900 dark:text-gray-100 leading-tight"
               >
                 <span className="block">Think different</span>
                 <span className="block">about</span>
-                <span className="block bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 bg-clip-text text-transparent">
+                <span className="block bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 dark:from-slate-400 dark:via-slate-300 dark:to-slate-200 bg-clip-text text-transparent">
                   productivity
                 </span>
               </motion.h1>
@@ -90,7 +90,7 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="text-base sm:text-lg md:text-xl text-gray-600 mb-8 sm:mb-10 leading-relaxed max-w-xl mx-auto lg:mx-0"
+              className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-400 mb-8 sm:mb-10 leading-relaxed max-w-xl mx-auto lg:mx-0"
             >
               Aurelius is your AI chief of staff that understands your work style, 
               anticipates your needs, and executes tasks with the precision of human intuition.
@@ -120,11 +120,11 @@ export function HeroSection() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.8, delay: 0.4 }}
-              className="flex flex-wrap gap-4 sm:gap-6 text-xs sm:text-sm text-gray-500 justify-center lg:justify-start"
+              className="flex flex-wrap gap-4 sm:gap-6 text-xs sm:text-sm text-gray-500 dark:text-gray-400 justify-center lg:justify-start"
             >
               <div className="flex items-center gap-2">
                 <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500" />
-                <span>Enterprise secure</span>
+                <span>Max secure</span>
               </div>
               <div className="flex items-center gap-2">
                 <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
@@ -146,7 +146,7 @@ export function HeroSection() {
           >
             <Suspense fallback={
               <div className="w-full h-full flex items-center justify-center">
-                <div className="w-32 h-32 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse" />
+                <div className="w-32 h-32 bg-gradient-to-r from-blue-500 to-purple-500 dark:from-blue-400 dark:to-purple-400 rounded-full animate-pulse" />
               </div>
             }>
               <Brain3D />
@@ -162,8 +162,8 @@ export function HeroSection() {
               <div className="flex items-center gap-3">
                 <LiquidGlassIcon icon={Sparkles} size="md" />
                 <div>
-                  <p className="font-semibold text-xs sm:text-sm text-gray-900">Pattern Recognition</p>
-                  <p className="text-[10px] sm:text-xs text-gray-600">Learning your workflow</p>
+                  <p className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-gray-100">Pattern Recognition</p>
+                  <p className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400">Learning your workflow</p>
                 </div>
               </div>
             </motion.div>
@@ -177,8 +177,8 @@ export function HeroSection() {
               <div className="flex items-center gap-3">
                 <LiquidGlassIcon icon={Zap} size="md" />
                 <div>
-                  <p className="font-semibold text-xs sm:text-sm text-gray-900">Neural Processing</p>
-                  <p className="text-[10px] sm:text-xs text-gray-600">Executing 12 tasks</p>
+                  <p className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-gray-100">Neural Processing</p>
+                  <p className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400">Executing 12 tasks</p>
                 </div>
               </div>
             </motion.div>

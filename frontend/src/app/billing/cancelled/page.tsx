@@ -171,7 +171,7 @@ export default function BillingCancelledPage() {
                     <span className="text-purple-600 text-lg">🔒</span>
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900 mb-1">Enterprise-Grade Security</h3>
+                    <h3 className="font-medium text-gray-900 mb-1">Max-Grade Security</h3>
                     <p className="text-sm text-gray-600">
                       Your data is encrypted and secure. We never share your information with third parties.
                     </p>

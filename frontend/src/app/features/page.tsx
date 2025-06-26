@@ -98,8 +98,8 @@ const platforms = [
   },
   {
     icon: Shield,
-    title: 'Enterprise Security',
-    description: 'SOC 2 compliance, SSO, and enterprise-grade security',
+    title: 'Max Security',
+    description: 'SOC 2 compliance, SSO, and Max-grade security',
   },
 ]
 
@@ -112,11 +112,11 @@ const stats = [
 
 export default function FeaturesPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-gray-900">
       <Navbar />
       
       {/* Hero Section */}
-      <section className="pt-32 pb-20 bg-gradient-to-b from-slate-50 to-white granular-bg">
+      <section className="pt-32 pb-20 bg-gradient-to-b from-slate-50 to-white dark:from-gray-950 dark:to-gray-900 granular-bg">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -124,13 +124,13 @@ export default function FeaturesPage() {
             transition={{ duration: 0.8 }}
             className="text-center max-w-4xl mx-auto"
           >
-            <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 mb-6 tracking-tight">
+            <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 dark:text-gray-100 mb-6 tracking-tight">
               Powerful features for
-              <span className="block mt-2 bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 bg-clip-text text-transparent">
+              <span className="block mt-2 bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 dark:from-slate-400 dark:via-slate-300 dark:to-slate-200 bg-clip-text text-transparent">
                 intelligent productivity
               </span>
             </h1>
-            <p className="text-xl text-gray-600 mb-12 leading-relaxed">
+            <p className="text-xl text-gray-600 dark:text-gray-400 mb-12 leading-relaxed">
               Discover how Aurelius transforms your daily workflow with AI that understands 
               your work style and anticipates your needs.
             </p>
@@ -150,7 +150,7 @@ export default function FeaturesPage() {
       </section>
 
       {/* Core Features */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-white dark:bg-gray-900">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -159,8 +159,8 @@ export default function FeaturesPage() {
             transition={{ duration: 0.8 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Core Features</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-6">Core Features</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
               Everything you need to automate your workflow and focus on what matters most.
             </p>
           </motion.div>
@@ -178,11 +178,11 @@ export default function FeaturesPage() {
                   <div className="mb-6">
                     <LiquidGlassIcon icon={feature.icon} size="lg" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-4">{feature.title}</h3>
-                  <p className="text-gray-600 mb-6 leading-relaxed">{feature.description}</p>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">{feature.title}</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">{feature.description}</p>
                   <ul className="space-y-2">
                     {feature.features.map((item, itemIndex) => (
-                      <li key={itemIndex} className="flex items-center text-sm text-gray-600">
+                      <li key={itemIndex} className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-3"></div>
                         {item}
                       </li>
@@ -196,7 +196,7 @@ export default function FeaturesPage() {
       </section>
 
       {/* Integrations Section */}
-      <section className="py-20 bg-gray-50 granular-bg">
+      <section className="py-20 bg-gray-50 dark:bg-gray-800 granular-bg">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -205,8 +205,8 @@ export default function FeaturesPage() {
             transition={{ duration: 0.8 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">100+ Integrations</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-12">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-6">100+ Integrations</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto mb-12">
               Connect all your favorite tools and let Aurelius work across your entire digital workplace.
             </p>
           </motion.div>
@@ -233,24 +233,24 @@ export default function FeaturesPage() {
               transition={{ duration: 0.8 }}
               className="space-y-6"
             >
-              <h3 className="text-2xl font-bold text-gray-900 mb-8">
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-8">
                 Works with your existing tools
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 {['Email', 'Communication', 'Calendar', 'Project Management', 'CRM', 'Development'].map((category, index) => (
                   <div key={index} className="liquid-glass rounded-2xl p-4">
-                    <h4 className="font-semibold text-gray-900 mb-2">{category}</h4>
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{category}</h4>
                     <div className="space-y-1">
                       {integrations
                         .filter(integration => integration.category === category)
                         .slice(0, 2)
                         .map((integration, intIndex) => (
-                          <div key={intIndex} className="text-sm text-gray-600">
+                          <div key={intIndex} className="text-sm text-gray-600 dark:text-gray-400">
                             {integration.name}
                           </div>
                         ))}
                       {integrations.filter(integration => integration.category === category).length > 2 && (
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
                           +{integrations.filter(integration => integration.category === category).length - 2} more
                         </div>
                       )}
@@ -270,7 +270,7 @@ export default function FeaturesPage() {
       </section>
 
       {/* Platform Section */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-white dark:bg-gray-900">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -279,8 +279,8 @@ export default function FeaturesPage() {
             transition={{ duration: 0.8 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Available Everywhere</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-6">Available Everywhere</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
               Access your AI assistant across all your devices and platforms.
             </p>
           </motion.div>
@@ -298,8 +298,8 @@ export default function FeaturesPage() {
                 <div className="mb-6">
                   <LiquidGlassIcon icon={platform.icon} size="lg" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-4">{platform.title}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">{platform.description}</p>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">{platform.title}</h3>
+                <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{platform.description}</p>
               </motion.div>
             ))}
           </div>
@@ -307,7 +307,7 @@ export default function FeaturesPage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 bg-gray-50 granular-bg">
+      <section className="py-20 bg-gray-50 dark:bg-gray-800 granular-bg">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -316,8 +316,8 @@ export default function FeaturesPage() {
             transition={{ duration: 0.8 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Proven Results</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-6">Proven Results</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
               Join thousands of professionals who've transformed their productivity with Aurelius.
             </p>
           </motion.div>
@@ -335,8 +335,8 @@ export default function FeaturesPage() {
                 <div className="mb-6">
                   <LiquidGlassIcon icon={stat.icon} size="lg" />
                 </div>
-                <div className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</div>
-                <div className="text-gray-600 font-medium">{stat.label}</div>
+                <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{stat.value}</div>
+                <div className="text-gray-600 dark:text-gray-400 font-medium">{stat.label}</div>
               </motion.div>
             ))}
           </div>
@@ -344,7 +344,7 @@ export default function FeaturesPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gray-900 text-white">
+      <section className="py-20 bg-gray-900 dark:bg-gray-950 text-white">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

@@ -50,7 +50,7 @@ const openPositions = [
     department: 'Customer Success',
     location: 'Remote',
     type: 'Full-time',
-    description: 'Ensure enterprise customers achieve maximum value from their Aurelius investment.',
+    description: 'Ensure Max customers achieve maximum value from their Aurelius investment.',
   },
 ]
 
@@ -98,11 +98,11 @@ const values = [
 
 export default function CareersPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-gray-900">
       <Navbar />
       
       {/* Hero Section */}
-      <section className="pt-32 pb-20 bg-gradient-to-b from-slate-50 to-white granular-bg">
+      <section className="pt-32 pb-20 bg-gradient-to-b from-slate-50 to-white dark:from-gray-950 dark:to-gray-900 granular-bg">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -110,13 +110,13 @@ export default function CareersPage() {
             transition={{ duration: 0.8 }}
             className="text-center max-w-4xl mx-auto"
           >
-            <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 mb-6 tracking-tight">
+            <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 dark:text-gray-100 mb-6 tracking-tight">
               Shape the future of
-              <span className="block mt-2 bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 bg-clip-text text-transparent">
+              <span className="block mt-2 bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 dark:from-slate-400 dark:via-slate-300 dark:to-slate-200 bg-clip-text text-transparent">
                 intelligent work
               </span>
             </h1>
-            <p className="text-xl text-gray-600 mb-12 leading-relaxed">
+            <p className="text-xl text-gray-600 dark:text-gray-400 mb-12 leading-relaxed">
               Join a team of passionate builders creating AI that amplifies human creativity 
               and transforms how professionals work.
             </p>
@@ -134,7 +134,7 @@ export default function CareersPage() {
       </section>
 
       {/* Values Section */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-white dark:bg-gray-900">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -143,8 +143,8 @@ export default function CareersPage() {
             transition={{ duration: 0.8 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Our Values</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-6">Our Values</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
               The principles that guide how we work, build, and grow together.
             </p>
           </motion.div>
@@ -159,8 +159,8 @@ export default function CareersPage() {
                 transition={{ duration: 0.8, delay: index * 0.1 }}
                 className="liquid-glass rounded-3xl p-8"
               >
-                <h3 className="text-xl font-bold text-gray-900 mb-4">{value.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{value.description}</p>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">{value.title}</h3>
+                <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{value.description}</p>
               </motion.div>
             ))}
           </div>
@@ -168,7 +168,7 @@ export default function CareersPage() {
       </section>
 
       {/* Benefits Section */}
-      <section className="py-20 bg-gray-50 granular-bg">
+      <section className="py-20 bg-gray-50 dark:bg-gray-800 granular-bg">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -177,8 +177,8 @@ export default function CareersPage() {
             transition={{ duration: 0.8 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Why Join Aurelius</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-6">Why Join Aurelius</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
               We believe in taking care of our team so they can do their best work.
             </p>
           </motion.div>
@@ -196,8 +196,8 @@ export default function CareersPage() {
                 <div className="mb-6">
                   <LiquidGlassIcon icon={benefit.icon} size="lg" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-4">{benefit.title}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">{benefit.description}</p>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">{benefit.title}</h3>
+                <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{benefit.description}</p>
               </motion.div>
             ))}
           </div>
@@ -205,7 +205,7 @@ export default function CareersPage() {
       </section>
 
       {/* Open Positions */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-white dark:bg-gray-900">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -214,8 +214,8 @@ export default function CareersPage() {
             transition={{ duration: 0.8 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Open Positions</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-6">Open Positions</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
               Ready to make an impact? Join our growing team of innovators.
             </p>
           </motion.div>
@@ -233,13 +233,13 @@ export default function CareersPage() {
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex-1 mb-6 lg:mb-0">
                       <div className="flex flex-wrap items-center gap-4 mb-4">
-                        <h3 className="text-xl font-bold text-gray-900">{position.title}</h3>
-                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{position.title}</h3>
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                           {position.department}
                         </span>
                       </div>
-                      <p className="text-gray-600 mb-4 leading-relaxed">{position.description}</p>
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                      <p className="text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">{position.description}</p>
+                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                         <div className="flex items-center gap-1">
                           <MapPin className="w-4 h-4" />
                           <span>{position.location}</span>
@@ -270,10 +270,10 @@ export default function CareersPage() {
             className="text-center mt-16"
           >
             <div className="liquid-glass rounded-3xl p-8 max-w-2xl mx-auto">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
                 Don't see a perfect fit?
               </h3>
-              <p className="text-gray-600 mb-6 leading-relaxed">
+              <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
                 We're always looking for exceptional talent. Send us your resume and 
                 tell us how you'd like to contribute to the future of work.
               </p>
@@ -289,7 +289,7 @@ export default function CareersPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gray-900 text-white">
+      <section className="py-20 bg-gray-900 dark:bg-gray-950 text-white">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
