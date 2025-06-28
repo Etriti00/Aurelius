@@ -230,9 +230,9 @@ export function FAB() {
       {/* Hide FAB when command center is open */}
       {!isCommandCenterOpen && (
         <motion.div
-          className="fixed bottom-6 left-[calc(100%-7rem+7mm)] sm:bottom-8 sm:left-[calc(100%-8.5rem+3mm)] z-50"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 md:bottom-8 md:right-8 z-50"
           initial={{ scale: 0 }}
-          animate={{ scale: 1.15 }}
+          animate={{ scale: 1 }}
           transition={{ delay: 0.5, type: 'spring', stiffness: 260, damping: 20 }}
         >
         {/* Quick Actions */}
@@ -319,7 +319,7 @@ export function FAB() {
         {/* Main FAB Button */}
         <motion.button
           onClick={handleFABClick}
-          className="w-16 h-16 sm:w-18 sm:h-18 rounded-full backdrop-blur-xl bg-white/60 dark:bg-gray-900/60 border border-white/30 dark:border-gray-800/30 shadow-2xl hover:shadow-xl transition-all duration-300 group relative overflow-hidden"
+          className="w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full backdrop-blur-xl bg-white/60 dark:bg-gray-900/60 border border-white/30 dark:border-gray-800/30 shadow-2xl hover:shadow-xl transition-all duration-300 group relative overflow-hidden"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           transition={{ type: 'spring', stiffness: 500, damping: 30 }}

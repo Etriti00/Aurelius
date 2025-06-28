@@ -45,10 +45,12 @@ import {
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { useResponsiveLayout } from '@/lib/hooks/useResponsiveLayout'
+import { useAICommandCenter } from '@/lib/stores/aiCommandCenterStore'
 
 export default function WorkflowsPage() {
   const { data: session, status } = useSession()
   const layout = useResponsiveLayout()
+  const { isOpen: isCommandCenterOpen } = useAICommandCenter()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'active' | 'inactive'>('all')
   const [showFilters, setShowFilters] = useState(false)
@@ -161,7 +163,7 @@ export default function WorkflowsPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-50/40 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950/40" />
       </div>
 
-      <div className={`container mx-auto ${layout.containerPadding}`}>
+      <div className={isCommandCenterOpen ? '' : 'container mx-auto px-3 sm:px-4 lg:px-8'}>
         <div className={layout.spacing}>
           {/* Header */}
           <div className={`liquid-glass-accent rounded-3xl ${layout.cardPadding}`}>
@@ -172,14 +174,16 @@ export default function WorkflowsPage() {
                   Create powerful automations to streamline your work
                 </p>
               </div>
-              <Button
-                size={layout.isCompressed ? 'sm' : 'lg'}
-                onClick={() => window.location.href = '/workflows/builder'}
-                className="bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-100"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Create Workflow
-              </Button>
+              {workflows?.data && workflows.data.length > 0 && (
+                <Button
+                  size={layout.isCompressed ? 'sm' : 'lg'}
+                  onClick={() => window.location.href = '/workflows/builder'}
+                  className="bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-100"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Create Workflow
+                </Button>
+              )}
             </div>
           </div>
 

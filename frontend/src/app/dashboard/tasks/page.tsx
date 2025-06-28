@@ -49,9 +49,11 @@ import {
 import { tasksApi, getPriorityColor, useTasks } from '@/lib/api/tasks'
 import type { Task } from '@/lib/api/types'
 import { TaskStatus, Priority } from '@/lib/api/types'
+import { useAICommandCenter } from '@/lib/stores/aiCommandCenterStore'
 
 export default function TasksPage() {
   const { status } = useSession()
+  const { isOpen: isCommandCenterOpen } = useAICommandCenter()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTab, setSelectedTab] = useState<'all' | 'active' | 'completed'>('all')
   const [isCreatingTask, setIsCreatingTask] = useState(false)
@@ -226,21 +228,30 @@ export default function TasksPage() {
   )
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Tasks</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">Manage your tasks and stay organized</p>
-        </div>
-        <Button 
-          className="bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-100"
-          onClick={() => setIsCreatingTask(true)}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Task
-        </Button>
+    <div className="min-h-screen bg-white dark:bg-gray-900 relative overflow-hidden">
+      {/* Enhanced Apple-inspired background */}
+      <div className="fixed inset-0 -z-10 pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-50/40 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950/40" />
       </div>
+
+      <div className={`${isCommandCenterOpen ? '' : 'container mx-auto px-3 sm:px-4 lg:px-8'}`}>
+        <div className="space-y-4 sm:space-y-6">
+          {/* Header Card */}
+          <div className="liquid-glass-accent rounded-3xl p-4 sm:p-5 lg:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-100">Tasks</h1>
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-1">Manage your tasks and stay organized</p>
+              </div>
+              <Button 
+                className="bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-100"
+                onClick={() => setIsCreatingTask(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Task
+              </Button>
+            </div>
+          </div>
 
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
@@ -400,6 +411,8 @@ export default function TasksPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </div>
+      </div>
     </div>
   )
 }

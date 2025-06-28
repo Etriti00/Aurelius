@@ -75,73 +75,76 @@ export function ChatInput({ message: externalMessage, setMessage: externalSetMes
   }
 
   return (
-    <div className="relative h-full flex flex-col p-4 justify-center">
-      {/* Quick actions bar aligned with input field start */}
+    <div className="relative h-full flex flex-col justify-center">
+      {/* Quick actions and context indicator row aligned with main content container */}
       <div className="flex-shrink-0 mb-3">
-        <div className="flex items-start gap-4">
-          {/* Empty space to align with context indicator */}
-          <div className="flex-shrink-0 min-w-[80px]"></div>
-          
-          {/* Quick actions aligned with input */}
-          <div className="flex-1 px-2">
-            <AnimatePresence>
-              {currentContext && currentContext.availableActions.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                >
-                  <div className="flex flex-wrap gap-1.5 justify-start">
-                    {currentContext.availableActions.slice(0, 4).map((action, index) => (
-                      <motion.button
-                        key={action.command}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: index * 0.05 }}
-                        onClick={() => handleQuickAction(action)}
-                        className="px-3 py-1.5 liquid-glass-subtle text-gray-600 dark:text-gray-400 rounded-xl hover:liquid-glass-accent hover:text-gray-900 dark:hover:text-gray-100 transition-all duration-300 text-xs font-medium whitespace-nowrap shadow-lg"
-                      >
-                        {action.label}
-                      </motion.button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8" style={{ marginLeft: '1.5mm', marginRight: '1.5mm' }}>
+          <div className="flex items-start justify-between">
+            {/* Quick actions on the left */}
+            <div className="flex-1">
+              <AnimatePresence>
+                {currentContext && currentContext.availableActions.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                  >
+                    <div className="flex flex-wrap gap-1.5 justify-start">
+                      {currentContext.availableActions.slice(0, 4).map((action, index) => (
+                        <motion.button
+                          key={action.command}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: index * 0.05 }}
+                          onClick={() => handleQuickAction(action)}
+                          className="px-3 py-1.5 liquid-glass-subtle text-gray-600 dark:text-gray-400 rounded-xl hover:liquid-glass-accent hover:text-gray-900 dark:hover:text-gray-100 transition-all duration-300 text-xs font-medium whitespace-nowrap shadow-lg"
+                        >
+                          {action.label}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            
+            {/* Smart context indicator - moved more to the left */}
+            <div className="flex-shrink-0" style={{ marginRight: '15px' }}>
+              <AnimatePresence>
+                {currentContext && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                  >
+                    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-lg px-3 py-2 shadow-sm">
+                      <div className="text-xs font-semibold text-gray-700 dark:text-gray-200 capitalize">
+                        {currentContext.page}
+                      </div>
+                      {currentContext.selectedItem && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-32">
+                          {currentContext.selectedItem}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>
       
-      {/* Input container with context on left and buttons on right */}
-      <div className="flex-shrink-0 px-2">
-        <div className="flex items-center gap-4">
-          {/* Context indicator on left */}
-          <div className="flex-shrink-0 min-w-[80px]">
-            <AnimatePresence>
-              {currentContext && (
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap text-xs"
-                >
-                  <span className="capitalize">{currentContext.page}</span>
-                  {currentContext.selectedItem && (
-                    <div className="text-xs text-gray-400 dark:text-gray-500">{currentContext.selectedItem}</div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          
-          {/* Main input - wider */}
-          <div className="relative flex-1 max-w-none">
+      {/* Input container aligned with main content container */}
+      <div className="flex-shrink-0">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8" style={{ marginLeft: '0mm', marginRight: '2mm' }}>
+          <div className="relative" style={{ marginRight: '7px' }}>
             <textarea
               ref={textareaRef}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Ask Aurelius to help with anything..."
-              className="w-full h-20 px-4 py-3 pr-20 liquid-glass rounded-2xl shadow-lg focus:outline-none focus:liquid-glass-accent focus:shadow-2xl transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 resize-none font-medium text-base"
+              placeholder="Ask Aurelius..."
+              className="w-full h-16 sm:h-20 px-3 sm:px-4 py-2 sm:py-3 pr-16 sm:pr-20 liquid-glass rounded-xl sm:rounded-2xl shadow-lg focus:outline-none focus:liquid-glass-accent focus:shadow-2xl transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 resize-none font-medium text-sm sm:text-base"
               onKeyDown={handleKeyDown}
               disabled={isProcessing}
             />

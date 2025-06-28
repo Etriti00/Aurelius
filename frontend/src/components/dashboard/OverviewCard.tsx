@@ -65,23 +65,23 @@ export function OverviewCard({ title, value, change, icon: Icon, trend }: Overvi
     >
       <button 
         onClick={handleCardClick}
-        className="relative liquid-glass-accent rounded-xl sm:rounded-2xl p-4 sm:p-5 h-full hover:scale-[1.02] transition-all duration-500 w-full text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20"
+        className="relative liquid-glass-accent rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 h-full hover:scale-[1.02] transition-all duration-500 w-full text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20"
       >
         {/* Subtle inner glow */}
         <div className="absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
         
         <div className="relative">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1.5 sm:space-y-2 flex-1 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">{title}</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{value}</p>
-              <div className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${getTrendColor()}`}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-1 sm:space-y-1.5 flex-1 min-w-0">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 line-clamp-1">{title}</p>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{value}</p>
+              <div className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium ${getTrendColor()}`}>
                 {getTrendIcon()}
-                <span className="ml-1 truncate">{change}</span>
+                <span className="ml-1 truncate max-w-[80px] sm:max-w-[120px]">{change}</span>
               </div>
             </div>
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-black dark:bg-white rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg shadow-black/25 dark:shadow-white/25 ml-2 flex-shrink-0">
-              <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white dark:text-black" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 bg-black dark:bg-white rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg shadow-black/25 dark:shadow-white/25 flex-shrink-0">
+              <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-white dark:text-black" />
             </div>
           </div>
         </div>

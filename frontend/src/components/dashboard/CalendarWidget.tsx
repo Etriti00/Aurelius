@@ -11,6 +11,7 @@ import {
   isEventNow,
   CalendarEvent 
 } from '@/lib/api'
+import { useAICommandCenter } from '@/lib/stores/aiCommandCenterStore'
 
 // Mock data for fallback when API is not available
 const mockTodayEvents: CalendarEvent[] = [
@@ -64,6 +65,7 @@ const mockTodayEvents: CalendarEvent[] = [
 export function CalendarWidget() {
   // Fetch real events from API
   const { events: apiEvents, isLoading, error } = useTodayEvents()
+  const { isOpen: isCommandCenterOpen } = useAICommandCenter()
   
   // Use real data if available, otherwise fallback to mock data
   const events = error || !apiEvents ? mockTodayEvents : apiEvents
@@ -75,25 +77,35 @@ export function CalendarWidget() {
       
       <div className="relative">
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-3">
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight flex items-center">
-              <div className="w-8 h-8 bg-black dark:bg-white rounded-lg flex items-center justify-center mr-3 shadow-lg shadow-black/25 dark:shadow-white/25">
-                <Calendar className="w-4 h-4 text-white dark:text-black" />
-              </div>
-              Today&apos;s Schedule
+          <div className="flex items-center gap-3">
+            <div className={`${isCommandCenterOpen ? 'w-6 h-6 lg:w-7 lg:h-7' : 'w-8 h-8'} bg-black dark:bg-white rounded-lg flex items-center justify-center shadow-lg shadow-black/25 dark:shadow-white/25 flex-shrink-0`}>
+              <Calendar className={`${isCommandCenterOpen ? 'w-3 h-3 lg:w-3.5 lg:h-3.5' : 'w-4 h-4'} text-white dark:text-black`} />
+            </div>
+            <h3 className={`${isCommandCenterOpen ? 'text-base lg:text-lg' : 'text-lg sm:text-xl'} font-bold text-gray-900 dark:text-gray-100 tracking-tight whitespace-nowrap`}>
+              {isCommandCenterOpen ? (
+                <>
+                  <span className="hidden sm:inline">Today&apos;s Schedule</span>
+                  <span className="sm:hidden">Schedule</span>
+                </>
+              ) : (
+                'Today\'s Schedule'
+              )}
             </h3>
-            {isLoading && (
-              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-                <Loader2 className="w-4 h-4 animate-spin" />
-              </div>
+          </div>
+          {/* Centered status indicators */}
+          <div className="flex-1 flex justify-center items-center">
+            {isLoading && !error && (
+              <Loader2 className="w-4 h-4 animate-spin text-gray-500 dark:text-gray-400" />
             )}
-            {error && (
-              <div className="flex items-center space-x-2 text-sm text-amber-600 dark:text-amber-400">
-                <AlertCircle className="w-4 h-4" />
-              </div>
+            {error && !isLoading && (
+              <span title="Using cached data">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              </span>
             )}
           </div>
-          <button 
+          {/* Right side button */}
+          <div className="flex items-center">{" "}
+            <button 
             onClick={() => {
               // Create new calendar event
               const title = prompt('Event title:')
@@ -102,16 +114,19 @@ export function CalendarWidget() {
                 // In a real app, this would call an API to create the event
               }
             }}
-            className="p-2 bg-black dark:bg-white text-white dark:text-black rounded-2xl shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
+            className={`${isCommandCenterOpen ? 'p-1.5' : 'p-2'} bg-black dark:bg-white text-white dark:text-black rounded-2xl shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200 flex-shrink-0`}
           >
-            <Plus className="w-4 h-4" />
+            <Plus className={`${isCommandCenterOpen ? 'w-3 h-3' : 'w-4 h-4'}`} />
           </button>
+          </div>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-4 min-h-[300px] sm:min-h-[400px] max-h-[400px] sm:max-h-[500px] overflow-y-auto pr-2 styled-scrollbar">
         {events.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-            <p className="text-sm">No events scheduled for today</p>
+          <div className="flex items-center justify-center min-h-[260px] sm:min-h-[360px]">
+            <div className="text-center text-gray-500 dark:text-gray-400">
+              <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+              <p className="text-sm">No events scheduled for today</p>
+            </div>
           </div>
         ) : (
           events.map((event, index) => {
@@ -186,7 +201,7 @@ export function CalendarWidget() {
             // Navigate to full calendar view
             window.location.href = '/calendar'
           }}
-          className="w-full px-4 py-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold rounded-2xl shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
+          className="w-full px-4 py-2.5 bg-gradient-to-r from-gray-900 to-black dark:from-gray-100 dark:to-white text-white dark:text-black text-sm font-semibold rounded-xl shadow-lg shadow-black/20 dark:shadow-white/20 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.01] transition-all duration-200"
         >
           View Full Calendar
         </button>

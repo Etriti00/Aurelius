@@ -76,7 +76,7 @@ export function ChatActions({ message, setMessage, isProcessing, onSend }: ChatA
         <motion.button
           onClick={toggleVoiceInput}
           className={cn(
-            "w-16 h-16 sm:w-18 sm:h-18 rounded-full transition-all duration-200 font-medium flex items-center justify-center border-2",
+            "w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full transition-all duration-200 font-medium flex items-center justify-center border-2",
             isVoiceActive
               ? "bg-red-500 text-white border-red-500 hover:bg-red-600 hover:border-red-600"
               : "bg-transparent text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500"
@@ -95,7 +95,7 @@ export function ChatActions({ message, setMessage, isProcessing, onSend }: ChatA
                 exit={{ scale: 0 }}
               >
                 <div className="relative">
-                  <MicOff className="w-6 h-6" />
+                  <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />
                   <motion.div
                     className="absolute inset-0 rounded-full border-2 border-white"
                     animate={{ scale: [1, 1.3, 1] }}
@@ -110,7 +110,7 @@ export function ChatActions({ message, setMessage, isProcessing, onSend }: ChatA
                 animate={{ scale: 1 }}
                 exit={{ scale: 0 }}
               >
-                <Mic className="w-6 h-6" />
+                <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -119,13 +119,13 @@ export function ChatActions({ message, setMessage, isProcessing, onSend }: ChatA
         {/* File upload button - circular */}
         <motion.button
           onClick={handleFileUpload}
-          className="w-16 h-16 sm:w-18 sm:h-18 bg-transparent text-gray-700 dark:text-gray-300 rounded-full border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 font-medium flex items-center justify-center"
+          className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-transparent text-gray-700 dark:text-gray-300 rounded-full border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 font-medium flex items-center justify-center"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           disabled={isProcessing}
           title="Attach file"
         >
-          <Paperclip className="w-6 h-6" />
+          <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
         </motion.button>
         
         {/* Send button - circular */}
@@ -133,7 +133,7 @@ export function ChatActions({ message, setMessage, isProcessing, onSend }: ChatA
           onClick={onSend}
           disabled={!message.trim() || isProcessing}
           className={cn(
-            "w-16 h-16 sm:w-18 sm:h-18 rounded-full font-medium transition-all duration-200 flex items-center justify-center border-2",
+            "w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full font-medium transition-all duration-200 flex items-center justify-center border-2",
             message.trim() && !isProcessing
               ? "bg-transparent text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500"
               : "bg-transparent text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 cursor-not-allowed opacity-50"
@@ -143,21 +143,21 @@ export function ChatActions({ message, setMessage, isProcessing, onSend }: ChatA
           title="Send message"
         >
           {isProcessing ? (
-            <Loader2 className="w-6 h-6 animate-spin" />
+            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
           ) : (
-            <Send className="w-6 h-6" />
+            <Send className="w-4 h-4 sm:w-5 sm:h-5" />
           )}
         </motion.button>
         
         {/* Close button */}
         <motion.button
           onClick={toggleCommandCenter}
-          className="w-16 h-16 sm:w-18 sm:h-18 bg-transparent text-gray-600 dark:text-gray-400 rounded-full border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 flex items-center justify-center"
+          className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-transparent text-gray-600 dark:text-gray-400 rounded-full border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 flex items-center justify-center"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           title="Close AI Assistant"
         >
-          <X className="w-6 h-6" />
+          <X className="w-4 h-4 sm:w-5 sm:h-5" />
         </motion.button>
         
       </div>

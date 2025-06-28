@@ -9,7 +9,7 @@ import { TasksKanban } from '@/components/dashboard/TasksKanban'
 import { SuggestionsPanel } from '@/components/dashboard/SuggestionsPanel'
 import { Calendar, CheckSquare, Inbox, Sparkles, TrendingUp } from 'lucide-react'
 import { FloatingActionButton } from '@/components/dashboard/FloatingActionButton'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { layoutTransition } from '@/lib/utils/animations'
 import { 
   generateDashboardCards,
@@ -21,7 +21,7 @@ import {
   BillingUsageDto 
 } from '@/lib/api'
 import { useWebSocketUpdates, useWebSocketNotifications } from '@/lib/websocket/websocket.service'
-import { useResponsiveLayout } from '@/lib/hooks/useResponsiveLayout'
+import { useAICommandCenter } from '@/lib/stores/aiCommandCenterStore'
 
 // Transform BillingUsageDto to UsageMetrics for dashboard compatibility
 const transformBillingUsageToMetrics = (billingUsage: BillingUsageDto): UsageMetrics => {
@@ -47,7 +47,7 @@ const transformBillingUsageToMetrics = (billingUsage: BillingUsageDto): UsageMet
 
 export default function DashboardPage() {
   const { data: session } = useSession()
-  const layout = useResponsiveLayout()
+  const { isOpen: isCommandCenterOpen } = useAICommandCenter()
 
   // Fetch real data from APIs
   const { stats: taskStats, isLoading: tasksLoading, error: tasksError, mutate: refreshTasks } = useTaskStats()
@@ -198,22 +198,22 @@ export default function DashboardPage() {
       <motion.div 
         layout
         transition={layoutTransition}
-        className={`relative ${layout.spacing} container mx-auto ${layout.containerPadding}`}
+        className={`relative space-y-4 sm:space-y-6 ${isCommandCenterOpen ? '' : 'container mx-auto px-3 sm:px-4 lg:px-8'}`}
       >
         {/* Welcome Header - Responsive */}
-        <div className={`liquid-glass-accent rounded-2xl ${layout.cardPadding}`}>
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
-          <div className="relative flex items-center justify-between">
-            <div className="flex-1">
-              <h1 className={`${layout.textSizes.h1} font-bold text-gray-900 dark:text-gray-100 tracking-tight`}>
+        <div className="liquid-glass-accent rounded-xl sm:rounded-2xl p-4 sm:p-5 lg:p-6">
+          <div className="absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+          <div className="relative flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
                 {welcomeMessage()}, {session?.user?.name?.split(' ')[0] || 'there'}!
               </h1>
-              <p className={`${layout.textSizes.body} text-gray-600 dark:text-gray-300 mt-1 leading-relaxed max-w-2xl`}>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-1 leading-relaxed line-clamp-2 sm:line-clamp-none">
                 Your AI chief of staff is here to help. Review your insights below or click the brain to get started.
               </p>
             </div>
-            <div className={`${layout.isCompressed ? 'w-8 h-8 sm:w-10 sm:h-10' : 'w-10 h-10 sm:w-12 sm:h-12'} bg-black dark:bg-white rounded-xl flex items-center justify-center shadow-lg shadow-black/25 dark:shadow-white/25 ml-4`}>
-              <Sparkles className={`${layout.isCompressed ? 'w-4 h-4 sm:w-5 sm:h-5' : 'w-5 h-5 sm:w-6 sm:h-6'} text-white dark:text-black`} />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-black dark:bg-white rounded-xl flex items-center justify-center shadow-lg shadow-black/25 dark:shadow-white/25 flex-shrink-0">
+              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white dark:text-black" />
             </div>
           </div>
         </div>
@@ -222,7 +222,7 @@ export default function DashboardPage() {
         <motion.div 
           layout
           transition={layoutTransition}
-          className={`grid ${layout.gridCols.cards} ${layout.gridGap}`}
+          className={`grid grid-cols-1 sm:grid-cols-2 ${isCommandCenterOpen ? 'lg:grid-cols-2' : 'lg:grid-cols-4'} gap-3 sm:gap-4`}
         >
           {isLoading ? (
             // Loading skeleton with landing page style
@@ -274,24 +274,24 @@ export default function DashboardPage() {
         <motion.div 
           layout
           transition={layoutTransition}
-          className={`grid ${layout.gridCols.main} ${layout.gridGap}`}
+          className={`grid grid-cols-1 ${isCommandCenterOpen ? 'lg:grid-cols-1' : 'lg:grid-cols-4'} gap-3 sm:gap-4`}
         >
           {/* Tasks Section */}
-          <div className={`${layout.isCompressed ? 'space-y-3' : 'space-y-4 lg:col-span-2'}`}>
+          <div className={`col-span-1 ${isCommandCenterOpen ? 'lg:col-span-1' : 'lg:col-span-3'} space-y-3 sm:space-y-4`}>
             <div className="flex items-center justify-between mb-2">
-              <h2 className={`${layout.textSizes.h2} font-bold text-gray-900 dark:text-gray-100 tracking-tight`}>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
                 Your Tasks
               </h2>
-              <span className={`${layout.textSizes.small} text-gray-500 dark:text-gray-400`}>Drag & drop to organize</span>
+              <span className="hidden sm:inline text-xs sm:text-sm text-gray-500 dark:text-gray-400">Drag & drop</span>
             </div>
             <TasksKanban />
           </div>
 
-          {/* Context Section - Stack on mobile when compressed */}
-          {!layout.isCompressed && (
-            <div className="space-y-4">
+          {/* Context Section - Desktop */}
+          {!isCommandCenterOpen && (
+            <div className="hidden lg:block col-span-1 space-y-3 sm:space-y-4">
               <div className="flex items-center justify-between mb-2">
-                <h2 className={`${layout.textSizes.h2} font-bold text-gray-900 dark:text-gray-100 tracking-tight`}>
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
                   Today's Context
                 </h2>
               </div>
@@ -302,29 +302,21 @@ export default function DashboardPage() {
           )}
         </motion.div>
 
-        {/* Context Section - When compressed, show as separate section */}
-        <AnimatePresence>
-          {layout.isCompressed && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={layoutTransition}
-              className="space-y-3"
-            >
-            <div className="flex items-center justify-between mb-2">
-              <h2 className={`${layout.textSizes.h2} font-bold text-gray-900 dark:text-gray-100 tracking-tight`}>
-                Today's Context
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <CalendarWidget />
-              <InboxWidget />
-              <SuggestionsPanel />
-            </div>
-          </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Context Section - Mobile and Command Center Open */}
+        <motion.div 
+          className={isCommandCenterOpen ? "space-y-3" : "lg:hidden space-y-3"}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+              Today's Context
+            </h2>
+          </div>
+          <div className={`grid grid-cols-1 ${isCommandCenterOpen ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3`}>
+            <CalendarWidget />
+            <InboxWidget />
+            <SuggestionsPanel />
+          </div>
+        </motion.div>
       </motion.div>
 
       {/* Floating Action Button */}

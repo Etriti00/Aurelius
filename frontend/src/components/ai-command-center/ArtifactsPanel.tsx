@@ -120,7 +120,7 @@ function ActionConfirmation({ action }: { action: PendingAction }) {
 }
 
 export function ArtifactsPanel() {
-  const { artifacts, pendingActions, messages, isProcessing } = useAICommandCenter()
+  const { artifacts, pendingActions, messages, isProcessing, currentContext } = useAICommandCenter()
   
   // Show messages if no artifacts
   const showMessages = artifacts.length === 0 && messages.length > 0
@@ -128,9 +128,24 @@ export function ArtifactsPanel() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          AI Assistant
-        </h3>
+        <div>
+          {currentContext ? (
+            <div className="lg:hidden">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
+                {currentContext.page}
+              </h3>
+              {currentContext.selectedItem && !currentContext.selectedItem.includes('radix-') && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                  {currentContext.selectedItem}
+                </p>
+              )}
+            </div>
+          ) : (
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white lg:hidden">
+              Smart Context
+            </h3>
+          )}
+        </div>
         {isProcessing && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -162,14 +177,14 @@ export function ArtifactsPanel() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               className={cn(
-                "p-4 rounded-xl",
+                "p-3 sm:p-4 rounded-xl max-w-[85%]",
                 message.role === 'user'
-                  ? "ml-8 liquid-glass-accent text-gray-900 dark:text-gray-100"
-                  : "mr-8"
+                  ? "ml-auto liquid-glass-accent text-gray-900 dark:text-gray-100"
+                  : "mr-auto bg-gray-50 dark:bg-gray-800/50"
               )}
             >
               <p className={cn(
-                "text-sm",
+                "text-xs sm:text-sm break-words",
                 message.role === 'user' 
                   ? "text-gray-900 dark:text-gray-100" 
                   : "text-gray-700 dark:text-gray-300"
@@ -177,7 +192,7 @@ export function ArtifactsPanel() {
                 {message.content}
               </p>
               <p className={cn(
-                "text-xs mt-1",
+                "text-[10px] sm:text-xs mt-1",
                 message.role === 'user'
                   ? "text-gray-600 dark:text-gray-400"
                   : "text-gray-500 dark:text-gray-500"
@@ -194,13 +209,13 @@ export function ArtifactsPanel() {
               animate={{ opacity: 1 }}
               className="flex flex-col items-center justify-center h-full text-center px-4"
             >
-              <div className="p-4 liquid-glass-subtle rounded-full mb-4">
-                <FileText className="w-8 h-8 text-gray-400 dark:text-gray-600" />
+              <div className="p-3 sm:p-4 liquid-glass-subtle rounded-full mb-3 sm:mb-4">
+                <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 dark:text-gray-600" />
               </div>
-              <p className="text-gray-600 dark:text-gray-400 mb-2">
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-1 sm:mb-2">
                 No responses yet
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-500">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-500">
                 Ask Aurelius anything and responses will appear here
               </p>
             </motion.div>

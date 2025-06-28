@@ -14,6 +14,7 @@ import {
   getEmailImportance,
   EmailThread 
 } from '@/lib/api'
+import { useAICommandCenter } from '@/lib/stores/aiCommandCenterStore'
 
 // Mock data for fallback when API is not available
 const mockRecentEmails: EmailThread[] = [
@@ -101,6 +102,7 @@ export function InboxWidget() {
   // Fetch real email threads from API
   const { threads: apiThreads, isLoading, error, refresh } = useRecentThreads(5)
   const { markThreadAsRead } = useEmailMutations()
+  const { isOpen: isCommandCenterOpen } = useAICommandCenter()
   
   // Use real data if available, otherwise fallback to mock data
   const emailThreads = error || !apiThreads ? mockRecentEmails : apiThreads
@@ -120,33 +122,47 @@ export function InboxWidget() {
       
       <div className="relative">
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-3">
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight flex items-center">
-              <div className="w-8 h-8 bg-black dark:bg-white rounded-lg flex items-center justify-center mr-3 shadow-lg shadow-black/25 dark:shadow-white/25">
-                <Inbox className="w-4 h-4 text-white dark:text-black" />
-              </div>
-              Recent Emails
+          <div className="flex items-center gap-3">
+            <div className={`${isCommandCenterOpen ? 'w-6 h-6 lg:w-7 lg:h-7' : 'w-8 h-8'} bg-black dark:bg-white rounded-lg flex items-center justify-center shadow-lg shadow-black/25 dark:shadow-white/25 flex-shrink-0`}>
+              <Inbox className={`${isCommandCenterOpen ? 'w-3 h-3 lg:w-3.5 lg:h-3.5' : 'w-4 h-4'} text-white dark:text-black`} />
+            </div>
+            <h3 className={`${isCommandCenterOpen ? 'text-base lg:text-lg' : 'text-lg sm:text-xl'} font-bold text-gray-900 dark:text-gray-100 tracking-tight whitespace-nowrap`}>
+              {isCommandCenterOpen ? (
+                <>
+                  <span className="hidden sm:inline">Recent Emails</span>
+                  <span className="sm:hidden">Emails</span>
+                </>
+              ) : (
+                'Recent Emails'
+              )}
             </h3>
-            {isLoading && (
-              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-                <Loader2 className="w-4 h-4 animate-spin" />
-              </div>
+          </div>
+          {/* Centered status indicators */}
+          <div className="flex-1 flex justify-center items-center">
+            {isLoading && !error && (
+              <Loader2 className="w-4 h-4 animate-spin text-gray-500 dark:text-gray-400" />
             )}
-            {error && (
-              <div className="flex items-center space-x-2 text-sm text-amber-600 dark:text-amber-400">
-                <AlertCircle className="w-4 h-4" />
-              </div>
+            {error && !isLoading && (
+              <span title="Using cached data">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              </span>
             )}
           </div>
-          <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-sm font-medium rounded-full">
-            {emailThreads.filter(thread => isThreadUnread(thread)).length} unread
+          {/* Right side badge */}
+          <div className="flex items-center">{" "}
+            <div className={`${isCommandCenterOpen ? 'px-2 py-0.5 text-xs' : 'px-3 py-1.5 text-sm'} bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium rounded-full flex-shrink-0`}>
+            <span className={isCommandCenterOpen ? 'hidden sm:inline' : ''}>{emailThreads.filter(thread => isThreadUnread(thread)).length} unread</span>
+            <span className={isCommandCenterOpen ? 'sm:hidden' : 'hidden'}>{emailThreads.filter(thread => isThreadUnread(thread)).length}</span>
+            </div>
           </div>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-3 min-h-[300px] sm:min-h-[400px] max-h-[400px] sm:max-h-[500px] overflow-y-auto pr-2 styled-scrollbar">
         {emailThreads.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            <Inbox className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-            <p className="text-sm">No recent emails</p>
+          <div className="flex items-center justify-center min-h-[260px] sm:min-h-[360px]">
+            <div className="text-center text-gray-500 dark:text-gray-400">
+              <Inbox className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+              <p className="text-sm">No recent emails</p>
+            </div>
           </div>
         ) : (
           emailThreads.map((thread, index) => {
@@ -226,7 +242,7 @@ export function InboxWidget() {
             // Navigate to full inbox view
             window.location.href = '/email'
           }}
-          className="w-full px-4 py-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold rounded-2xl shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-2 group"
+          className="w-full px-4 py-2.5 bg-gradient-to-r from-gray-900 to-black dark:from-gray-100 dark:to-white text-white dark:text-black text-sm font-semibold rounded-xl shadow-lg shadow-black/20 dark:shadow-white/20 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.01] transition-all duration-200 flex items-center justify-center space-x-2 group"
         >
           <span>Open Inbox</span>
           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />

@@ -108,16 +108,23 @@ const getSelectedItemFromDOM = (): string | undefined => {
   // Look for selected items in the DOM
   const selectedElement = document.querySelector('[data-selected="true"]')
   if (selectedElement) {
-    return selectedElement.getAttribute('data-item-id') || undefined
+    const itemId = selectedElement.getAttribute('data-item-id')
+    if (itemId && !itemId.includes('radix-')) {
+      return itemId
+    }
   }
   
-  // Check for active/selected classes
-  const activeElement = document.querySelector('.selected, .active-item, [aria-selected="true"]')
+  // Check for active/selected classes, but exclude tab triggers
+  const activeElement = document.querySelector('.selected, .active-item, [aria-selected="true"]:not([role="tab"])')
   if (activeElement) {
-    return activeElement.getAttribute('data-id') || 
-           activeElement.getAttribute('data-item-id') || 
-           activeElement.id || 
-           undefined
+    const dataId = activeElement.getAttribute('data-id')
+    const dataItemId = activeElement.getAttribute('data-item-id')
+    const id = activeElement.id
+    
+    // Return the first non-radix ID found
+    if (dataId && !dataId.includes('radix-')) return dataId
+    if (dataItemId && !dataItemId.includes('radix-')) return dataItemId
+    if (id && !id.includes('radix-')) return id
   }
   
   return undefined

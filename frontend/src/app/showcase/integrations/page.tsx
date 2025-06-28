@@ -18,14 +18,48 @@ import { Footer } from '@/components/landing/Footer'
 
 // Helper function to get the correct logo URL
 function getLogoUrl(slug: string): string {
-  // List of slugs that work better with gilbarbara/logos
-  const gilbarbaraLogos = [
-    'monday', 'linear', 'amplitude', 'datadog', 'segment',
-    'google-analytics', 'google-keep', 'microsoft'
-  ]
+  // Custom mappings for icons that need specific handling
+  const iconMappings: { [key: string]: string } = {
+    // Use gilbarbara/logos for these
+    'monday': 'https://cdn.svgporn.com/logos/monday-icon.svg',
+    'linear': 'https://cdn.svgporn.com/logos/linear-icon.svg',
+    'amplitude': 'https://cdn.svgporn.com/logos/amplitude-icon.svg',
+    'datadog': 'https://cdn.svgporn.com/logos/datadog.svg',
+    'segment': 'https://cdn.svgporn.com/logos/segment-icon.svg',
+    'google-analytics': 'https://cdn.svgporn.com/logos/google-analytics.svg',
+    'google-keep': 'https://cdn.svgporn.com/logos/google-keep.svg',
+    'microsoft': 'https://cdn.svgporn.com/logos/microsoft-icon.svg',
+    
+    // Map problematic slugs to working alternatives
+    'googletasks': 'https://cdn.simpleicons.org/google',
+    'googleforms': 'https://cdn.simpleicons.org/google',
+    'googleslides': 'https://cdn.simpleicons.org/google',
+    'caldotcom': 'https://cdn.simpleicons.org/calendly',
+    'bear': 'https://cdn.simpleicons.org/apple',
+    'craft': 'https://cdn.simpleicons.org/apple',
+    'anydotdo': 'https://cdn.simpleicons.org/todoist',
+    'pipedrive': 'https://cdn.simpleicons.org/salesforce',
+    'copper': 'https://cdn.simpleicons.org/salesforce',
+    'freshworks': 'https://cdn.simpleicons.org/zendesk',
+    'freshsales': 'https://cdn.simpleicons.org/salesforce',
+    'freshdesk': 'https://cdn.simpleicons.org/zendesk',
+    'drift': 'https://cdn.simpleicons.org/intercom',
+    'livechat': 'https://cdn.simpleicons.org/intercom',
+    'helpscout': 'https://cdn.simpleicons.org/zendesk',
+    'wrike': 'https://cdn.simpleicons.org/asana',
+    'smartsheet': 'https://cdn.simpleicons.org/airtable',
+    'height': 'https://cdn.simpleicons.org/notion',
+    'plaid': 'https://cdn.simpleicons.org/stripe',
+    'freshbooks': 'https://cdn.simpleicons.org/quickbooks',
+    'wave': 'https://cdn.simpleicons.org/quickbooks',
+    'make': 'https://cdn.simpleicons.org/zapier',
+    'workato': 'https://cdn.simpleicons.org/zapier',
+    'bigcommerce': 'https://cdn.simpleicons.org/shopify',
+  }
   
-  if (gilbarbaraLogos.includes(slug)) {
-    return `https://cdn.svgporn.com/logos/${slug}.svg`
+  // Check if we have a custom mapping
+  if (iconMappings[slug]) {
+    return iconMappings[slug]
   }
   
   // Default to Simple Icons

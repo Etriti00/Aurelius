@@ -37,10 +37,12 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useResponsiveLayout } from '@/lib/hooks/useResponsiveLayout'
+import { useAICommandCenter } from '@/lib/stores/aiCommandCenterStore'
 
 export default function EmailPage() {
   const { data: session, status } = useSession()
   const layout = useResponsiveLayout()
+  const { isOpen: isCommandCenterOpen } = useAICommandCenter()
   const [selectedThread, setSelectedThread] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isComposing, setIsComposing] = useState(false)
@@ -241,17 +243,21 @@ export default function EmailPage() {
         <div className="absolute -right-96 top-1/2 w-[800px] h-[800px] bg-gradient-to-l from-slate-400/15 via-gray-400/10 to-transparent dark:from-purple-500/10 dark:via-purple-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '3s', animationDuration: '10s' }} />
       </div>
 
-      <div className="relative h-screen flex">
+      <div className={`${isCommandCenterOpen ? '' : 'container mx-auto px-3 sm:px-4 lg:px-8'}`}>
+        <div className="space-y-2 sm:space-y-4 lg:space-y-6">
+          {/* Email Container */}
+          <div className="liquid-glass-accent rounded-2xl sm:rounded-3xl overflow-hidden h-[calc(100vh-6rem)] sm:h-[calc(100vh-8rem)]">
+            <div className="relative h-full flex">
         {/* Sidebar - Email List */}
-        <div className={`${layout.isCompressed ? 'w-full lg:w-2/5' : 'w-1/3'} border-r border-gray-200 dark:border-gray-700 flex flex-col bg-white dark:bg-gray-900`}>
+        <div className={`${selectedThread || isComposing ? 'hidden lg:flex lg:w-2/5' : 'w-full lg:w-2/5'} flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700`}>
           {/* Header */}
-          <div className={`${layout.cardPadding} border-b border-gray-200 dark:border-gray-700`}>
-            <div className="flex items-center justify-between mb-4">
-              <h1 className={`${layout.textSizes.h1} font-bold text-gray-900 dark:text-white flex items-center gap-2`}>
-                <Inbox className="w-6 h-6" />
-                Email
+          <div className="p-2 sm:p-4 lg:p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2 sm:mb-4">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-1 sm:gap-2">
+                <Inbox className="w-5 h-5 ml-1" />
+                <span className="hidden sm:block">Email</span>
               </h1>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={handleStarToggle}
                   className={`p-2 rounded-lg shadow-lg transition-all duration-200 hover:scale-[1.02] ${
@@ -260,72 +266,71 @@ export default function EmailPage() {
                       : 'bg-black dark:bg-white text-white dark:text-black shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-black/30 dark:hover:shadow-white/30'
                   }`}
                 >
-                  <Star className={`w-4 h-4 ${starredOnly ? 'fill-current' : ''}`} />
+                  <Star className={`w-5 h-5 ${starredOnly ? 'fill-current' : ''}`} />
                 </button>
                 <button
                   onClick={toggleFilters}
                   className="p-2 bg-black dark:bg-white text-white dark:text-black rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
                 >
-                  <Filter className="w-4 h-4" />
+                  <Filter className="w-5 h-5" />
                 </button>
                 <button
                   onClick={handleRefresh}
                   disabled={threadsLoading}
                   className="p-2 bg-black dark:bg-white text-white dark:text-black rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <RefreshCw className={`w-4 h-4 ${threadsLoading ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-5 h-5 ${threadsLoading ? 'animate-spin' : ''}`} />
                 </button>
                 <button
                   onClick={handleCompose}
-                  className="px-3 py-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200 flex items-center space-x-2"
+                  className="p-2 bg-black dark:bg-white text-white dark:text-black rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Compose</span>
+                  <Plus className="w-5 h-5" />
                 </button>
               </div>
             </div>
             
             {/* Search */}
-            <div className={layout.isCompressed ? 'space-y-2' : 'space-y-3'}>
+            <div className="space-y-1.5 sm:space-y-3">
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400" />
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search emails..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`w-full pl-12 pr-4 ${layout.isCompressed ? 'py-1.5' : 'py-2'} backdrop-blur-xl bg-white/60 dark:bg-gray-800/60 border border-white/40 dark:border-gray-700/40 rounded-2xl shadow-lg focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 focus:border-white/60 dark:focus:border-gray-600/60 focus:bg-white/80 dark:focus:bg-gray-800/80 focus:shadow-xl transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 ${layout.textSizes.body}`}
+                  className="w-full pl-10 pr-4 py-2 backdrop-blur-xl bg-white/60 dark:bg-gray-800/60 border border-white/40 dark:border-gray-700/40 rounded-2xl shadow-lg focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 focus:border-white/60 dark:focus:border-gray-600/60 focus:bg-white/80 dark:focus:bg-gray-800/80 focus:shadow-xl transition-all duration-300 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 text-sm"
                 />
               </div>
               
               {showFilters && (
-                <div className={`flex items-center ${layout.isCompressed ? 'gap-1' : 'gap-2'}`}>
+                <div className="inline-flex items-center liquid-glass-subtle rounded-xl p-1">
                   <button
                     onClick={() => setCurrentFilter('all')}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${
                       currentFilter === 'all'
-                        ? 'bg-black dark:bg-white text-white dark:text-black shadow-lg shadow-black/25 dark:shadow-white/25'
-                        : 'bg-white/60 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 border border-white/40 dark:border-gray-700/40 hover:bg-white/80 dark:hover:bg-gray-800/80'
+                        ? 'bg-gray-900 dark:bg-white text-white dark:text-black shadow-lg'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
                     }`}
                   >
                     All
                   </button>
                   <button
                     onClick={() => setCurrentFilter('unread')}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${
                       currentFilter === 'unread'
-                        ? 'bg-black dark:bg-white text-white dark:text-black shadow-lg shadow-black/25 dark:shadow-white/25'
-                        : 'bg-white/60 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 border border-white/40 dark:border-gray-700/40 hover:bg-white/80 dark:hover:bg-gray-800/80'
+                        ? 'bg-gray-900 dark:bg-white text-white dark:text-black shadow-lg'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
                     }`}
                   >
                     Unread
                   </button>
                   <button
                     onClick={() => setCurrentFilter('starred')}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${
                       currentFilter === 'starred'
-                        ? 'bg-black dark:bg-white text-white dark:text-black shadow-lg shadow-black/25 dark:shadow-white/25'
-                        : 'bg-white/60 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 border border-white/40 dark:border-gray-700/40 hover:bg-white/80 dark:hover:bg-gray-800/80'
+                        ? 'bg-gray-900 dark:bg-white text-white dark:text-black shadow-lg'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
                     }`}
                   >
                     Starred
@@ -434,7 +439,7 @@ export default function EmailPage() {
         </div>
 
         {/* Main Content - Email Detail or Compose */}
-        <div className={`flex-1 flex flex-col bg-white dark:bg-gray-900 ${layout.isCompressed ? 'min-w-0' : ''}`}>
+        <div className={`${selectedThread || isComposing ? 'w-full lg:w-3/5' : 'hidden lg:flex lg:w-3/5'} flex flex-col bg-white dark:bg-gray-900`}>
           {isComposing ? (
             /* Compose Email */
             <>
@@ -540,7 +545,7 @@ export default function EmailPage() {
                       onClick={() => setSelectedThread(null)}
                       className="p-2 bg-black dark:bg-white text-white dark:text-black rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
                     >
-                      <ArrowLeft className="w-4 h-4" />
+                      <ArrowLeft className="w-5 h-5" />
                     </button>
                     <div>
                       <h2 className={`${layout.textSizes.h2} font-semibold text-gray-900 dark:text-white`}>{selectedThreadData.subject}</h2>
@@ -554,14 +559,14 @@ export default function EmailPage() {
                       onClick={handleAIAssist}
                       className="px-3 py-2 bg-black dark:bg-white text-white dark:text-black text-sm font-medium rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200 flex items-center gap-2"
                     >
-                      <Bot className="w-4 h-4" />
+                      <Bot className="w-5 h-5" />
                       AI Analyze
                     </button>
                     <button
                       onClick={() => handleArchive(selectedThread || '')}
                       className="p-2 bg-black dark:bg-white text-white dark:text-black rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
                     >
-                      <Archive className="w-4 h-4" />
+                      <Archive className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => {
@@ -572,7 +577,7 @@ export default function EmailPage() {
                       }}
                       className="p-2 bg-black dark:bg-white text-white dark:text-black rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
                     >
-                      <MoreHorizontal className="w-4 h-4" />
+                      <MoreHorizontal className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
@@ -598,9 +603,9 @@ export default function EmailPage() {
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleReply(message)}
-                              className="p-1.5 bg-black dark:bg-white text-white dark:text-black rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
+                              className="p-2 bg-black dark:bg-white text-white dark:text-black rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
                             >
-                              <Reply className="w-4 h-4" />
+                              <Reply className="w-5 h-5" />
                             </button>
                             <button
                               onClick={() => {
@@ -608,9 +613,9 @@ export default function EmailPage() {
                                 setEmailThreadTyping(selectedThreadData)
                                 handleForward(message)
                               }}
-                              className="p-1.5 bg-black dark:bg-white text-white dark:text-black rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
+                              className="p-2 bg-black dark:bg-white text-white dark:text-black rounded-lg shadow-lg shadow-black/25 dark:shadow-white/25 hover:bg-gray-900 dark:hover:bg-gray-100 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.02] transition-all duration-200"
                             >
-                              <Forward className="w-4 h-4" />
+                              <Forward className="w-5 h-5" />
                             </button>
                             {message.attachments && message.attachments.length > 0 && (
                               <Badge variant="outline" className="text-xs">
@@ -644,20 +649,10 @@ export default function EmailPage() {
                 </div>
               </div>
             </div>
-          ) : (
-            /* No Thread Selected */
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <Inbox className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                <h3 className={`${layout.textSizes.h3} font-medium text-gray-900 dark:text-white mb-2`}>
-                  Select an email to read
-                </h3>
-                <p className={`${layout.textSizes.body} text-gray-600 dark:text-gray-400`}>
-                  Choose an email from the list to view its content
-                </p>
-              </div>
+          ) : null}
             </div>
-          )}
+          </div>
+          </div>
         </div>
       </div>
     </div>
