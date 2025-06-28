@@ -99,7 +99,11 @@ export class OpenAIService {
       });
 
       const processingTime = Date.now() - startTime;
-      const usage = response.usage!;
+      const usage = response.usage;
+      
+      if (!usage) {
+        throw new AIException('No usage information returned from OpenAI', model);
+      }
 
       return {
         content: response.choices[0].message.content || '',
@@ -164,7 +168,11 @@ export class OpenAIService {
     }
   }
 
-  private calculateCost(model: string, usage: any): number {
+  private calculateCost(model: string, usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  }): number {
     // OpenAI pricing per 1M tokens (as of 2024)
     const pricing: Record<string, { input: number; output: number }> = {
       'gpt-4-turbo-preview': { input: 10, output: 30 },
@@ -180,7 +188,13 @@ export class OpenAIService {
     return Number((inputCost + outputCost).toFixed(6));
   }
 
-  private async *wrapStream(stream: any): AsyncIterable<string> {
+  private async *wrapStream(stream: AsyncIterable<{
+    choices: Array<{
+      delta?: {
+        content?: string;
+      };
+    }>;
+  }>): AsyncIterable<string> {
     for await (const chunk of stream) {
       if (chunk.choices[0]?.delta?.content) {
         yield chunk.choices[0].delta.content;

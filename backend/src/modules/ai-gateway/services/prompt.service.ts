@@ -182,7 +182,7 @@ Provide:
 
   async renderPrompt(
     templateId: string,
-    variables: Record<string, any>,
+    variables: Record<string, string | number | boolean | string[] | Record<string, unknown>>,
     context?: PromptContext
   ): Promise<string> {
     const template = await this.getTemplate(templateId);

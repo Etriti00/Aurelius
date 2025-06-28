@@ -50,10 +50,12 @@ export class ClaudeService {
         requestId: response.id,
         processingTime,
       };
-    } catch (error: any) {
-      this.logger.error(`Claude API error: ${error.message}`, error.stack);
-      throw new AIException(`Failed to generate response: ${error.message}`, model, {
-        originalError: error.message,
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Claude API error: ${errorMessage}`, errorStack);
+      throw new AIException(`Failed to generate response: ${errorMessage}`, model, {
+        originalError: errorMessage,
       });
     }
   }
@@ -82,10 +84,12 @@ export class ClaudeService {
         model,
         requestId: `stream-${Date.now()}`,
       };
-    } catch (error: any) {
-      this.logger.error(`Claude streaming error: ${error.message}`, error.stack);
-      throw new AIException(`Failed to generate stream: ${error.message}`, model, {
-        originalError: error.message,
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Claude streaming error: ${errorMessage}`, errorStack);
+      throw new AIException(`Failed to generate stream: ${errorMessage}`, model, {
+        originalError: errorMessage,
       });
     }
   }
@@ -125,10 +129,12 @@ export class ClaudeService {
         requestId: response.id,
         processingTime,
       };
-    } catch (error: any) {
-      this.logger.error(`Claude conversation analysis error: ${error.message}`, error.stack);
-      throw new AIException(`Failed to analyze conversation: ${error.message}`, model, {
-        originalError: error.message,
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Claude conversation analysis error: ${errorMessage}`, errorStack);
+      throw new AIException(`Failed to analyze conversation: ${errorMessage}`, model, {
+        originalError: errorMessage,
       });
     }
   }
@@ -174,9 +180,20 @@ export class ClaudeService {
     );
   }
 
-  private async *wrapStream(stream: AsyncIterable<any>): AsyncIterable<string> {
+  private async *wrapStream(stream: AsyncIterable<unknown>): AsyncIterable<string> {
     for await (const chunk of stream) {
-      if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+      // Type-safe chunk handling
+      if (
+        typeof chunk === 'object' &&
+        chunk &&
+        'type' in chunk &&
+        chunk.type === 'content_block_delta' &&
+        'delta' in chunk &&
+        typeof chunk.delta === 'object' &&
+        chunk.delta &&
+        'text' in chunk.delta &&
+        typeof chunk.delta.text === 'string'
+      ) {
         yield chunk.delta.text;
       }
     }

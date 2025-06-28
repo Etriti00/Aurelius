@@ -22,6 +22,33 @@ interface UsageStats {
   actionBreakdown: Record<string, number>;
 }
 
+interface SystemUsageStats {
+  overview: {
+    totalActions: number;
+    totalCost: number;
+    totalTokens: number;
+    avgDuration: number;
+  };
+  costByModel: Array<{
+    model: string;
+    _sum: {
+      totalCost: number | null;
+    };
+    _count: {
+      id: number;
+    };
+  }>;
+  topUsers: Array<{
+    userId: string;
+    _sum: {
+      totalCost: number | null;
+    };
+    _count: {
+      id: number;
+    };
+  }>;
+}
+
 @Injectable()
 export class AIUsageTrackingService {
   private readonly logger = new Logger(AIUsageTrackingService.name);
@@ -57,7 +84,13 @@ export class AIUsageTrackingService {
   }
 
   async getUserUsageStats(userId: string, startDate?: Date, endDate?: Date): Promise<UsageStats> {
-    const whereClause: any = { userId };
+    const whereClause: {
+      userId: string;
+      createdAt?: {
+        gte?: Date;
+        lte?: Date;
+      };
+    } = { userId };
 
     if (startDate || endDate) {
       whereClause.createdAt = {};
@@ -141,8 +174,13 @@ export class AIUsageTrackingService {
     return usage.actionsUsed < usage.limit;
   }
 
-  async getSystemUsageStats(startDate?: Date, endDate?: Date): Promise<any> {
-    const whereClause: any = {};
+  async getSystemUsageStats(startDate?: Date, endDate?: Date): Promise<SystemUsageStats> {
+    const whereClause: {
+      createdAt?: {
+        gte?: Date;
+        lte?: Date;
+      };
+    } = {};
 
     if (startDate || endDate) {
       whereClause.createdAt = {};
@@ -202,8 +240,18 @@ export class AIUsageTrackingService {
         totalTokens: (totalUsage._sum.inputTokens || 0) + (totalUsage._sum.outputTokens || 0),
         avgDuration: totalUsage._avg.duration || 0,
       },
-      costByModel,
-      topUsers,
+      costByModel: costByModel.map(item => ({
+        ...item,
+        _sum: {
+          totalCost: item._sum.totalCost?.toNumber() || 0,
+        },
+      })),
+      topUsers: topUsers.map(item => ({
+        ...item,
+        _sum: {
+          totalCost: item._sum.totalCost?.toNumber() || 0,
+        },
+      })),
     };
   }
 
