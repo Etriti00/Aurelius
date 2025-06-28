@@ -29,7 +29,7 @@ export class FileResponseDto {
   key: string;
 
   @ApiPropertyOptional({ description: 'File metadata' })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean>;
 
   @ApiProperty({ description: 'Upload timestamp' })
   uploadedAt: Date;

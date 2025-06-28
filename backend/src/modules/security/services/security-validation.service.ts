@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as validator from 'validator';
+import * as crypto from 'crypto';
 
 interface ValidationResult {
   isValid: boolean;
   errors: string[];
-  sanitized?: any;
+  sanitized?: string | object;
 }
 
 @Injectable()
@@ -288,7 +289,7 @@ export class SecurityValidationService {
   /**
    * Validate NoSQL injection attempts
    */
-  detectNoSqlInjection(input: any): boolean {
+  detectNoSqlInjection(input: unknown): boolean {
     if (typeof input === 'string') {
       const noSqlPatterns = [
         /\$\w+/, // MongoDB operators
@@ -353,7 +354,7 @@ export class SecurityValidationService {
    * Generate CSRF token
    */
   generateCsrfToken(): string {
-    return validator.escape(require('crypto').randomBytes(32).toString('hex'));
+    return validator.escape(crypto.randomBytes(32).toString('hex'));
   }
 
   /**
@@ -365,13 +366,13 @@ export class SecurityValidationService {
     }
 
     // Use timing-safe comparison
-    return require('crypto').timingSafeEqual(Buffer.from(token), Buffer.from(expectedToken));
+    return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expectedToken));
   }
 
   /**
    * Get object depth
    */
-  private getObjectDepth(obj: any): number {
+  private getObjectDepth(obj: unknown): number {
     if (typeof obj !== 'object' || obj === null) {
       return 0;
     }

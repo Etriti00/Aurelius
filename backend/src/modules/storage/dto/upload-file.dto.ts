@@ -3,7 +3,7 @@ import { IsString, IsOptional, IsObject, MaxLength, IsBoolean } from 'class-vali
 
 export class UploadFileDto {
   @ApiProperty({ type: 'string', format: 'binary', description: 'File to upload' })
-  file: any;
+  file: Express.Multer.File;
 
   @ApiPropertyOptional({ description: 'Custom filename' })
   @IsString()
@@ -24,7 +24,7 @@ export class UploadFileDto {
   @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsObject()
   @IsOptional()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean>;
 }
 
 export class UploadMultipleFilesDto {
@@ -33,7 +33,7 @@ export class UploadMultipleFilesDto {
     items: { type: 'string', format: 'binary' },
     description: 'Files to upload',
   })
-  files: any[];
+  files: Express.Multer.File[];
 
   @ApiPropertyOptional({ description: 'Folder path' })
   @IsString()

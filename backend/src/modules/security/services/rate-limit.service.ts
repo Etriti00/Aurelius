@@ -5,7 +5,7 @@ export interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
   max: number; // Maximum number of requests
   message?: string; // Error message
-  keyGenerator?: (req: any) => string; // Custom key generator
+  keyGenerator?: (req: Express.Request) => string; // Custom key generator
   skipSuccessfulRequests?: boolean; // Don't count successful requests
   skipFailedRequests?: boolean; // Don't count failed requests
 }
