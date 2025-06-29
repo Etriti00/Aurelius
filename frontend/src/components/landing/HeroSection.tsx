@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowRight, Play, Sparkles, Zap, Shield, Globe, Brain } from 'lucide-react'
 import { LiquidGlassIcon } from '@/components/shared/LiquidGlassIcon'
 import { useRef, Suspense } from 'react'
-import { Brain3D } from './Brain3D'
+import { Brain3D } from '@/components/shared/LazyComponents'
 
 export function HeroSection() {
   const containerRef = useRef<HTMLDivElement>(null)

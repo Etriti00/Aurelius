@@ -82,6 +82,12 @@ model User {
   emailThreads       EmailThread[]
   files              File[]
   
+  // PHASE 3.3: API Key Management
+  apiKeys            ApiKey[]
+  apiKeyUsageLogs    ApiKeyUsageLog[]
+  createdApiKeys     ApiKey[] @relation("ApiKeyCreator")
+  revokedApiKeys     ApiKey[] @relation("ApiKeyRevoker")
+  
   @@index([email])
   @@index([stripeCustomerId])
   @@index([lastActiveAt])
@@ -951,4 +957,147 @@ model SyncConflict {
   @@index([integrationId])
   @@index([resourceType])
   @@index([conflictType])
+}
+
+// PHASE 3.3: API Key Management Models
+model ApiKey {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Basic info
+  name            String
+  description     String?
+  keyHash         String   @unique
+  keyPrefix       String
+  scopes          String[] @default([])
+  permissions     Json     @default("{}")
+  
+  // Status and lifecycle
+  isActive        Boolean  @default(true)
+  isRevoked       Boolean  @default(false)
+  revokedAt       DateTime?
+  revokedBy       String?
+  revokedByUser   User?    @relation("ApiKeyRevoker", fields: [revokedBy], references: [id], onDelete: SetNull)
+  revokeReason    String?
+  
+  // Usage tracking
+  usageCount      Int      @default(0)
+  lastUsedAt      DateTime?
+  lastUsedIP      String?
+  lastUsedUserAgent String?
+  
+  // Rate limiting
+  rateLimit       Int?     @default(1000) // requests per hour
+  rateLimitWindow Int?     @default(3600) // seconds
+  rateLimitReset  DateTime?
+  
+  // Security
+  allowedIPs      String[] @default([])
+  allowedDomains  String[] @default([])
+  requiredHeaders Json     @default("{}")
+  
+  // Expiration
+  expiresAt       DateTime?
+  expirationWarned Boolean @default(false)
+  
+  // Metadata
+  environment     String   @default("production") // production, staging, development
+  tags            String[] @default([])
+  metadata        Json     @default("{}")
+  
+  // Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String?
+  createdByUser   User?    @relation("ApiKeyCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  
+  // Relations
+  usageLogs       ApiKeyUsageLog[]
+  rateLimits      ApiKeyRateLimit[]
+  
+  @@index([userId])
+  @@index([keyHash])
+  @@index([keyPrefix])
+  @@index([isActive])
+  @@index([isRevoked])
+  @@index([expiresAt])
+  @@index([lastUsedAt])
+  @@index([environment])
+  @@index([createdAt])
+  @@index([userId, isActive])
+  @@index([keyHash, isActive])
+}
+
+model ApiKeyUsageLog {
+  id              String   @id @default(cuid())
+  apiKeyId        String
+  apiKey          ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Request details
+  method          String
+  endpoint        String
+  ipAddress       String?
+  userAgent       String?
+  referer         String?
+  
+  // Response details
+  statusCode      Int
+  responseTime    Int?     // milliseconds
+  requestSize     Int?     // bytes
+  responseSize    Int?     // bytes
+  
+  // Security
+  blocked         Boolean  @default(false)
+  blockReason     String?
+  riskScore       Float?   @default(0.0) // 0.0 to 1.0
+  
+  // Metadata
+  requestHeaders  Json     @default("{}")
+  requestBody     String?
+  responseBody    String?
+  errorMessage    String?
+  metadata        Json     @default("{}")
+  
+  // Timestamp
+  timestamp       DateTime @default(now())
+  
+  @@index([apiKeyId])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([ipAddress])
+  @@index([endpoint])
+  @@index([statusCode])
+  @@index([blocked])
+  @@index([apiKeyId, timestamp])
+}
+
+model ApiKeyRateLimit {
+  id              String   @id @default(cuid())
+  apiKeyId        String
+  apiKey          ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  ipAddress       String?
+  endpoint        String?
+  
+  // Rate limit tracking
+  requestCount    Int      @default(0)
+  windowStart     DateTime
+  windowEnd       DateTime
+  limitExceeded   Boolean  @default(false)
+  blockedUntil    DateTime?
+  
+  // Metadata
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([apiKeyId])
+  @@index([ipAddress])
+  @@index([endpoint])
+  @@index([windowStart])
+  @@index([windowEnd])
+  @@index([blockedUntil])
+  @@index([apiKeyId, windowStart])
 }

@@ -1,14 +1,20 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { CacheModule } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
 import { WinstonModule } from 'nest-winston';
+import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import * as winston from 'winston';
 import { redisStore } from 'cache-manager-redis-store';
 import type { CacheModuleOptions } from '@nestjs/cache-manager';
 import { CsrfMiddleware } from './middleware/csrf.middleware';
+
+// Common modules
+import { CommonModule } from './common/common.module';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -114,6 +120,9 @@ import { AppService } from './app.service';
     // Queue Registrations
     BullModule.registerQueue({ name: 'ai-processing' }, { name: 'proactivity' }),
 
+    // Common modules (logging, health, metrics, etc.)
+    CommonModule,
+
     // Core Modules
     PrismaModule,
     AuthModule,
@@ -142,10 +151,24 @@ import { AppService } from './app.service';
     WorkflowModule,
   ],
   controllers: [AppController],
-  providers: [AppService, ProactivityEngineService],
+  providers: [
+    AppService,
+    ProactivityEngineService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: GlobalExceptionFilter,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
+    // Apply request logging middleware to all routes
+    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+
     // Apply CSRF middleware to all routes except those excluded in the middleware itself
     consumer.apply(CsrfMiddleware).forRoutes('*');
   }

@@ -3,12 +3,8 @@
 import React from 'react'
 import { useSession } from 'next-auth/react'
 import { OverviewCard } from '@/components/dashboard/OverviewCard'
-import { CalendarWidget } from '@/components/dashboard/CalendarWidget'
-import { InboxWidget } from '@/components/dashboard/InboxWidget'
-import { TasksKanban } from '@/components/dashboard/TasksKanban'
-import { SuggestionsPanel } from '@/components/dashboard/SuggestionsPanel'
+import { CalendarWidget, InboxWidget, TasksKanban, SuggestionsPanel, FloatingActionButton } from '@/components/shared/LazyComponents'
 import { Calendar, CheckSquare, Inbox, Sparkles, TrendingUp } from 'lucide-react'
-import { FloatingActionButton } from '@/components/dashboard/FloatingActionButton'
 import { motion } from 'framer-motion'
 import { layoutTransition } from '@/lib/utils/animations'
 import { 

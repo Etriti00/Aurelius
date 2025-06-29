@@ -1,6 +1,6 @@
 'use client'
 
-// UI imports removed as using custom styling
+import React, { useMemo, useCallback } from 'react'
 import { TrendingUp, TrendingDown, Minus, LucideIcon } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -12,8 +12,9 @@ interface OverviewCardProps {
   trend: 'up' | 'down' | 'neutral'
 }
 
-export function OverviewCard({ title, value, change, icon: Icon, trend }: OverviewCardProps) {
-  const getTrendIcon = () => {
+export const OverviewCard = React.memo<OverviewCardProps>(({ title, value, change, icon: Icon, trend }) => {
+  // Memoize expensive trend icon calculation
+  const trendIcon = useMemo(() => {
     switch (trend) {
       case 'up':
         return <TrendingUp className="w-3 h-3" />
@@ -22,9 +23,10 @@ export function OverviewCard({ title, value, change, icon: Icon, trend }: Overvi
       default:
         return <Minus className="w-3 h-3" />
     }
-  }
+  }, [trend]);
 
-  const getTrendColor = () => {
+  // Memoize expensive trend color calculation
+  const trendColor = useMemo(() => {
     switch (trend) {
       case 'up':
         return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30'
@@ -33,27 +35,30 @@ export function OverviewCard({ title, value, change, icon: Icon, trend }: Overvi
       default:
         return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50'
     }
-  }
+  }, [trend]);
 
-  const handleCardClick = () => {
+  // Memoize click handler to prevent unnecessary re-renders
+  const handleCardClick = useCallback(() => {
     // Navigate to detailed view based on card title
-    switch (title.toLowerCase()) {
+    const titleLower = title.toLowerCase();
+    
+    switch (titleLower) {
       case "today's tasks":
-        window.location.href = '/dashboard#tasks'
-        break
+        window.location.href = '/dashboard#tasks';
+        break;
       case 'unread emails':
-        window.location.href = '/email'
-        break
+        window.location.href = '/email';
+        break;
       case 'meetings today':
-        window.location.href = '/calendar'
-        break
+        window.location.href = '/calendar';
+        break;
       case 'ai actions':
-        alert(`AI Actions Usage: ${value}\n${change}\n\nView detailed usage in billing section.`)
-        break
+        alert(`AI Actions Usage: ${value}\n${change}\n\nView detailed usage in billing section.`);
+        break;
       default:
-        alert(`${title}: ${value}\n${change}`)
+        alert(`${title}: ${value}\n${change}`);
     }
-  }
+  }, [title, value, change]);
 
   return (
     <motion.div
@@ -75,8 +80,8 @@ export function OverviewCard({ title, value, change, icon: Icon, trend }: Overvi
             <div className="space-y-1 sm:space-y-1.5 flex-1 min-w-0">
               <p className="text-xs font-medium text-gray-600 dark:text-gray-400 line-clamp-1">{title}</p>
               <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{value}</p>
-              <div className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium ${getTrendColor()}`}>
-                {getTrendIcon()}
+              <div className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium ${trendColor}`}>
+                {trendIcon}
                 <span className="ml-1 truncate max-w-[80px] sm:max-w-[120px]">{change}</span>
               </div>
             </div>
@@ -87,5 +92,7 @@ export function OverviewCard({ title, value, change, icon: Icon, trend }: Overvi
         </div>
       </button>
     </motion.div>
-  )
-}
+  );
+});
+
+OverviewCard.displayName = 'OverviewCard';

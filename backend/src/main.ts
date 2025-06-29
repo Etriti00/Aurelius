@@ -8,10 +8,15 @@ import compression from 'compression';
 
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { EnvValidationService } from './config/env-validation.service';
 // import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 // import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap(): Promise<void> {
+  // Validate environment variables before creating the app
+  const envValidationService = new EnvValidationService();
+  envValidationService.validateAndThrow();
+
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
@@ -20,30 +25,10 @@ async function bootstrap(): Promise<void> {
   const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
   app.useLogger(logger);
 
-  // Security middleware
+  // Security middleware - CSP handled by security headers middleware
   app.use(
     helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'sha256-'"], // Will need to add specific hashes for inline styles
-          scriptSrc: ["'self'"],
-          imgSrc: ["'self'", 'https:'], // Removed data: to prevent XSS
-          connectSrc: ["'self'", 'wss:', 'https:'], // Added wss: for WebSocket
-          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-          objectSrc: ["'none'"],
-          mediaSrc: ["'self'"],
-          frameSrc: ["'none'"],
-          baseUri: ["'self'"],
-          formAction: ["'self'"],
-          frameAncestors: ["'none'"],
-          upgradeInsecureRequests: [],
-          blockAllMixedContent: [],
-          workerSrc: ["'self'"],
-          childSrc: ["'none'"],
-          manifestSrc: ["'self'"],
-        },
-      },
+      contentSecurityPolicy: false, // Handled by security headers middleware
       hsts: {
         maxAge: 31536000,
         includeSubDomains: true,

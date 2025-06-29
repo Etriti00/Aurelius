@@ -1,5 +1,6 @@
 import { getSession } from 'next-auth/react'
 import { ApiError, StandardApiResponse } from './types'
+import { addCSRFHeaders, requiresCSRFToken, csrfTokenManager } from '@/lib/utils/csrf'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
 
@@ -10,14 +11,56 @@ export class ApiClient {
     this.baseURL = baseURL
   }
 
-  private async getAuthHeaders(): Promise<HeadersInit> {
+  private async makeRequest<T>(
+    method: string,
+    endpoint: string,
+    data?: unknown
+  ): Promise<T> {
+    const headers = await this.getAuthHeaders(method)
+    
+    try {
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        method,
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+      })
+
+      return await this.handleResponse<T>(response)
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'AUTH_REFRESH_NEEDED' || error.message === 'CSRF_RETRY_NEEDED') {
+          // Retry with refreshed headers (auth or CSRF)
+          const newHeaders = await this.getAuthHeaders(method)
+          const retryResponse = await fetch(`${this.baseURL}${endpoint}`, {
+            method,
+            headers: newHeaders,
+            body: data ? JSON.stringify(data) : undefined,
+          })
+          return await this.handleResponse<T>(retryResponse, false, false)
+        }
+      }
+      throw error
+    }
+  }
+
+  private async getAuthHeaders(method: string = 'GET'): Promise<HeadersInit> {
     const session = await getSession()
-    const headers: HeadersInit = {
+    let headers: HeadersInit = {
       'Content-Type': 'application/json',
     }
 
     if (session?.accessToken) {
       headers.Authorization = `Bearer ${session.accessToken}`
+    }
+
+    // Add CSRF token for state-changing requests
+    if (requiresCSRFToken(method)) {
+      try {
+        headers = await addCSRFHeaders(method, headers);
+      } catch (error) {
+        console.error('Failed to add CSRF headers:', error);
+        throw new Error(`CSRF protection required: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     }
 
     return headers
@@ -58,7 +101,7 @@ export class ApiClient {
     }
   }
 
-  private async handleResponse<T>(response: Response, retryOnAuth = true): Promise<T> {
+  private async handleResponse<T>(response: Response, retryOnAuth = true, retryOnCSRF = true): Promise<T> {
     if (!response.ok) {
       // Handle 401 unauthorized - try to refresh token
       if (response.status === 401 && retryOnAuth) {
@@ -68,6 +111,16 @@ export class ApiClient {
           // Note: This is a simplified approach. In production, you'd want to
           // retry the original request with the new token
           throw new Error('AUTH_REFRESH_NEEDED')
+        }
+      }
+
+      // Handle 403 CSRF errors - invalidate token and retry
+      if (response.status === 403 && retryOnCSRF) {
+        const errorData = await response.json().catch(() => ({}))
+        if (errorData.message?.toLowerCase().includes('csrf') || 
+            errorData.error?.toLowerCase().includes('csrf')) {
+          csrfTokenManager.invalidateToken();
+          throw new Error('CSRF_RETRY_NEEDED')
         }
       }
 
@@ -82,6 +135,9 @@ export class ApiClient {
         error: errorData.error,
         timestamp: errorData.timestamp,
       }
+
+      // Handle CSRF errors
+      csrfTokenManager.handleCSRFError(error);
       
       throw error
     }
@@ -118,7 +174,7 @@ export class ApiClient {
       })
     }
 
-    const headers = await this.getAuthHeaders()
+    const headers = await this.getAuthHeaders('GET')
     
     try {
       const response = await fetch(url.toString(), {
@@ -130,119 +186,31 @@ export class ApiClient {
     } catch (error) {
       if (error instanceof Error && error.message === 'AUTH_REFRESH_NEEDED') {
         // Retry with refreshed headers
-        const newHeaders = await this.getAuthHeaders()
+        const newHeaders = await this.getAuthHeaders('GET')
         const retryResponse = await fetch(url.toString(), {
           method: 'GET',
           headers: newHeaders,
         })
-        return await this.handleResponse<T>(retryResponse, false)
+        return await this.handleResponse<T>(retryResponse, false, false)
       }
       throw error
     }
   }
 
   async post<T>(endpoint: string, data?: unknown): Promise<T> {
-    const headers = await this.getAuthHeaders()
-    
-    try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
-        method: 'POST',
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-      })
-
-      return await this.handleResponse<T>(response)
-    } catch (error) {
-      if (error instanceof Error && error.message === 'AUTH_REFRESH_NEEDED') {
-        // Retry with refreshed headers
-        const newHeaders = await this.getAuthHeaders()
-        const retryResponse = await fetch(`${this.baseURL}${endpoint}`, {
-          method: 'POST',
-          headers: newHeaders,
-          body: data ? JSON.stringify(data) : undefined,
-        })
-        return await this.handleResponse<T>(retryResponse, false)
-      }
-      throw error
-    }
+    return this.makeRequest<T>('POST', endpoint, data)
   }
 
   async put<T>(endpoint: string, data?: unknown): Promise<T> {
-    const headers = await this.getAuthHeaders()
-    
-    try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
-        method: 'PUT',
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-      })
-
-      return await this.handleResponse<T>(response)
-    } catch (error) {
-      if (error instanceof Error && error.message === 'AUTH_REFRESH_NEEDED') {
-        // Retry with refreshed headers
-        const newHeaders = await this.getAuthHeaders()
-        const retryResponse = await fetch(`${this.baseURL}${endpoint}`, {
-          method: 'PUT',
-          headers: newHeaders,
-          body: data ? JSON.stringify(data) : undefined,
-        })
-        return await this.handleResponse<T>(retryResponse, false)
-      }
-      throw error
-    }
+    return this.makeRequest<T>('PUT', endpoint, data)
   }
 
   async patch<T>(endpoint: string, data?: unknown): Promise<T> {
-    const headers = await this.getAuthHeaders()
-    
-    try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
-        method: 'PATCH',
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-      })
-
-      return await this.handleResponse<T>(response)
-    } catch (error) {
-      if (error instanceof Error && error.message === 'AUTH_REFRESH_NEEDED') {
-        // Retry with refreshed headers
-        const newHeaders = await this.getAuthHeaders()
-        const retryResponse = await fetch(`${this.baseURL}${endpoint}`, {
-          method: 'PATCH',
-          headers: newHeaders,
-          body: data ? JSON.stringify(data) : undefined,
-        })
-        return await this.handleResponse<T>(retryResponse, false)
-      }
-      throw error
-    }
+    return this.makeRequest<T>('PATCH', endpoint, data)
   }
 
   async delete<T, D = Record<string, unknown>>(endpoint: string, data?: D): Promise<T> {
-    const headers = await this.getAuthHeaders()
-    
-    try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
-        method: 'DELETE',
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-      })
-
-      return await this.handleResponse<T>(response)
-    } catch (error) {
-      if (error instanceof Error && error.message === 'AUTH_REFRESH_NEEDED') {
-        // Retry with refreshed headers
-        const newHeaders = await this.getAuthHeaders()
-        const retryResponse = await fetch(`${this.baseURL}${endpoint}`, {
-          method: 'DELETE',
-          headers: newHeaders,
-          body: data ? JSON.stringify(data) : undefined,
-        })
-        return await this.handleResponse<T>(retryResponse, false)
-      }
-      throw error
-    }
+    return this.makeRequest<T>('DELETE', endpoint, data)
   }
 }
 

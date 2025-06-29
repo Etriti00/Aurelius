@@ -4,6 +4,7 @@ import { FeaturesGrid } from '@/components/landing/FeaturesGrid'
 import { HowItWorks } from '@/components/landing/HowItWorks'
 import { PricingSection } from '@/components/landing/PricingSection'
 import { Footer } from '@/components/landing/Footer'
+import { getNonce } from '@/lib/utils/csp-nonce'
 
 // SEO structured data for the homepage
 const structuredData = {
@@ -37,10 +38,13 @@ const structuredData = {
 }
 
 export default function HomePage() {
+  const nonce = getNonce();
+
   return (
     <>
       <script
         type="application/ld+json"
+        nonce={nonce}
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <Navbar />

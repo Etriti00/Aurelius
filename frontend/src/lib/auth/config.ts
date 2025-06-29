@@ -40,14 +40,22 @@ export const authConfig: NextAuthConfig = {
 
         // Development-only mock user for testing
         if (process.env.NODE_ENV === 'development') {
-          if (credentials.email === 'demo@aurelius.ai' && credentials.password === 'demo123') {
+          const demoEmail = process.env.DEMO_USER_EMAIL;
+          const demoPassword = process.env.DEMO_USER_PASSWORD;
+          
+          if (!demoEmail || !demoPassword) {
+            console.warn('Demo credentials not configured. Set DEMO_USER_EMAIL and DEMO_USER_PASSWORD environment variables.');
+            return null;
+          }
+          
+          if (credentials.email === demoEmail && credentials.password === demoPassword) {
             return {
-              id: 'demo-user-id',
-              email: 'demo@aurelius.ai',
-              name: 'Demo User',
+              id: process.env.DEMO_USER_ID ?? 'demo-user-id',
+              email: demoEmail,
+              name: process.env.DEMO_USER_NAME ?? 'Demo User',
               image: null,
-              accessToken: 'demo-access-token',
-              refreshToken: 'demo-refresh-token',
+              accessToken: process.env.DEMO_ACCESS_TOKEN ?? 'demo-access-token',
+              refreshToken: process.env.DEMO_REFRESH_TOKEN ?? 'demo-refresh-token',
             }
           }
         }

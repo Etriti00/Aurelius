@@ -3,6 +3,18 @@ import { io, Socket } from 'socket.io-client'
 import { getSession } from 'next-auth/react'
 import { WebSocketEvent, NotificationData, WebSocketEventType } from '../api/types'
 
+// Enhanced WebSocket configuration
+interface WebSocketConfig {
+  url: string;
+  reconnectionAttempts: number;
+  reconnectionDelay: number;
+  timeout: number;
+  pingInterval: number;
+  pingTimeout: number;
+  upgradeTimeout: number;
+  maxBufferSize: number;
+}
+
 // Enhanced WebSocket connection status
 export interface WebSocketStatus {
   connected: boolean
@@ -19,6 +31,31 @@ class WebSocketService {
   private maxReconnectAttempts = 5
   private reconnectInterval = 5000
   private isConnecting = false
+  private connectionId: string | null = null
+  private lastPingTime = 0
+  private pingLatency = 0
+  private eventQueue: Array<{ event: string; data: Record<string, unknown> }> = []
+  private messageBuffer = new Map<string, unknown>()
+  private connectionMetrics = {
+    totalConnections: 0,
+    totalReconnections: 0,
+    totalErrors: 0,
+    totalMessages: 0,
+    averageLatency: 0,
+    uptime: 0,
+    startTime: Date.now(),
+  }
+  
+  private config: WebSocketConfig = {
+    url: process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:3001',
+    reconnectionAttempts: parseInt(process.env.NEXT_PUBLIC_WS_RECONNECTION_ATTEMPTS || '5', 10),
+    reconnectionDelay: parseInt(process.env.NEXT_PUBLIC_WS_RECONNECTION_DELAY || '5000', 10),
+    timeout: parseInt(process.env.NEXT_PUBLIC_WS_TIMEOUT || '20000', 10),
+    pingInterval: parseInt(process.env.NEXT_PUBLIC_WS_PING_INTERVAL || '25000', 10),
+    pingTimeout: parseInt(process.env.NEXT_PUBLIC_WS_PING_TIMEOUT || '60000', 10),
+    upgradeTimeout: parseInt(process.env.NEXT_PUBLIC_WS_UPGRADE_TIMEOUT || '10000', 10),
+    maxBufferSize: parseInt(process.env.NEXT_PUBLIC_WS_MAX_BUFFER_SIZE || '1000', 10),
+  }
 
   async connect(): Promise<Socket> {
     if (this.socket?.connected) {
@@ -54,16 +91,19 @@ class WebSocketService {
       const token = session?.accessToken
       const userId = session?.user?.id
 
-      const socketUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:3001'
-      
-      this.socket = io(socketUrl, {
+      this.socket = io(this.config.url, {
         auth: token ? { token, userId } : undefined,
         transports: ['websocket', 'polling'],
         reconnection: true,
-        reconnectionAttempts: this.maxReconnectAttempts,
-        reconnectionDelay: this.reconnectInterval,
-        timeout: 10000,
+        reconnectionAttempts: this.config.reconnectionAttempts,
+        reconnectionDelay: this.config.reconnectionDelay,
+        timeout: this.config.timeout,
         forceNew: true, // Force new connection to ensure fresh auth
+        
+        // Enhanced configuration
+        rememberUpgrade: true,
+        autoConnect: true,
+        randomizationFactor: 0.5,
       })
 
       // Setup event listeners
@@ -78,12 +118,23 @@ class WebSocketService {
         this.socket.on('connect', () => {
           this.reconnectAttempts = 0
           this.isConnecting = false
+          this.connectionId = this.socket?.id || null
+          this.connectionMetrics.totalConnections++
+          this.connectionMetrics.uptime = Date.now() - this.connectionMetrics.startTime
+          
+          // Process queued events
+          this.processEventQueue()
+          
+          // Start ping monitoring
+          this.startPingMonitoring()
+          
           // WebSocket connected successfully
           resolve(this.socket!)
         })
 
         this.socket.on('connect_error', (error) => {
           this.isConnecting = false
+          this.connectionMetrics.totalErrors++
           // WebSocket connection error
           reject(error)
         })
@@ -113,6 +164,9 @@ class WebSocketService {
     if (!this.socket) return
 
     this.socket.on('disconnect', (reason) => {
+      this.connectionId = null
+      this.stopPingMonitoring()
+      
       // WebSocket disconnected
       if (reason === 'io server disconnect' || reason === 'io client disconnect') {
         // Server initiated disconnect or auth issues, try to reconnect
@@ -127,6 +181,8 @@ class WebSocketService {
 
     this.socket.on('reconnect', () => {
       this.reconnectAttempts = 0
+      this.connectionMetrics.totalReconnections++
+      this.processEventQueue()
       // WebSocket reconnected successfully
     })
 
@@ -135,14 +191,29 @@ class WebSocketService {
     })
 
     // Enhanced server event handling
-    this.socket.on('server_time', () => {
+    this.socket.on('server_time', (data: { timestamp: string }) => {
       // Handle server time sync for better event ordering
-      // Server time sync
+      this.synchronizeTime(data.timestamp)
     })
 
-    this.socket.on('user_session_updated', () => {
+    this.socket.on('user_session_updated', (data: Record<string, unknown>) => {
       // Handle user session updates (subscription changes, etc.)
-      // User session updated
+      this.handleSessionUpdate(data)
+    })
+    
+    // Performance monitoring events
+    this.socket.on('pong', (latency: number) => {
+      this.handlePongResponse(latency)
+    })
+    
+    // Message acknowledgment for reliability
+    this.socket.on('message_ack', (data: { messageId: string; status: string }) => {
+      this.handleMessageAck(data.messageId, data.status)
+    })
+    
+    // Connection quality monitoring
+    this.socket.on('connection_quality', (data: { latency: number; quality: string }) => {
+      this.updateConnectionQuality(data)
     })
   }
 
@@ -168,11 +239,34 @@ class WebSocketService {
     this.reconnectAttempts = 0
   }
 
-  emit(event: string, data: Record<string, unknown>) {
-    if (this.socket?.connected) {
-      this.socket.emit(event, data)
+  emit(event: string, data: Record<string, unknown>, options?: { reliable?: boolean; priority?: 'low' | 'medium' | 'high' }) {
+    const messageId = this.generateMessageId()
+    const message = {
+      id: messageId,
+      event,
+      data,
+      timestamp: new Date().toISOString(),
+      priority: options?.priority || 'medium',
     }
-    // If not connected, event is dropped silently
+    
+    if (this.socket?.connected) {
+      this.socket.emit(event, message)
+      this.connectionMetrics.totalMessages++
+      
+      // Store for acknowledgment if reliable delivery is requested
+      if (options?.reliable) {
+        this.messageBuffer.set(messageId, { ...message, retryCount: 0 })
+      }
+    } else {
+      // Queue event for later delivery if not connected
+      if (this.eventQueue.length < this.config.maxBufferSize) {
+        this.eventQueue.push({ event, data })
+      } else {
+        console.warn('WebSocket event queue is full, dropping event:', event)
+      }
+    }
+    
+    return messageId
   }
 
   on(event: string, callback: ((data: Record<string, unknown>) => void) | ((error: Error) => void)) {
@@ -196,7 +290,7 @@ class WebSocketService {
     this.off(event, callback as ((data: Record<string, unknown>) => void) | undefined)
   }
 
-  // Get connection status
+  // Get enhanced connection status
   getStatus(): WebSocketStatus {
     return {
       connected: this.socket?.connected || false,
@@ -204,7 +298,115 @@ class WebSocketService {
       error: null, // Could be enhanced to track last error
       reconnectAttempts: this.reconnectAttempts,
       lastConnected: this.socket?.connected ? new Date().toISOString() : undefined,
+      serverTime: undefined, // Set by server time sync
     }
+  }
+  
+  // Get connection metrics
+  getMetrics() {
+    return {
+      ...this.connectionMetrics,
+      currentLatency: this.pingLatency,
+      queueSize: this.eventQueue.length,
+      bufferSize: this.messageBuffer.size,
+      connectionId: this.connectionId,
+    }
+  }
+  
+  // Enhanced connection quality information
+  getConnectionQuality(): { quality: 'excellent' | 'good' | 'fair' | 'poor'; latency: number; stability: number } {
+    const stability = this.connectionMetrics.totalConnections > 0 
+      ? 1 - (this.connectionMetrics.totalReconnections / this.connectionMetrics.totalConnections)
+      : 1
+    
+    let quality: 'excellent' | 'good' | 'fair' | 'poor' = 'excellent'
+    
+    if (this.pingLatency > 500 || stability < 0.8) {
+      quality = 'poor'
+    } else if (this.pingLatency > 200 || stability < 0.9) {
+      quality = 'fair'
+    } else if (this.pingLatency > 100 || stability < 0.95) {
+      quality = 'good'
+    }
+    
+    return {
+      quality,
+      latency: this.pingLatency,
+      stability,
+    }
+  }
+  
+  // Private helper methods
+  private generateMessageId(): string {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  }
+  
+  private processEventQueue(): void {
+    while (this.eventQueue.length > 0 && this.socket?.connected) {
+      const { event, data } = this.eventQueue.shift()!
+      this.emit(event, data)
+    }
+  }
+  
+  private startPingMonitoring(): void {
+    if (this.socket?.connected) {
+      this.lastPingTime = Date.now()
+      this.socket.emit('ping')
+    }
+  }
+  
+  private stopPingMonitoring(): void {
+    // Reset ping monitoring state
+    this.lastPingTime = 0
+    this.pingLatency = 0
+  }
+  
+  private handlePongResponse(latency: number): void {
+    this.pingLatency = latency
+    this.connectionMetrics.averageLatency = 
+      (this.connectionMetrics.averageLatency + latency) / 2
+  }
+  
+  private handleMessageAck(messageId: string, status: string): void {
+    if (status === 'received') {
+      this.messageBuffer.delete(messageId)
+    } else if (status === 'failed') {
+      // Retry message if it failed
+      const message = this.messageBuffer.get(messageId) as { event: string; retryCount: number; [key: string]: unknown }
+      if (message && message.retryCount < 3) {
+        message.retryCount++
+        setTimeout(() => {
+          if (this.socket?.connected) {
+            this.socket.emit(message.event, message)
+          }
+        }, 1000 * Math.pow(2, message.retryCount)) // Exponential backoff
+      } else {
+        this.messageBuffer.delete(messageId)
+      }
+    }
+  }
+  
+  private synchronizeTime(serverTimestamp: string): void {
+    // Store time offset for better event ordering
+    // This could be used to adjust timestamps in events
+    // const serverTime = new Date(serverTimestamp).getTime()
+    // const localTime = Date.now()
+    // const offset = serverTime - localTime
+    
+    // Currently not implemented - placeholder for future time sync functionality
+    void serverTimestamp
+  }
+  
+  private handleSessionUpdate(data: Record<string, unknown>): void {
+    // Handle user session updates (subscription changes, etc.)
+    // Could trigger UI updates or other side effects
+    // Handle session update logic here if needed
+    void data
+  }
+  
+  private updateConnectionQuality(data: { latency: number; quality: string }): void {
+    this.pingLatency = data.latency
+    // Could trigger UI updates based on connection quality
   }
 
   get connected(): boolean {
@@ -295,13 +497,21 @@ export const useWebSocket = () => {
     }
   }, [])
 
-  const emit = useCallback((event: string, data: Record<string, unknown>) => {
-    websocketService.emit(event, data)
+  const emit = useCallback((event: string, data: Record<string, unknown>, options?: { reliable?: boolean; priority?: 'low' | 'medium' | 'high' }) => {
+    return websocketService.emit(event, data, options)
   }, [])
 
   const subscribe = useCallback((event: string, callback: (data: Record<string, unknown>) => void) => {
     websocketService.on(event, callback)
     return () => websocketService.off(event, callback)
+  }, [])
+
+  const getMetrics = useCallback(() => {
+    return websocketService.getMetrics()
+  }, [])
+  
+  const getConnectionQuality = useCallback(() => {
+    return websocketService.getConnectionQuality()
   }, [])
 
   return {
@@ -311,6 +521,8 @@ export const useWebSocket = () => {
     reconnectAttempts,
     emit,
     subscribe,
+    getMetrics,
+    getConnectionQuality,
     service: websocketService,
   }
 }

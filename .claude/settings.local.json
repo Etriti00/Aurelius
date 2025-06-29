@@ -57,7 +57,16 @@
       "Bash(cloc:*)",
       "Bash(npx prisma:*)",
       "Bash(chmod:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "mcp__memory__add_observations",
+      "Bash(sed:*)",
+      "Bash(for file in \"create-workflow.dto.ts\" \"execution.dto.ts\" \"trigger.dto.ts\" \"workflow-response.dto.ts\")",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(true)",
+      "Bash(git add:*)",
+      "mcp__memory__search_nodes",
+      "mcp__memory__create_relations",
+      "Bash(git rm:*)"
     ],
     "deny": []
   }

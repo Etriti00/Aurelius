@@ -23,26 +23,27 @@ export class SecurityHeadersMiddleware implements NestMiddleware {
     res.setHeader('X-Download-Options', 'noopen');
     res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
 
-    // Content Security Policy
+    // Content Security Policy - Secure configuration without unsafe-inline
     const cspDirectives = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "script-src 'self' https://cdn.jsdelivr.net https://unpkg.com",
+      "style-src 'self' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
       "media-src 'self' blob:",
-      "connect-src 'self' https://api.elevenlabs.io https://api.openai.com wss:",
+      "connect-src 'self' https://api.elevenlabs.io https://api.anthropic.com wss:",
       "worker-src 'self' blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
+      "object-src 'none'",
       'upgrade-insecure-requests',
     ];
 
     if (isDevelopment) {
-      // Relax CSP for development
-      cspDirectives[1] = "script-src 'self' 'unsafe-inline' 'unsafe-eval' *";
-      cspDirectives[4] = "connect-src 'self' *";
+      // Only allow localhost connections in development, no unsafe directives
+      cspDirectives[6] =
+        "connect-src 'self' https://api.elevenlabs.io https://api.anthropic.com wss: ws://localhost:* http://localhost:*";
     }
 
     res.setHeader('Content-Security-Policy', cspDirectives.join('; '));

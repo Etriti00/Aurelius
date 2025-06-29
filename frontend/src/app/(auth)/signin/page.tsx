@@ -100,13 +100,13 @@ export default function SignInPage() {
                 </Alert>
               )}
 
-              {process.env.NODE_ENV === 'development' && (
+              {process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DEMO_USER_EMAIL && process.env.NEXT_PUBLIC_DEMO_USER_PASSWORD && (
                 <Alert className="rounded-xl bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800">
                   <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   <AlertDescription className="text-blue-900 dark:text-blue-100">
                     <strong>Demo Credentials:</strong><br />
-                    Email: demo@aurelius.ai<br />
-                    Password: demo123
+                    Email: {process.env.NEXT_PUBLIC_DEMO_USER_EMAIL}<br />
+                    Password: {process.env.NEXT_PUBLIC_DEMO_USER_PASSWORD}
                   </AlertDescription>
                 </Alert>
               )}

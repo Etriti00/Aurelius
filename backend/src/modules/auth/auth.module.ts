@@ -5,8 +5,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { AuthController } from './auth.controller';
 import { ApiKeysController } from './api-keys.controller';
+import { EnhancedApiKeysController } from './controllers/enhanced-api-keys.controller';
+import { CsrfController } from './csrf.controller';
 import { AuthService } from './auth.service';
 import { ApiKeyService } from '../../common/guards/api-key.guard';
+import { EnhancedApiKeyService } from './services/api-key.service';
+import { EnhancedApiKeyGuard } from './guards/enhanced-api-key.guard';
 import { UsersModule } from '../users/users.module';
 import { IntegrationsModule } from '../integrations/integrations.module';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -43,16 +47,18 @@ import { AppleStrategy } from './strategies/apple.strategy';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController, ApiKeysController],
+  controllers: [AuthController, ApiKeysController, EnhancedApiKeysController, CsrfController],
   providers: [
     AuthService,
     ApiKeyService,
+    EnhancedApiKeyService,
+    EnhancedApiKeyGuard,
     JwtStrategy,
     RefreshTokenStrategy,
     GoogleStrategy,
     MicrosoftStrategy,
     AppleStrategy,
   ],
-  exports: [AuthService, PassportModule],
+  exports: [AuthService, EnhancedApiKeyService, EnhancedApiKeyGuard, PassportModule],
 })
 export class AuthModule {}

@@ -1,5 +1,6 @@
 'use client'
 
+import React, { useMemo, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Inbox, Star, Paperclip, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
@@ -98,23 +99,36 @@ const mockRecentEmails: EmailThread[] = [
   }
 ]
 
-export function InboxWidget() {
+export const InboxWidget = React.memo(() => {
   // Fetch real email threads from API
   const { threads: apiThreads, isLoading, error, refresh } = useRecentThreads(5)
   const { markThreadAsRead } = useEmailMutations()
   const { isOpen: isCommandCenterOpen } = useAICommandCenter()
   
-  // Use real data if available, otherwise fallback to mock data
-  const emailThreads = error || !apiThreads ? mockRecentEmails : apiThreads
-  
-  const handleMarkAsRead = async (threadId: string) => {
+  // Memoize expensive email threads calculation
+  const emailThreads = useMemo(() => {
+    return error || !apiThreads ? mockRecentEmails : apiThreads;
+  }, [error, apiThreads]);
+
+  // Memoize expensive unread count calculation
+  const unreadCount = useMemo(() => {
+    return emailThreads.filter(thread => isThreadUnread(thread)).length;
+  }, [emailThreads]);
+
+  // Memoize click handler to prevent unnecessary re-renders
+  const handleMarkAsRead = useCallback(async (threadId: string) => {
     try {
-      await markThreadAsRead(threadId)
-      refresh()
+      await markThreadAsRead(threadId);
+      refresh();
     } catch (error) {
-      console.error('Failed to mark thread as read:', error)
+      console.error('Failed to mark thread as read:', error);
     }
-  }
+  }, [markThreadAsRead, refresh]);
+
+  // Memoize navigation handler
+  const handleOpenInbox = useCallback(() => {
+    window.location.href = '/email';
+  }, []);
   return (
     <div className="relative liquid-glass-accent rounded-2xl sm:rounded-3xl p-6">
       {/* Subtle inner glow */}
@@ -151,8 +165,8 @@ export function InboxWidget() {
           {/* Right side badge */}
           <div className="flex items-center">{" "}
             <div className={`${isCommandCenterOpen ? 'px-2 py-0.5 text-xs' : 'px-3 py-1.5 text-sm'} bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium rounded-full flex-shrink-0`}>
-            <span className={isCommandCenterOpen ? 'hidden sm:inline' : ''}>{emailThreads.filter(thread => isThreadUnread(thread)).length} unread</span>
-            <span className={isCommandCenterOpen ? 'sm:hidden' : 'hidden'}>{emailThreads.filter(thread => isThreadUnread(thread)).length}</span>
+            <span className={isCommandCenterOpen ? 'hidden sm:inline' : ''}>{unreadCount} unread</span>
+            <span className={isCommandCenterOpen ? 'sm:hidden' : 'hidden'}>{unreadCount}</span>
             </div>
           </div>
         </div>
@@ -238,10 +252,7 @@ export function InboxWidget() {
         )}
         
         <button 
-          onClick={() => {
-            // Navigate to full inbox view
-            window.location.href = '/email'
-          }}
+          onClick={handleOpenInbox}
           className="w-full px-4 py-2.5 bg-gradient-to-r from-gray-900 to-black dark:from-gray-100 dark:to-white text-white dark:text-black text-sm font-semibold rounded-xl shadow-lg shadow-black/20 dark:shadow-white/20 hover:shadow-xl hover:shadow-black/30 dark:hover:shadow-white/30 hover:scale-[1.01] transition-all duration-200 flex items-center justify-center space-x-2 group"
         >
           <span>Open Inbox</span>
@@ -250,5 +261,7 @@ export function InboxWidget() {
         </div>
       </div>
     </div>
-  )
-}
+  );
+});
+
+InboxWidget.displayName = 'InboxWidget';

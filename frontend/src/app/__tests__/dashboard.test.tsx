@@ -12,20 +12,13 @@ jest.mock('@/components/dashboard/OverviewCard', () => ({
   ),
 }))
 
-jest.mock('@/components/dashboard/CalendarWidget', () => ({
+jest.mock('@/components/shared/LazyComponents', () => ({
   CalendarWidget: () => <div data-testid="calendar-widget">Calendar Widget</div>,
-}))
-
-jest.mock('@/components/dashboard/InboxWidget', () => ({
   InboxWidget: () => <div data-testid="inbox-widget">Inbox Widget</div>,
-}))
-
-jest.mock('@/components/dashboard/TasksKanban', () => ({
   TasksKanban: () => <div data-testid="tasks-kanban">Tasks Kanban</div>,
-}))
-
-jest.mock('@/components/dashboard/SuggestionsPanel', () => ({
   SuggestionsPanel: () => <div data-testid="suggestions-panel">Suggestions Panel</div>,
+  FloatingActionButton: () => <div data-testid="floating-action-button">FAB</div>,
+  Brain3D: () => <div data-testid="brain-3d">Brain 3D</div>,
 }))
 
 jest.mock('@/lib/api', () => ({
