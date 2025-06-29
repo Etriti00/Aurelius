@@ -29,7 +29,7 @@ export class RecordUsageDto {
 
   @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsOptional()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean>;
 
   constructor() {
     this.action = UsageAction.AI_REQUEST;

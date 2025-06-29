@@ -377,10 +377,11 @@ export class SecurityValidationService {
       return 0;
     }
 
+    const record = obj as Record<string, unknown>;
     let maxDepth = 0;
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        const depth = this.getObjectDepth(obj[key]) + 1;
+    for (const key in record) {
+      if (record.hasOwnProperty(key)) {
+        const depth = this.getObjectDepth(record[key]) + 1;
         maxDepth = Math.max(maxDepth, depth);
       }
     }

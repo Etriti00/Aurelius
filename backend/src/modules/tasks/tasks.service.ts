@@ -3,17 +3,82 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotFoundException } from '../../common/exceptions/app.exception';
 import { TaskResponseDto, TaskInsightsDto } from './dto/task-response.dto';
 import { PaginatedResponseDto } from '../../common/dto/api-response.dto';
+import { TaskPriority, TaskStatus } from './dto/create-task.dto';
+import { Prisma } from '@prisma/client';
+
+// Define proper types for task operations
+export interface TaskFilters {
+  page?: string;
+  limit?: string;
+  status?: string;
+  priority?: string;
+  search?: string;
+  labels?: string;
+  dueBefore?: string;
+  dueAfter?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}
+
+interface CreateTaskData {
+  title: string;
+  description?: string;
+  priority?: string;
+  status?: string;
+  dueDate?: Date;
+  estimatedMinutes?: number;
+  labels?: string[];
+  startDate?: Date;
+  parentId?: string;
+  projectId?: string;
+  externalId?: string;
+  aiSuggested?: boolean;
+  aiReason?: string;
+  aiConfidence?: number;
+}
+
+interface UpdateTaskData {
+  title?: string;
+  description?: string;
+  priority?: string;
+  status?: string;
+  dueDate?: Date;
+  estimatedMinutes?: number;
+  actualMinutes?: number;
+  labels?: string[];
+  startDate?: Date;
+  completedAt?: Date;
+  parentId?: string;
+  projectId?: string;
+  externalId?: string;
+  aiSuggested?: boolean;
+  aiReason?: string;
+  aiConfidence?: number;
+}
+
+interface BulkOperationRequest {
+  operation: 'update' | 'delete' | 'complete';
+  taskIds: string[];
+  data?: UpdateTaskData;
+}
+
+interface TaskStats {
+  [status: string]: number;
+}
 
 @Injectable()
 export class TasksService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(userId: string, filters?: any): Promise<PaginatedResponseDto<TaskResponseDto>> {
-    const page = parseInt(filters?.page) || 1;
-    const limit = parseInt(filters?.limit) || 10;
+  async findAll(
+    userId: string,
+    filters?: TaskFilters
+  ): Promise<PaginatedResponseDto<TaskResponseDto>> {
+    const page = parseInt(filters?.page || '1') || 1;
+    const limit = parseInt(filters?.limit || '10') || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = {
+    const where: Prisma.TaskWhereInput = {
       userId,
       deletedAt: null,
     };
@@ -39,11 +104,17 @@ export class TasksService {
     }
 
     if (filters?.dueBefore) {
-      where.dueDate = { ...where.dueDate, lte: new Date(filters.dueBefore) };
+      where.dueDate = {
+        ...((where.dueDate as Prisma.DateTimeFilter) || {}),
+        lte: new Date(filters.dueBefore),
+      };
     }
 
     if (filters?.dueAfter) {
-      where.dueDate = { ...where.dueDate, gte: new Date(filters.dueAfter) };
+      where.dueDate = {
+        ...((where.dueDate as Prisma.DateTimeFilter) || {}),
+        gte: new Date(filters.dueAfter),
+      };
     }
 
     const [tasks, total] = await Promise.all([
@@ -67,8 +138,8 @@ export class TasksService {
           userId: task.userId,
           title: task.title,
           description: task.description !== null ? task.description : undefined,
-          priority: task.priority as any,
-          status: task.status as any,
+          priority: task.priority as TaskPriority,
+          status: task.status as TaskStatus,
           dueDate: task.dueDate?.toISOString(),
           estimatedMinutes: task.estimatedMinutes !== null ? task.estimatedMinutes : undefined,
           actualMinutes: task.actualMinutes !== null ? task.actualMinutes : undefined,
@@ -101,16 +172,41 @@ export class TasksService {
     });
   }
 
-  async create(userId: string, data: any): Promise<any> {
-    return this.prisma.task.create({
+  async create(userId: string, data: CreateTaskData): Promise<TaskResponseDto> {
+    const task = await this.prisma.task.create({
       data: {
         ...data,
         userId,
       },
     });
+
+    return new TaskResponseDto({
+      id: task.id,
+      userId: task.userId,
+      title: task.title,
+      description: task.description !== null ? task.description : undefined,
+      priority: task.priority as TaskPriority,
+      status: task.status as TaskStatus,
+      dueDate: task.dueDate?.toISOString(),
+      estimatedMinutes: task.estimatedMinutes !== null ? task.estimatedMinutes : undefined,
+      actualMinutes: task.actualMinutes !== null ? task.actualMinutes : undefined,
+      labels: task.labels as string[],
+      startDate: task.startDate?.toISOString(),
+      completedAt: task.completedAt?.toISOString(),
+      progress: 0,
+      aiSuggested: task.aiSuggested !== null ? task.aiSuggested : false,
+      aiReason: task.aiReason !== null ? task.aiReason : undefined,
+      aiConfidence: task.aiConfidence !== null ? task.aiConfidence : undefined,
+      parentTaskId: task.parentId !== null ? task.parentId : undefined,
+      project: task.projectId !== null ? task.projectId : undefined,
+      externalId: task.externalId !== null ? task.externalId : undefined,
+      externalSource: undefined,
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: task.updatedAt.toISOString(),
+    });
   }
 
-  async update(userId: string, id: string, data: any): Promise<any> {
+  async update(userId: string, id: string, data: UpdateTaskData): Promise<TaskResponseDto> {
     const task = await this.prisma.task.findFirst({
       where: { id, userId },
     });
@@ -119,9 +215,35 @@ export class TasksService {
       throw new NotFoundException('Task');
     }
 
-    return this.prisma.task.update({
+    const updatedTask = await this.prisma.task.update({
       where: { id },
       data,
+    });
+
+    return new TaskResponseDto({
+      id: updatedTask.id,
+      userId: updatedTask.userId,
+      title: updatedTask.title,
+      description: updatedTask.description !== null ? updatedTask.description : undefined,
+      priority: updatedTask.priority as TaskPriority,
+      status: updatedTask.status as TaskStatus,
+      dueDate: updatedTask.dueDate?.toISOString(),
+      estimatedMinutes:
+        updatedTask.estimatedMinutes !== null ? updatedTask.estimatedMinutes : undefined,
+      actualMinutes: updatedTask.actualMinutes !== null ? updatedTask.actualMinutes : undefined,
+      labels: updatedTask.labels as string[],
+      startDate: updatedTask.startDate?.toISOString(),
+      completedAt: updatedTask.completedAt?.toISOString(),
+      progress: 0,
+      aiSuggested: updatedTask.aiSuggested !== null ? updatedTask.aiSuggested : false,
+      aiReason: updatedTask.aiReason !== null ? updatedTask.aiReason : undefined,
+      aiConfidence: updatedTask.aiConfidence !== null ? updatedTask.aiConfidence : undefined,
+      parentTaskId: updatedTask.parentId !== null ? updatedTask.parentId : undefined,
+      project: updatedTask.projectId !== null ? updatedTask.projectId : undefined,
+      externalId: updatedTask.externalId !== null ? updatedTask.externalId : undefined,
+      externalSource: undefined,
+      createdAt: updatedTask.createdAt.toISOString(),
+      updatedAt: updatedTask.updatedAt.toISOString(),
     });
   }
 
@@ -157,8 +279,8 @@ export class TasksService {
       userId: task.userId,
       title: task.title,
       description: task.description !== null ? task.description : undefined,
-      priority: task.priority as any,
-      status: task.status as any,
+      priority: task.priority as TaskPriority,
+      status: task.status as TaskStatus,
       dueDate: task.dueDate?.toISOString(),
       estimatedMinutes: task.estimatedMinutes !== null ? task.estimatedMinutes : undefined,
       actualMinutes: task.actualMinutes !== null ? task.actualMinutes : undefined,
@@ -206,8 +328,8 @@ export class TasksService {
       userId: updatedTask.userId,
       title: updatedTask.title,
       description: updatedTask.description !== null ? updatedTask.description : undefined,
-      priority: updatedTask.priority as any,
-      status: updatedTask.status as any,
+      priority: updatedTask.priority as TaskPriority,
+      status: updatedTask.status as TaskStatus,
       dueDate: updatedTask.dueDate?.toISOString(),
       estimatedMinutes:
         updatedTask.estimatedMinutes !== null ? updatedTask.estimatedMinutes : undefined,
@@ -302,11 +424,7 @@ export class TasksService {
 
   async bulkOperation(
     userId: string,
-    operation: {
-      operation: 'update' | 'delete' | 'complete';
-      taskIds: string[];
-      data?: any;
-    }
+    operation: BulkOperationRequest
   ): Promise<{
     success: boolean;
     processed: number;
@@ -375,7 +493,7 @@ export class TasksService {
     return result;
   }
 
-  async getStats(userId: string): Promise<any> {
+  async getStats(userId: string): Promise<TaskStats> {
     const stats = await this.prisma.task.groupBy({
       by: ['status'],
       where: { userId, deletedAt: null },
@@ -391,7 +509,10 @@ export class TasksService {
     );
   }
 
-  private buildOrderBy(sortBy?: string, sortOrder?: string): any {
+  private buildOrderBy(
+    sortBy?: string,
+    sortOrder?: string
+  ): Prisma.TaskOrderByWithAggregationInput | Prisma.TaskOrderByWithAggregationInput[] {
     const order = sortOrder === 'desc' ? 'desc' : 'asc';
 
     switch (sortBy) {

@@ -1,24 +1,10 @@
 import { IsString, IsEnum, IsOptional, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Prisma } from '@prisma/client';
+import { NotificationType, NotificationPriority } from '../../../common/types/notification.types';
 
-export enum NotificationType {
-  INFO = 'info',
-  SUCCESS = 'success',
-  WARNING = 'warning',
-  ERROR = 'error',
-  TASK = 'task',
-  EMAIL = 'email',
-  CALENDAR = 'calendar',
-  INTEGRATION = 'integration',
-  SUBSCRIPTION = 'subscription',
-}
-
-export enum NotificationPriority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  URGENT = 'urgent',
-}
+// Re-export for backward compatibility
+export { NotificationType, NotificationPriority };
 
 export class CreateNotificationDto {
   @ApiProperty()
@@ -27,7 +13,7 @@ export class CreateNotificationDto {
 
   @ApiProperty({ enum: NotificationType })
   @IsEnum(NotificationType)
-  type: NotificationType = NotificationType.INFO;
+  type: NotificationType = NotificationType.SYSTEM_UPDATE;
 
   @ApiProperty()
   @IsString()
@@ -45,7 +31,7 @@ export class CreateNotificationDto {
   @ApiPropertyOptional()
   @IsObject()
   @IsOptional()
-  metadata?: Record<string, any>;
+  metadata?: Prisma.JsonValue;
 
   constructor(partial: Partial<CreateNotificationDto> = {}) {
     Object.assign(this, partial);

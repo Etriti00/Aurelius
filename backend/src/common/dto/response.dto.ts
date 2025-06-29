@@ -1,6 +1,27 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class ResponseDto<T = any> {
+// Interface for response data
+export interface ResponseData {
+  [key: string]: string | number | boolean | null | ResponseData | ResponseData[];
+}
+
+// Interface for error details
+interface ErrorDetails {
+  field?: string;
+  code?: string;
+  message?: string;
+  value?: string | number | boolean;
+  [key: string]: string | number | boolean | undefined;
+}
+
+// Interface for error structure
+interface ResponseError {
+  code: string;
+  message: string;
+  details?: ErrorDetails;
+}
+
+export class ResponseDto<T extends ResponseData = ResponseData> {
   @ApiProperty()
   success: boolean;
 
@@ -17,10 +38,10 @@ export class ResponseDto<T = any> {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: ErrorDetails;
   };
 
-  constructor(success: boolean, data?: T, message?: string, error?: any) {
+  constructor(success: boolean, data?: T, message?: string, error?: ResponseError) {
     this.success = success;
     this.data = data;
     this.message = message;
@@ -30,12 +51,12 @@ export class ResponseDto<T = any> {
     }
   }
 
-  static success<T>(data?: T, message?: string): ResponseDto<T> {
+  static success<T extends ResponseData>(data?: T, message?: string): ResponseDto<T> {
     return new ResponseDto(true, data, message);
   }
 
-  static error(code: string, message: string, details?: any): ResponseDto {
-    return new ResponseDto(false, undefined, message, {
+  static error(code: string, message: string, details?: ErrorDetails): ResponseDto<ResponseData> {
+    return new ResponseDto<ResponseData>(false, undefined, message, {
       code,
       message,
       details,

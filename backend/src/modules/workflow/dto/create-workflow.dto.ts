@@ -24,7 +24,7 @@ export class CreateWorkflowDto {
   @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsObject()
   @IsOptional()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean | null>;
 
   constructor() {
     this.name = '';
@@ -42,8 +42,8 @@ export class CreateFromTemplateDto {
   @IsObject()
   @IsOptional()
   customizations?: {
-    triggers?: Record<string, any>;
-    actions?: Record<string, any>;
+    triggers?: Record<string, string | number | boolean | null>;
+    actions?: Record<string, string | number | boolean | null>;
   };
 
   constructor() {

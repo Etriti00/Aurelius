@@ -22,21 +22,20 @@ export class AuditLogMiddleware implements NestMiddleware {
     req.headers['x-request-id'] = requestId;
     res.setHeader('X-Request-ID', requestId);
 
-    // Store original end function
-    const originalEnd = res.end;
+    // Store original json function
     const originalJson = res.json;
 
-    let responseBody: any;
+    let responseBody: Record<string, unknown> | string | undefined;
     let responseSent = false;
 
     // Capture response body
-    res.json = function (body: any) {
+    res.json = function (body: Record<string, unknown>) {
       responseBody = body;
       return originalJson.call(this, body);
     };
 
-    // Override end function to capture audit data
-    res.end = function (chunk?: any, encoding?: any) {
+    // Track when response ends using the 'finish' event instead of overriding end method
+    res.on('finish', () => {
       if (!responseSent) {
         responseSent = true;
         const duration = Date.now() - startTime;
@@ -63,9 +62,7 @@ export class AuditLogMiddleware implements NestMiddleware {
           }
         });
       }
-
-      return originalEnd.call(this, chunk, encoding);
-    };
+    });
 
     next();
   }
@@ -85,14 +82,14 @@ function getClientIP(req: Request): string {
   );
 }
 
-function sanitizeBody(body: any): any {
+function sanitizeBody(body: unknown): Record<string, unknown> | string | undefined {
   if (!body) return undefined;
 
   // Remove sensitive fields
   const sensitiveFields = ['password', 'token', 'apiKey', 'secret', 'credentials'];
 
-  if (typeof body === 'object') {
-    const sanitized = { ...body };
+  if (typeof body === 'object' && body !== null) {
+    const sanitized = { ...(body as Record<string, unknown>) };
 
     for (const field of sensitiveFields) {
       if (sanitized[field]) {
@@ -103,7 +100,11 @@ function sanitizeBody(body: any): any {
     return sanitized;
   }
 
-  return body;
+  if (typeof body === 'string') {
+    return body;
+  }
+
+  return String(body);
 }
 
 // Extend AuditLogService to handle API requests
@@ -118,8 +119,8 @@ declare module '../services/audit-log.service' {
       ipAddress: string;
       userAgent?: string;
       requestId: string;
-      requestBody?: any;
-      responseBody?: any;
+      requestBody?: Record<string, unknown> | string;
+      responseBody?: Record<string, unknown> | string;
       success: boolean;
     }): Promise<void>;
   }
@@ -146,8 +147,8 @@ AuditLogService.prototype.logApiRequest = async function (data) {
       method: data.method,
       statusCode: data.statusCode,
       duration: data.duration,
-      requestBody: data.requestBody,
-      responseBody: data.responseBody,
+      requestBody: data.requestBody || '',
+      responseBody: data.responseBody || '',
     },
     ipAddress: data.ipAddress,
     userAgent: data.userAgent,

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNumber, Min, Max, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
+import { SearchMetadata } from '../interfaces/search.interface';
 
 export class FindSimilarDto {
   @ApiProperty({ description: 'ID of the item to find similar items for' })
@@ -38,8 +39,24 @@ export class SimilarItemDto {
   @ApiProperty({ description: 'Item title or summary' })
   title: string;
 
-  @ApiPropertyOptional({ description: 'Item metadata' })
-  metadata?: Record<string, any>;
+  @ApiPropertyOptional({
+    description: 'Item metadata',
+    type: 'object',
+    properties: {
+      contentType: { type: 'string' },
+      contentId: { type: 'string' },
+      userId: { type: 'string' },
+      title: { type: 'string' },
+      description: { type: 'string' },
+      tags: { type: 'array', items: { type: 'string' } },
+      priority: { type: 'string' },
+      status: { type: 'string' },
+      createdAt: { type: 'string' },
+      updatedAt: { type: 'string' },
+      additionalData: { type: 'object' },
+    },
+  })
+  metadata?: SearchMetadata;
 
   constructor() {
     this.id = '';

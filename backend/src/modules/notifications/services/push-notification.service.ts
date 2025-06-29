@@ -9,7 +9,7 @@ export class PushNotificationService {
     notification: {
       title: string;
       message: string;
-      data?: any;
+      data?: Record<string, string | number | boolean>;
     }
   ) {
     // TODO: Implement push notification logic

@@ -1,7 +1,63 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
+import { Tier, Status } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+
+// Define proper types for billing operations
+interface SubscriptionUpdateData {
+  tier?: Tier;
+  stripePriceId?: string;
+  monthlyActionLimit?: number;
+  integrationLimit?: number;
+  aiModelAccess?: string[];
+  monthlyPrice?: number;
+  overageRate?: number;
+  cancelAtPeriodEnd?: boolean;
+  status?: Status;
+  canceledAt?: Date | null;
+}
+
+// TODO: Implement when payment methods are needed
+// interface PaymentMethodData {
+//   id: string;
+//   type: string;
+//   card?: {
+//     brand: string;
+//     last4: string;
+//     expMonth: number;
+//     expYear: number;
+//   };
+//   billingDetails?: {
+//     name?: string;
+//     email?: string;
+//   };
+// }
+
+interface UsageData {
+  error?: string;
+  subscription?: {
+    id: string;
+    tier: string;
+    status: string;
+    currentPeriodStart: Date;
+    currentPeriodEnd: Date;
+    monthlyActionLimit: number;
+  };
+  currentPeriod?: {
+    start: Date;
+    end: Date;
+  };
+  usage?: {
+    aiActions: number;
+    aiActionsLimit: number;
+    totalCost: number;
+  };
+}
+
+interface UsageLogEntry {
+  createdAt: Date;
+}
 import {
   CreateCheckoutDto,
   CreateSubscriptionDto,
@@ -189,7 +245,7 @@ export class BillingService {
     userId: string,
     dto: UpdateSubscriptionDto
   ): Promise<SubscriptionResponseDto> {
-    const updateData: Record<string, any> = {};
+    const updateData: SubscriptionUpdateData = {};
 
     if (dto.priceId) {
       const tier = this.getTierFromPriceId(dto.priceId);
@@ -438,7 +494,7 @@ export class BillingService {
     // This is where you would handle subscription updates, payment confirmations, etc.
   }
 
-  async getUsage(userId: string): Promise<any> {
+  async getUsage(userId: string): Promise<UsageData> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { subscription: true },
@@ -544,23 +600,23 @@ export class BillingService {
     }
   }
 
-  private getTierFromPriceId(priceId: string): 'PRO' | 'MAX' | 'TEAMS' {
+  private getTierFromPriceId(priceId: string): Tier {
     // In a real implementation, this would be a lookup table or database query
     // For now, we'll use a simple mapping based on common Stripe price ID patterns
     if (priceId.includes('pro') || priceId.includes('basic')) {
-      return 'PRO';
+      return Tier.PRO;
     } else if (priceId.includes('max') || priceId.includes('premium')) {
-      return 'MAX';
+      return Tier.MAX;
     } else if (priceId.includes('team') || priceId.includes('enterprise')) {
-      return 'TEAMS';
+      return Tier.TEAMS;
     }
 
     // Default to PRO tier
-    return 'PRO';
+    return Tier.PRO;
   }
 
   private generateDailyUsageTrend(
-    usageLogs: any[],
+    usageLogs: UsageLogEntry[],
     periodStart: Date,
     periodEnd: Date
   ): Array<{ date: Date; count: number }> {

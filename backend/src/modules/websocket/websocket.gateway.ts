@@ -65,17 +65,21 @@ export class AppWebSocketGateway
   }
 
   // Send message to specific user
-  sendToUser(userId: string, event: string, data: any): void {
+  sendToUser(
+    userId: string,
+    event: string,
+    data: Record<string, string | number | boolean | null>
+  ): void {
     this.server.to(`user:${userId}`).emit(event, data);
   }
 
   // Send message to all users
-  sendToAll(data: any): void {
+  sendToAll(data: Record<string, string | number | boolean | null>): void {
     this.server.emit('broadcast', data);
   }
 
   // Send message to room
-  sendToRoom(room: string, data: any): void {
+  sendToRoom(room: string, data: Record<string, string | number | boolean | null>): void {
     this.server.to(room).emit('room-message', data);
   }
 

@@ -27,20 +27,6 @@ interface AIProcessRequest {
   };
 }
 
-interface AIProcessResponse {
-  text: string;
-  model: string;
-  confidence: number;
-  suggestions?: string[];
-  metadata: {
-    inputTokens: number;
-    outputTokens: number;
-    duration: number;
-    cost: number;
-    cacheHit: boolean;
-  };
-}
-
 interface EmailAnalysisResult {
   summary: string;
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
@@ -82,21 +68,6 @@ interface ActionParameters {
   [key: string]: string | number | boolean | string[] | undefined;
 }
 
-interface HealthCheckResult {
-  healthy: boolean;
-  services: Record<string, boolean>;
-}
-
-interface UserUsageStats {
-  userId: string;
-  currentMonthUsage: number;
-  monthlyLimit: number;
-  remainingActions: number;
-  usageByModel: Record<string, number>;
-  totalCost: number;
-  lastResetDate: Date;
-}
-
 @Injectable()
 export class AIGatewayService {
   private readonly logger = new Logger(AIGatewayService.name);
@@ -107,7 +78,20 @@ export class AIGatewayService {
     private readonly usageTracking: AIUsageTrackingService
   ) {}
 
-  async processRequest(request: AIProcessRequest): Promise<AIProcessResponse> {
+  async processRequest(request: AIProcessRequest): Promise<{
+    text: string;
+    model: string;
+    usage: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+      cost: number;
+    };
+    processingTime: number;
+    success: boolean;
+    actionTaken?: string;
+    actionId?: string;
+  }> {
     const startTime = Date.now();
 
     // Check usage limits
@@ -161,27 +145,24 @@ export class AIGatewayService {
         cacheHit: aiResponse.cacheHit,
       });
 
-      // Extract suggestions if the response contains actionable items
-      const suggestions = this.extractSuggestions(aiResponse.text);
-
-      const response: AIProcessResponse = {
+      const processingTime = Date.now() - startTime;
+      const response = {
         text: aiResponse.text,
         model: modelSelection.model,
-        confidence: this.calculateConfidence(modelSelection.model, aiResponse.outputTokens),
-        suggestions,
-        metadata: {
-          inputTokens: aiResponse.inputTokens,
-          outputTokens: aiResponse.outputTokens,
-          duration: Date.now() - startTime,
+        usage: {
+          promptTokens: aiResponse.inputTokens,
+          completionTokens: aiResponse.outputTokens,
+          totalTokens: aiResponse.inputTokens + aiResponse.outputTokens,
           cost,
-          cacheHit: aiResponse.cacheHit,
         },
+        processingTime,
+        success: true,
       };
 
       this.logger.debug(
         `AI request completed for user ${request.userId}: ` +
-          `${response.metadata.duration}ms, $${cost.toFixed(6)}, ` +
-          `cache: ${response.metadata.cacheHit}`
+          `${processingTime}ms, $${cost.toFixed(6)}, ` +
+          `cache: ${aiResponse.cacheHit}`
       );
 
       return response;
@@ -343,59 +324,51 @@ Respond in JSON format:
     return suggestions.slice(0, 5); // Limit to 5 suggestions
   }
 
-  private calculateConfidence(model: string, outputTokens: number): number {
-    // Calculate confidence based on model capability and response length
-    let baseConfidence = 0.7;
-
-    switch (model) {
-      case 'claude-3-opus':
-        baseConfidence = 0.9;
-        break;
-      case 'claude-3-5-sonnet':
-        baseConfidence = 0.8;
-        break;
-      case 'claude-3-haiku':
-        // Already initialized to 0.7
-        break;
-    }
-
-    // Adjust based on response length (longer responses might be more detailed)
-    if (outputTokens > 500) {
-      baseConfidence += 0.05;
-    } else if (outputTokens < 50) {
-      baseConfidence -= 0.1;
-    }
-
-    return Math.min(0.95, Math.max(0.5, baseConfidence));
-  }
-
-  async getUsageStats(userId: string): Promise<UserUsageStats> {
+  async getUsageStats(userId: string): Promise<{
+    currentUsage: {
+      requests: number;
+      tokens: number;
+      cost: number;
+    };
+    limits: {
+      requests: number;
+      tokens: number;
+    };
+    period: string;
+  }> {
     const stats = await this.usageTracking.getUserUsageStats(userId);
 
-    const currentMonth = new Date();
-    currentMonth.setDate(1);
-    currentMonth.setHours(0, 0, 0, 0);
-
-    // Transform UsageStats to UserUsageStats
-    // TODO: Fetch actual monthly limit from user's subscription
+    // Transform UsageStats to UsageStatsResponse
     return {
-      userId,
-      currentMonthUsage: stats.totalActions,
-      monthlyLimit: 1000, // Default PRO limit, should be fetched from subscription
-      remainingActions: Math.max(0, 1000 - stats.totalActions),
-      usageByModel: getOrDefault(stats.modelBreakdown, {}),
-      totalCost: stats.totalCost,
-      lastResetDate: currentMonth,
+      currentUsage: {
+        requests: stats.totalActions,
+        tokens: stats.totalTokens || 0,
+        cost: stats.totalCost,
+      },
+      limits: {
+        requests: 1000, // Default PRO limit, should be fetched from subscription
+        tokens: 500000, // Default token limit
+      },
+      period: 'month',
     };
   }
 
-  async healthCheck(): Promise<HealthCheckResult> {
+  async healthCheck(): Promise<{
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    timestamp: string;
+    services: {
+      anthropic: 'up' | 'down';
+      cache: 'up' | 'down';
+    };
+  }> {
     const [anthropicHealthy] = await Promise.all([this.anthropicService.healthCheck()]);
 
     return {
-      healthy: anthropicHealthy,
+      status: anthropicHealthy ? 'healthy' : 'degraded',
+      timestamp: new Date().toISOString(),
       services: {
-        anthropic: anthropicHealthy,
+        anthropic: anthropicHealthy ? 'up' : 'down',
+        cache: 'up', // Assuming cache is up for now
       },
     };
   }
@@ -444,10 +417,10 @@ Respond in JSON format:
 
       // Create usage information
       const usage = new AIUsageDto({
-        promptTokens: response.metadata.inputTokens,
-        completionTokens: response.metadata.outputTokens,
-        totalTokens: response.metadata.inputTokens + response.metadata.outputTokens,
-        cost: response.metadata.cost,
+        promptTokens: response.usage.promptTokens,
+        completionTokens: response.usage.completionTokens,
+        totalTokens: response.usage.totalTokens,
+        cost: response.usage.cost,
       });
 
       // Build the chat response

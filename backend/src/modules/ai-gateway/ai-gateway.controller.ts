@@ -19,6 +19,59 @@ import { DraftEmailDto } from './dto/draft-email.dto';
 import { ChatRequestDto } from './dto/chat-request.dto';
 import { ChatResponseDto } from './dto/chat-response.dto';
 import { ErrorResponseDto } from '../../common/dto/api-response.dto';
+import { RequestUser } from '../../common/interfaces/user.interface';
+import { Subscription } from '@prisma/client';
+
+// Define proper response types
+interface AIProcessResponse {
+  text: string;
+  model: string;
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    cost: number;
+  };
+  processingTime: number;
+  success: boolean;
+  actionTaken?: string;
+  actionId?: string;
+}
+
+interface EmailAnalysisResult {
+  summary: string;
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  sentiment: number;
+  actionItems: string[];
+  suggestedResponse?: string;
+}
+
+interface UsageStatsResponse {
+  currentUsage: {
+    requests: number;
+    tokens: number;
+    cost: number;
+  };
+  limits: {
+    requests: number;
+    tokens: number;
+  };
+  period: string;
+}
+
+interface HealthCheckResponse {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  services: {
+    anthropic: 'up' | 'down';
+    cache: 'up' | 'down';
+  };
+}
+
+// Extended user type for requests
+type AuthenticatedUser = RequestUser & {
+  subscription?: Subscription;
+};
 
 @ApiTags('ai-gateway')
 @Controller('ai-gateway')
@@ -118,16 +171,16 @@ export class AIGatewayController {
   })
   @Throttle({ default: { limit: 50, ttl: 60000 } }) // 50 requests per minute
   async processRequest(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() processRequestDto: ProcessRequestDto
-  ): Promise<any> {
+  ): Promise<AIProcessResponse> {
     return this.aiGatewayService.processRequest({
       prompt: processRequestDto.prompt,
       context: processRequestDto.context,
       systemPrompt: processRequestDto.systemPrompt,
       userId: user.id,
       action: processRequestDto.action,
-      userSubscription: user.subscription,
+      userSubscription: user.subscription || { tier: 'PRO' },
       metadata: processRequestDto.metadata,
     });
   }
@@ -236,13 +289,13 @@ export class AIGatewayController {
   })
   @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 requests per minute
   async generateSuggestions(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() generateSuggestionsDto: GenerateSuggestionsDto
   ): Promise<{ suggestions: string[] }> {
     const suggestions = await this.aiGatewayService.generateSuggestions({
       userId: user.id,
       context: generateSuggestionsDto.context,
-      userSubscription: user.subscription,
+      userSubscription: user.subscription || { tier: 'PRO' },
     });
 
     return { suggestions };
@@ -365,13 +418,13 @@ export class AIGatewayController {
   })
   @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute
   async analyzeEmail(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() analyzeEmailDto: AnalyzeEmailDto
-  ): Promise<any> {
+  ): Promise<EmailAnalysisResult> {
     return this.aiGatewayService.analyzeEmailThread({
       userId: user.id,
       emailContent: analyzeEmailDto.emailContent,
-      userSubscription: user.subscription,
+      userSubscription: user.subscription || { tier: 'PRO' },
     });
   }
 
@@ -477,7 +530,7 @@ export class AIGatewayController {
   })
   @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 requests per minute
   async draftEmail(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() draftEmailDto: DraftEmailDto
   ): Promise<{ subject: string; body: string }> {
     return this.aiGatewayService.draftEmail({
@@ -486,7 +539,7 @@ export class AIGatewayController {
       recipient: draftEmailDto.recipient,
       purpose: draftEmailDto.purpose,
       tone: draftEmailDto.tone,
-      userSubscription: user.subscription,
+      userSubscription: user.subscription || { tier: 'PRO' },
     });
   }
 
@@ -586,7 +639,7 @@ export class AIGatewayController {
     description: 'Unauthorized - Invalid or missing JWT token',
     type: ErrorResponseDto,
   })
-  async getUsageStats(@CurrentUser() user: any): Promise<any> {
+  async getUsageStats(@CurrentUser() user: AuthenticatedUser): Promise<UsageStatsResponse> {
     return this.aiGatewayService.getUsageStats(user.id);
   }
 
@@ -670,7 +723,7 @@ export class AIGatewayController {
       },
     },
   })
-  async healthCheck(): Promise<any> {
+  async healthCheck(): Promise<HealthCheckResponse> {
     return this.aiGatewayService.healthCheck();
   }
 
@@ -754,7 +807,7 @@ export class AIGatewayController {
   })
   @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute
   async chat(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() chatRequestDto: ChatRequestDto
   ): Promise<ChatResponseDto> {
     return this.aiGatewayService.chat({
@@ -768,7 +821,7 @@ export class AIGatewayController {
       suggestActions: chatRequestDto.suggestActions,
       conversationId: chatRequestDto.conversationId,
       systemPrompt: chatRequestDto.systemPrompt,
-      userSubscription: user.subscription,
+      userSubscription: user.subscription || { tier: 'PRO' },
     });
   }
 }

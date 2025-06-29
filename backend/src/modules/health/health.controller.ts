@@ -12,7 +12,11 @@ export class HealthController {
   @Public()
   @ApiOperation({ summary: 'Health check endpoint' })
   @ApiResponse({ status: 200, description: 'Service health status' })
-  async getHealth(): Promise<any> {
+  async getHealth(): Promise<{
+    status: string;
+    timestamp: string;
+    services: Record<string, { status: string; responseTime?: number; error?: string }>;
+  }> {
     return this.healthService.getHealth();
   }
 }

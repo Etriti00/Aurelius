@@ -130,8 +130,9 @@ export class IntegrationRegistryService implements OnModuleInit {
       });
 
       this.logger.log(`Registered ${this.integrations.size} integrations`);
-    } catch (error: any) {
-      this.logger.error(`Failed to register integrations: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to register integrations: ${errorMessage}`);
     }
   }
 

@@ -527,11 +527,13 @@ describe('Complete User Workflow E2E Tests', () => {
       });
 
       expect(user).toBeDefined();
-      expect(user!.email).toBe('workflow@example.com');
-      expect(user!.subscription).toBeDefined();
-      expect(user!.subscription!.tier).toBe(Tier.PRO);
-      expect(user!.tasks.length).toBe(2); // Original task + AI suggested task
-      expect(user!.actionLogs.length).toBeGreaterThan(0); // AI usage logged
+      if (!user) throw new Error('User not found');
+      expect(user.email).toBe('workflow@example.com');
+      expect(user.subscription).toBeDefined();
+      if (!user.subscription) throw new Error('Subscription not found');
+      expect(user.subscription.tier).toBe(Tier.PRO);
+      expect(user.tasks.length).toBe(2); // Original task + AI suggested task
+      expect(user.actionLogs.length).toBeGreaterThan(0); // AI usage logged
     });
 
     it('should verify analytics data consistency', async () => {

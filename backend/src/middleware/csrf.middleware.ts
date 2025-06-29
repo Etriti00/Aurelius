@@ -139,7 +139,7 @@ export class CsrfMiddleware implements NestMiddleware {
     }
 
     // Fallback to user ID if authenticated
-    const user = (req as any).user;
+    const user = (req as CsrfRequest & { user?: { id: string } }).user;
     if (user?.id) {
       return `user:${user.id}`;
     }

@@ -12,7 +12,7 @@ export class ExecutionInsightDto {
   description: string;
 
   @ApiProperty({ description: 'Additional data' })
-  data: Record<string, any>;
+  data: Record<string, string | number | boolean | null>;
 
   @ApiProperty({
     enum: ['low', 'medium', 'high', 'critical'],
@@ -87,10 +87,10 @@ export class ExecutedActionDto {
   status: 'success' | 'failed' | 'skipped';
 
   @ApiProperty({ description: 'Input parameters' })
-  input: Record<string, any>;
+  input: Record<string, string | number | boolean | null>;
 
   @ApiPropertyOptional({ description: 'Output data' })
-  output?: Record<string, any>;
+  output?: Record<string, string | number | boolean | null>;
 
   @ApiPropertyOptional({ description: 'Error message if failed' })
   error?: string;
@@ -115,7 +115,7 @@ export class ExecutionResultDto {
   message: string;
 
   @ApiPropertyOptional({ description: 'Additional data' })
-  data?: Record<string, any>;
+  data?: Record<string, string | number | boolean | null>;
 
   constructor() {
     this.type = 'success';
@@ -158,7 +158,7 @@ export class WorkflowExecutionDto {
   error?: {
     code: string;
     message: string;
-    details?: Record<string, any>;
+    details?: Record<string, string | number | boolean | null>;
   };
 
   @ApiProperty({ description: 'Analysis confidence score' })

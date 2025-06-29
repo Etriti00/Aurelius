@@ -39,6 +39,7 @@ import {
   JobStatistics,
   SchedulerMetrics,
   JobTemplate,
+  BulkJobOperation,
 } from './interfaces';
 
 @ApiTags('Scheduler')
@@ -156,7 +157,7 @@ export class SchedulerController {
   ): Promise<{ affected: number }> {
     return this.schedulerService.bulkOperation(userId, {
       jobIds: dto.jobIds,
-      operation: dto.operation as any,
+      operation: dto.operation as BulkJobOperation['operation'],
     });
   }
 

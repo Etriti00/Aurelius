@@ -100,14 +100,12 @@ export class ImageService {
         height: processedMetadata.height || 0,
         size: processedBuffer.length,
       };
-    } catch (error: any) {
-      this.logger.error(`Failed to process image: ${error.message}`);
-      throw new BusinessException(
-        'Failed to process image',
-        'IMAGE_PROCESSING_FAILED',
-        undefined,
-        error
-      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to process image: ${errorMessage}`);
+      throw new BusinessException('Failed to process image', 'IMAGE_PROCESSING_FAILED', undefined, {
+        message: errorMessage,
+      });
     }
   }
 
@@ -159,13 +157,14 @@ export class ImageService {
       }
 
       return urls;
-    } catch (error: any) {
-      this.logger.error(`Failed to generate responsive variants: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to generate responsive variants: ${errorMessage}`);
       throw new BusinessException(
         'Failed to generate image variants',
         'IMAGE_VARIANTS_FAILED',
         undefined,
-        error
+        { message: errorMessage }
       );
     }
   }
@@ -184,7 +183,7 @@ export class ImageService {
     colorSpace?: string;
     density?: number;
     channels?: number;
-    exif?: Record<string, any>;
+    exif?: Record<string, unknown>;
   }> {
     try {
       const metadata = await sharp(buffer).metadata();
@@ -211,14 +210,12 @@ export class ImageService {
         channels: channelCount,
         exif: metadata.exif ? this.parseExif() : undefined,
       };
-    } catch (error: any) {
-      this.logger.error(`Failed to analyze image: ${error.message}`);
-      throw new BusinessException(
-        'Failed to analyze image',
-        'IMAGE_ANALYSIS_FAILED',
-        undefined,
-        error
-      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to analyze image: ${errorMessage}`);
+      throw new BusinessException('Failed to analyze image', 'IMAGE_ANALYSIS_FAILED', undefined, {
+        message: errorMessage,
+      });
     }
   }
 
@@ -233,8 +230,9 @@ export class ImageService {
       // This would use a blurhash library
       // Placeholder implementation
       return this.generateHash(smallBuffer);
-    } catch (error: any) {
-      this.logger.error(`Failed to generate blurhash: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to generate blurhash: ${errorMessage}`);
       // Return a default blurhash on error
       return 'LEHV6nWB2yk8pyo0adR*.7kCMdnj';
     }
@@ -256,13 +254,14 @@ export class ImageService {
         })
         .jpeg({ quality: 80, mozjpeg: true })
         .toBuffer();
-    } catch (error: any) {
-      this.logger.error(`Failed to create thumbnail: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to create thumbnail: ${errorMessage}`);
       throw new BusinessException(
         'Failed to create thumbnail',
         'THUMBNAIL_CREATION_FAILED',
         undefined,
-        error
+        { message: errorMessage }
       );
     }
   }
@@ -340,7 +339,7 @@ export class ImageService {
   /**
    * Parse EXIF data
    */
-  private parseExif(): Record<string, any> {
+  private parseExif(): Record<string, unknown> {
     // This would use an EXIF parser library
     // Placeholder implementation
     return {

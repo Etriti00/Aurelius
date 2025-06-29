@@ -1,9 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsObject, MaxLength, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsObject, MaxLength, IsBoolean, IsDefined } from 'class-validator';
 
 export class UploadFileDto {
   @ApiProperty({ type: 'string', format: 'binary', description: 'File to upload' })
-  file: Express.Multer.File;
+  @IsDefined({ message: 'File is required' })
+  file?: Express.Multer.File;
 
   @ApiPropertyOptional({ description: 'Custom filename' })
   @IsString()

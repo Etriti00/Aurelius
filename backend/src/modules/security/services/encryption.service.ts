@@ -57,7 +57,9 @@ export class EncryptionService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Encryption failed: ${errorMessage}`);
-      throw new BusinessException('Failed to encrypt data', 'ENCRYPTION_FAILED', undefined, error);
+      throw new BusinessException('Failed to encrypt data', 'ENCRYPTION_FAILED', undefined, {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -85,7 +87,9 @@ export class EncryptionService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Decryption failed: ${errorMessage}`);
-      throw new BusinessException('Failed to decrypt data', 'DECRYPTION_FAILED', undefined, error);
+      throw new BusinessException('Failed to decrypt data', 'DECRYPTION_FAILED', undefined, {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -112,7 +116,9 @@ export class EncryptionService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Password hashing failed: ${errorMessage}`);
-      throw new BusinessException('Failed to hash password', 'HASHING_FAILED', undefined, error);
+      throw new BusinessException('Failed to hash password', 'HASHING_FAILED', undefined, {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

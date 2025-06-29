@@ -43,7 +43,13 @@ export class LoginResponseDto {
     accessToken: string = '',
     refreshToken: string = '',
     expiresIn: number = 0,
-    user: any = { id: '', email: '', name: null, avatar: null, mfaEnabled: false }
+    user: {
+      id: string;
+      email: string;
+      name: string | null;
+      avatar: string | null;
+      mfaEnabled: boolean;
+    } = { id: '', email: '', name: null, avatar: null, mfaEnabled: false }
   ) {
     this.accessToken = accessToken;
     this.refreshToken = refreshToken;

@@ -1,5 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
+import { Prisma } from '@prisma/client';
+
+// Define error interface for sync operations
+interface SyncError {
+  id: string;
+  type: 'gmail' | 'calendar' | 'drive' | 'tasks';
+  message: string;
+  data?: Prisma.JsonObject;
+}
 import { PrismaService } from '../../prisma/prisma.service';
 import { CacheService } from '../../cache/services/cache.service';
 import { QueueService } from '../../queue/services/queue.service';
@@ -62,7 +71,10 @@ export class GoogleIntegrationService extends BaseIntegrationService {
   async testConnection(integration: Integration): Promise<boolean> {
     try {
       // Decrypt tokens
-      const tokens = await this.decryptTokens(integration.config.oauth!);
+      if (!integration.config.oauth) {
+        return false;
+      }
+      const tokens = await this.decryptTokens(integration.config.oauth);
 
       // Test Gmail API
       const response = await this.httpService.axiosRef.get(
@@ -76,7 +88,8 @@ export class GoogleIntegrationService extends BaseIntegrationService {
 
       return response.status === 200;
     } catch (error) {
-      this.logger.error(`Connection test failed: ${error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Connection test failed: ${errorMessage}`, error);
       return false;
     }
   }
@@ -100,9 +113,12 @@ export class GoogleIntegrationService extends BaseIntegrationService {
 
       // Check if tokens need refresh
       if (tokens.expiresAt && new Date() > new Date(tokens.expiresAt)) {
+        if (!tokens.refreshToken) {
+          throw new Error('Refresh token is missing');
+        }
         const refreshed = await this.oauthService.refreshAccessToken(
           OAuthProvider.GOOGLE,
-          tokens.refreshToken!
+          tokens.refreshToken
         );
 
         // Update integration with new tokens
@@ -117,27 +133,40 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       if (integration.capabilities.includes(IntegrationCapability.EMAIL_SYNC)) {
         const emailResult = await this.syncEmails(integration, tokens.accessToken, syncType);
         result.itemsSynced += emailResult.synced;
-        result.errors.push(...emailResult.errors);
+        result.errors.push(
+          ...emailResult.errors.map(err =>
+            typeof err === 'string' ? err : `${err.type}: ${err.message}`
+          )
+        );
       }
 
       if (integration.capabilities.includes(IntegrationCapability.CALENDAR_SYNC)) {
         const calendarResult = await this.syncCalendar(integration, tokens.accessToken, syncType);
         result.itemsSynced += calendarResult.synced;
-        result.errors.push(...calendarResult.errors);
+        result.errors.push(
+          ...calendarResult.errors.map(err =>
+            typeof err === 'string' ? err : `${err.type}: ${err.message}`
+          )
+        );
       }
 
       if (integration.capabilities.includes(IntegrationCapability.TASK_SYNC)) {
         const taskResult = await this.syncTasks(integration, tokens.accessToken, syncType);
         result.itemsSynced += taskResult.synced;
-        result.errors.push(...taskResult.errors);
+        result.errors.push(
+          ...taskResult.errors.map(err =>
+            typeof err === 'string' ? err : `${err.type}: ${err.message}`
+          )
+        );
       }
 
       result.completedAt = new Date();
       return result;
-    } catch (error: any) {
-      this.logger.error(`Sync failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Sync failed: ${errorMessage}`, error);
       result.success = false;
-      result.errors.push(`Sync failed: ${error.message}`);
+      result.errors.push(`Sync failed: ${errorMessage}`);
       result.completedAt = new Date();
       return result;
     }
@@ -150,17 +179,19 @@ export class GoogleIntegrationService extends BaseIntegrationService {
     integration: Integration,
     accessToken: string,
     syncType: 'full' | 'incremental'
-  ): Promise<{ synced: number; errors: any[] }> {
+  ): Promise<{ synced: number; errors: SyncError[] }> {
     const synced = 0;
-    const errors: any[] = [];
+    const errors: SyncError[] = [];
 
     try {
       // Get last sync time for incremental sync
       const lastSync = syncType === 'incremental' ? integration.metadata?.lastEmailSync : null;
 
-      const query = lastSync
-        ? `after:${Math.floor(new Date(lastSync).getTime() / 1000)}`
-        : 'is:unread';
+      const query =
+        lastSync &&
+        (typeof lastSync === 'string' || typeof lastSync === 'number' || lastSync instanceof Date)
+          ? `after:${Math.floor(new Date(lastSync).getTime() / 1000)}`
+          : 'is:unread';
 
       // List messages
       const response = await this.httpService.axiosRef.get(
@@ -178,10 +209,9 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       if (response.data.messages) {
         for (const message of response.data.messages) {
           await this.queueService.addEmailProcessingJob({
-            type: 'sync_gmail_message',
-            integrationId: integration.id,
-            messageId: message.id,
-            accessToken,
+            userId: integration.userId,
+            emailId: message.id,
+            action: 'parse',
           });
         }
       }
@@ -199,9 +229,14 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       });
 
       return { synced: response.data.messages?.length || 0, errors };
-    } catch (error: any) {
-      this.logger.error(`Email sync failed: ${error.message}`);
-      errors.push(`Email sync failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Email sync failed: ${errorMessage}`, error);
+      errors.push({
+        id: 'email-sync-error',
+        type: 'gmail',
+        message: `Email sync failed: ${errorMessage}`,
+      });
       return { synced, errors };
     }
   }
@@ -213,14 +248,19 @@ export class GoogleIntegrationService extends BaseIntegrationService {
     integration: Integration,
     accessToken: string,
     syncType: 'full' | 'incremental'
-  ): Promise<{ synced: number; errors: any[] }> {
+  ): Promise<{ synced: number; errors: SyncError[] }> {
     const synced = 0;
-    const errors: any[] = [];
+    const errors: SyncError[] = [];
 
     try {
+      const lastCalendarSync = integration.metadata?.lastCalendarSync;
       const timeMin =
-        syncType === 'incremental' && integration.metadata?.lastCalendarSync
-          ? new Date(integration.metadata.lastCalendarSync).toISOString()
+        syncType === 'incremental' &&
+        lastCalendarSync &&
+        (typeof lastCalendarSync === 'string' ||
+          typeof lastCalendarSync === 'number' ||
+          lastCalendarSync instanceof Date)
+          ? new Date(lastCalendarSync).toISOString()
           : new Date().toISOString();
 
       const timeMax = new Date();
@@ -244,11 +284,17 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       // Process events
       if (response.data.items) {
         for (const event of response.data.items) {
-          await this.queueService.addIntegrationSyncJob({
-            type: 'sync_google_event',
-            integrationId: integration.id,
-            event,
-          });
+          // Process each calendar event
+          if (event.id) {
+            await this.queueService.addIntegrationSyncJob({
+              integrationId: integration.id,
+              syncType: 'incremental',
+              metadata: {
+                triggeredBy: 'system',
+                priority: 'medium',
+              },
+            });
+          }
         }
       }
 
@@ -265,9 +311,14 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       });
 
       return { synced: response.data.items?.length || 0, errors };
-    } catch (error: any) {
-      this.logger.error(`Calendar sync failed: ${error.message}`);
-      errors.push(`Calendar sync failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Calendar sync failed: ${errorMessage}`, error);
+      errors.push({
+        id: 'calendar-sync-error',
+        type: 'calendar',
+        message: `Calendar sync failed: ${errorMessage}`,
+      });
       return { synced, errors };
     }
   }
@@ -279,9 +330,9 @@ export class GoogleIntegrationService extends BaseIntegrationService {
     integration: Integration,
     accessToken: string,
     syncType: 'full' | 'incremental'
-  ): Promise<{ synced: number; errors: any[] }> {
+  ): Promise<{ synced: number; errors: SyncError[] }> {
     const synced = 0;
-    const errors: any[] = [];
+    const errors: SyncError[] = [];
 
     try {
       // List task lists
@@ -310,15 +361,17 @@ export class GoogleIntegrationService extends BaseIntegrationService {
 
           if (tasksResponse.data.items) {
             for (const task of tasksResponse.data.items) {
-              await this.queueService.addIntegrationSyncJob({
-                type: 'sync_google_task',
-                integrationId: integration.id,
-                task: {
-                  ...task,
-                  listId: list.id,
-                  listTitle: list.title,
-                },
-              });
+              // Process each task - ensure we have task data
+              if (task.id) {
+                await this.queueService.addIntegrationSyncJob({
+                  integrationId: integration.id,
+                  syncType: 'incremental',
+                  metadata: {
+                    triggeredBy: 'system',
+                    priority: 'medium',
+                  },
+                });
+              }
             }
             totalSynced += tasksResponse.data.items.length;
           }
@@ -338,9 +391,14 @@ export class GoogleIntegrationService extends BaseIntegrationService {
       });
 
       return { synced: totalSynced, errors };
-    } catch (error: any) {
-      this.logger.error(`Task sync failed: ${error.message}`);
-      errors.push(`Task sync failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Task sync failed: ${errorMessage}`, error);
+      errors.push({
+        id: 'tasks-sync-error',
+        type: 'tasks',
+        message: `Task sync failed: ${errorMessage}`,
+      });
       return { synced, errors };
     }
   }

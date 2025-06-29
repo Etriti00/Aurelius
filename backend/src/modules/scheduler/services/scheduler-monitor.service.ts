@@ -3,7 +3,13 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CacheService } from '../../cache/services/cache.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
-import { SchedulerMetrics, UpcomingJob, JobStatistics, ExecutionStatus } from '../interfaces';
+import {
+  SchedulerMetrics,
+  UpcomingJob,
+  JobStatistics,
+  ExecutionStatus,
+  JobType,
+} from '../interfaces';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
@@ -35,8 +41,9 @@ export class SchedulerMonitorService {
 
       // Update metrics cache
       await this.updateMetricsCache();
-    } catch (error: any) {
-      this.logger.error(`Job health monitoring failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Job health monitoring failed: ${errorMessage}`);
     }
   }
 
@@ -74,8 +81,9 @@ export class SchedulerMonitorService {
       }
 
       this.logger.log(`Cleaned up ${stuckExecutions.length} stuck executions`);
-    } catch (error: any) {
-      this.logger.error(`Stuck execution cleanup failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Stuck execution cleanup failed: ${errorMessage}`);
     }
   }
 
@@ -145,8 +153,8 @@ export class SchedulerMonitorService {
       successfulExecutions,
       failedExecutions,
       averageDuration: avgDuration,
-      lastExecution: lastExecution?.completedAt,
-      nextExecution: job?.nextRun || undefined,
+      lastExecution: lastExecution?.completedAt ? lastExecution.completedAt : new Date(0),
+      nextExecution: job?.nextRun ? job.nextRun : new Date(Date.now() + 86400000),
     };
   }
 
@@ -192,7 +200,19 @@ export class SchedulerMonitorService {
   /**
    * Find unhealthy jobs
    */
-  private async findUnhealthyJobs(): Promise<any[]> {
+  private async findUnhealthyJobs(): Promise<
+    Array<{
+      id: string;
+      userId: string;
+      name: string;
+      enabled: boolean;
+      nextRun?: Date | null;
+      lastRun?: Date | null;
+      issue: 'missed_execution' | 'high_failure_rate';
+      failures?: number;
+      _count: { executions: number };
+    }>
+  > {
     const jobs = await this.prisma.scheduledJob.findMany({
       where: { enabled: true },
       include: {
@@ -205,11 +225,22 @@ export class SchedulerMonitorService {
     const unhealthyJobs = [];
 
     for (const job of jobs) {
+      // Skip jobs without userId (invalid data)
+      if (!job.userId) {
+        continue;
+      }
+
       // Check if job hasn't run when it should have
       if (job.nextRun && job.nextRun < new Date() && (!job.lastRun || job.lastRun < job.nextRun)) {
         unhealthyJobs.push({
-          ...job,
-          issue: 'missed_execution',
+          id: job.id,
+          userId: job.userId,
+          name: job.name,
+          enabled: job.enabled,
+          nextRun: job.nextRun,
+          lastRun: job.lastRun,
+          issue: 'missed_execution' as const,
+          _count: job._count,
         });
         continue;
       }
@@ -225,9 +256,15 @@ export class SchedulerMonitorService {
 
       if (recentFailures > 3) {
         unhealthyJobs.push({
-          ...job,
-          issue: 'high_failure_rate',
+          id: job.id,
+          userId: job.userId,
+          name: job.name,
+          enabled: job.enabled,
+          nextRun: job.nextRun,
+          lastRun: job.lastRun,
+          issue: 'high_failure_rate' as const,
           failures: recentFailures,
+          _count: job._count,
         });
       }
     }
@@ -238,7 +275,14 @@ export class SchedulerMonitorService {
   /**
    * Handle unhealthy job
    */
-  private async handleUnhealthyJob(job: any): Promise<void> {
+  private async handleUnhealthyJob(job: {
+    id: string;
+    userId: string;
+    name: string;
+    issue: 'missed_execution' | 'high_failure_rate';
+    nextRun?: Date | null;
+    failures?: number;
+  }): Promise<void> {
     this.logger.warn(`Handling unhealthy job ${job.id}: ${job.issue}`);
 
     switch (job.issue) {
@@ -252,7 +296,7 @@ export class SchedulerMonitorService {
 
       case 'high_failure_rate':
         // Consider disabling the job
-        if (job.failures > 5) {
+        if (job.failures && job.failures > 5) {
           await this.prisma.scheduledJob.update({
             where: { id: job.id },
             data: {
@@ -310,8 +354,8 @@ export class SchedulerMonitorService {
     return jobs.map(job => ({
       jobId: job.id,
       jobName: job.name,
-      nextRun: job.nextRun!,
-      type: job.type as any,
+      nextRun: job.nextRun || new Date(),
+      type: job.type as JobType,
     }));
   }
 
@@ -340,11 +384,43 @@ export class SchedulerMonitorService {
     return result._avg.duration || 0;
   }
 
-  private async getLastExecution(jobId: string): Promise<any> {
-    return this.prisma.jobExecution.findFirst({
+  private async getLastExecution(jobId: string): Promise<{
+    id: string;
+    jobId: string;
+    status: string;
+    startedAt: Date;
+    completedAt?: Date | null;
+    duration?: number | null;
+    result?: Record<string, unknown> | null;
+    error?: Record<string, unknown> | null;
+    retryCount: number;
+  } | null> {
+    const execution = await this.prisma.jobExecution.findFirst({
       where: { jobId },
       orderBy: { startedAt: 'desc' },
     });
+
+    if (!execution) {
+      return null;
+    }
+
+    return {
+      id: execution.id,
+      jobId: execution.jobId,
+      status: execution.status,
+      startedAt: execution.startedAt,
+      completedAt: execution.completedAt,
+      duration: execution.duration,
+      result:
+        execution.result && typeof execution.result === 'object' && !Array.isArray(execution.result)
+          ? (execution.result as Record<string, unknown>)
+          : null,
+      error:
+        execution.error && typeof execution.error === 'object' && !Array.isArray(execution.error)
+          ? (execution.error as Record<string, unknown>)
+          : null,
+      retryCount: execution.retryCount,
+    };
   }
 
   private async updateMetricsCache(): Promise<void> {

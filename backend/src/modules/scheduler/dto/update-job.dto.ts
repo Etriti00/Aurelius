@@ -1,6 +1,6 @@
 import { IsString, IsObject, IsOptional, IsBoolean, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import { JobSchedule, JobAction } from '../interfaces';
+import { JobSchedule, JobAction, JobMetadata } from '../interfaces';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateJobDto {
@@ -33,8 +33,8 @@ export class UpdateJobDto {
   @IsBoolean()
   enabled?: boolean;
 
-  @ApiPropertyOptional({ description: 'Additional metadata' })
+  @ApiPropertyOptional({ description: 'Additional metadata', type: Object })
   @IsOptional()
   @IsObject()
-  metadata?: Record<string, any>;
+  metadata?: JobMetadata;
 }

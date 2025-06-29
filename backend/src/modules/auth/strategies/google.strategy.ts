@@ -1,6 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
+
+// Create a custom profile interface that includes emails array and optional _json
+interface GoogleOAuthProfile {
+  id: string;
+  emails: Array<{ value: string }>;
+  displayName: string;
+  photos?: Array<{ value: string }>;
+  _json?: {
+    expires_in?: number;
+    [key: string]: unknown;
+  };
+}
 import { ConfigService } from '@nestjs/config';
 
 import { AuthService } from '../auth.service';
@@ -27,14 +39,14 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   async validate(
     accessToken: string,
     refreshToken: string,
-    profile: any,
+    profile: GoogleOAuthProfile,
     done: VerifyCallback
   ): Promise<void> {
     try {
       const oauthUser = {
-        email: profile.emails[0].value,
+        email: profile.emails?.[0]?.value || '',
         name: profile.displayName,
-        avatar: profile.photos[0]?.value,
+        avatar: profile.photos?.[0]?.value,
         provider: 'google' as const,
         providerId: profile.id,
       };
@@ -42,7 +54,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       const result = await this.authService.handleOAuthLoginWithTokens(oauthUser, {
         accessToken,
         refreshToken,
-        tokenExpiry: profile._json.expires_in
+        tokenExpiry: profile._json?.expires_in
           ? new Date(Date.now() + profile._json.expires_in * 1000)
           : undefined,
       });

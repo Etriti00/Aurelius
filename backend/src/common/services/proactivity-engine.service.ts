@@ -2,18 +2,41 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { Task, EmailThread, CalendarEvent, Integration } from '@prisma/client';
 
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import { AIGatewayService } from '../../modules/ai-gateway/ai-gateway.service';
 import { AppWebSocketGateway } from '../../modules/websocket/websocket.gateway';
+
+// Use Prisma generated types
+type TaskData = Task;
+type EmailData = EmailThread;
+type CalendarData = CalendarEvent;
+type IntegrationData = Integration;
+
+// Serializable trigger data interfaces
+interface TriggerEventData {
+  eventId?: string;
+  taskId?: string;
+  emailId?: string;
+  integrationId?: string;
+  [key: string]: string | number | boolean | object | undefined;
+}
+
+interface TriggerContext {
+  triggerType: string;
+  timestamp?: string;
+  source?: string;
+  [key: string]: string | number | boolean | object | undefined;
+}
 
 interface TriggerEvent {
   id: string;
   type: 'temporal' | 'event' | 'contextual' | 'predictive';
   priority: 'urgent' | 'important' | 'routine';
   userId: string;
-  data: Record<string, any>;
-  context?: Record<string, any>;
+  data: TriggerEventData;
+  context?: TriggerContext;
 }
 
 interface EnhancedSuggestion {
@@ -22,7 +45,7 @@ interface EnhancedSuggestion {
   title: string;
   description: string;
   actionType: string;
-  actionData: Record<string, any>;
+  actionData: Record<string, string | number | boolean>;
   confidence: number;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   reasoning: string;
@@ -34,21 +57,21 @@ interface EnhancedSuggestion {
 interface UserContext {
   user: {
     id: string;
-    preferences: Record<string, any>;
+    preferences: Record<string, string | number | boolean>;
     subscription: {
       tier: 'PRO' | 'MAX' | 'TEAMS';
     };
   };
   workspace: {
-    tasks: any[];
-    emails: any[];
-    calendar: any[];
-    integrations: any[];
+    tasks: TaskData[];
+    emails: EmailData[];
+    calendar: CalendarData[];
+    integrations: IntegrationData[];
   };
   patterns: {
     workingHours: { start: string; end: string };
     activeProjects: string[];
-    recentActivity: any[];
+    recentActivity: Array<{ type: string; timestamp: string; description: string }>;
   };
   summary: string;
 }
@@ -88,7 +111,7 @@ export class ProactivityEngineService {
           type: 'temporal',
           priority: 'important',
           userId: event.userId,
-          data: { event },
+          data: { eventId: event.id },
           context: { triggerType: 'upcoming-meeting' },
         };
 
@@ -110,7 +133,7 @@ export class ProactivityEngineService {
           type: 'temporal',
           priority: 'urgent',
           userId: task.userId,
-          data: { task },
+          data: { taskId: task.id },
           context: { triggerType: 'overdue-task' },
         };
 
@@ -234,7 +257,11 @@ export class ProactivityEngineService {
   async executeSuggestion(
     suggestionId: string,
     approved: boolean = false
-  ): Promise<{ success: boolean; result?: any; error?: string }> {
+  ): Promise<{
+    success: boolean;
+    result?: Record<string, string | number | boolean>;
+    error?: string;
+  }> {
     try {
       const suggestion = await this.prisma.aISuggestion.findUnique({
         where: { id: suggestionId },
@@ -270,8 +297,9 @@ export class ProactivityEngineService {
 
       // Notify user via WebSocket
       this.webSocketGateway.sendToUser(suggestion.userId, 'suggestion:executed', {
-        suggestion,
-        result,
+        suggestionId: suggestion.id,
+        title: suggestion.title,
+        status: 'executed',
       });
 
       return { success: true, result };
@@ -327,8 +355,8 @@ export class ProactivityEngineService {
     return {
       user: {
         id: user.id,
-        preferences: user.preferences as Record<string, any>,
-        subscription: user.subscription!,
+        preferences: user.preferences as Record<string, string | number | boolean>,
+        subscription: user.subscription || { tier: 'PRO' as const },
       },
       workspace: {
         tasks: user.tasks,
@@ -459,43 +487,48 @@ Respond in JSON format:
     }
   }
 
-  private async detectPatterns(_context: UserContext): Promise<any[]> {
-    // TODO: Implement pattern detection logic
+  private async detectPatterns(
+    context: UserContext
+  ): Promise<Array<{ type: string; confidence: number; description: string }>> {
+    // TODO: Implement pattern detection logic based on user context
     // This would analyze user behavior and identify opportunities for automation
+    void context; // Mark as intentionally unused for now
     return [];
   }
 
-  private canAutoExecute(suggestion: any): boolean {
+  private canAutoExecute(suggestion: { type: string; confidence: number }): boolean {
     // Determine if a suggestion can be auto-executed without user approval
     const lowRiskActions = ['CALENDAR_BLOCK', 'MEETING_PREP'];
     return lowRiskActions.includes(suggestion.type) && suggestion.confidence > 0.9;
   }
 
-  private async executeAction(suggestion: any): Promise<any> {
+  private async executeAction(suggestion: {
+    actionType: string;
+  }): Promise<Record<string, string | number | boolean>> {
     // Execute the actual action based on suggestion type
     switch (suggestion.actionType) {
       case 'create_task':
-        return this.createTask(suggestion);
+        return this.createTask();
       case 'draft_email':
-        return this.draftEmail(suggestion);
+        return this.draftEmail();
       case 'block_calendar':
-        return this.blockCalendar(suggestion);
+        return this.blockCalendar();
       default:
         throw new Error(`Unknown action type: ${suggestion.actionType}`);
     }
   }
 
-  private async createTask(_suggestion: any): Promise<any> {
+  private async createTask(): Promise<{ message: string }> {
     // TODO: Implementation for creating tasks
     return { message: 'Task creation not yet implemented' };
   }
 
-  private async draftEmail(_suggestion: any): Promise<any> {
+  private async draftEmail(): Promise<{ message: string }> {
     // TODO: Implementation for drafting emails
     return { message: 'Email drafting not yet implemented' };
   }
 
-  private async blockCalendar(_suggestion: any): Promise<any> {
+  private async blockCalendar(): Promise<{ message: string }> {
     // TODO: Implementation for calendar blocking
     return { message: 'Calendar blocking not yet implemented' };
   }

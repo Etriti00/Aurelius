@@ -1,6 +1,20 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class ApiResponseDto<T = any> {
+// Base interface for response data
+interface ResponseData {
+  [key: string]: string | number | boolean | null | ResponseData | ResponseData[];
+}
+
+// Interface for error details
+interface ErrorDetails {
+  field?: string;
+  code?: string;
+  message?: string;
+  value?: string | number | boolean;
+  [key: string]: string | number | boolean | undefined;
+}
+
+export class ApiResponseDto<T extends ResponseData = ResponseData> {
   @ApiProperty({
     description: 'Indicates if the request was successful',
     example: true,
@@ -48,7 +62,7 @@ export class ApiResponseDto<T = any> {
   }
 }
 
-export class PaginatedResponseDto<T = any> {
+export class PaginatedResponseDto<T = ResponseData> {
   @ApiProperty({
     description: 'Array of data items',
     isArray: true,
@@ -152,7 +166,7 @@ export class ErrorResponseDto {
     required: false,
     type: 'object',
   })
-  details?: any;
+  details?: ErrorDetails;
 
   constructor(data: Partial<ErrorResponseDto>) {
     this.message = data.message !== undefined ? data.message : '';

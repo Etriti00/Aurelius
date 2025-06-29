@@ -2,7 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CacheService } from '../../cache/services/cache.service';
 import { QueueService } from '../../queue/services/queue.service';
-import { WorkflowTrigger, TriggerType, TriggerCondition, ConditionOperator } from '../interfaces';
+import {
+  WorkflowTrigger,
+  TriggerType,
+  TriggerCondition,
+  ConditionOperator,
+  TriggerMetadata,
+} from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as cron from 'node-cron';
@@ -10,7 +16,7 @@ import * as cron from 'node-cron';
 @Injectable()
 export class TriggerService {
   private readonly logger = new Logger(TriggerService.name);
-  private readonly activeTriggers = new Map<string, any>();
+  private readonly activeTriggers = new Map<string, { userId: string; trigger: WorkflowTrigger }>();
   private readonly cronJobs = new Map<string, cron.ScheduledTask>();
 
   constructor(
@@ -45,7 +51,7 @@ export class TriggerService {
           type: trigger.type,
           config: JSON.parse(JSON.stringify({ conditions: trigger.conditions })),
           active: trigger.enabled,
-          metadata: trigger.metadata || {},
+          metadata: JSON.parse(JSON.stringify(trigger.metadata || {})),
         },
       });
 
@@ -59,13 +65,16 @@ export class TriggerService {
 
       this.logger.log(`Registered trigger ${triggerId} for user ${userId}`);
       return newTrigger;
-    } catch (error: any) {
-      this.logger.error(`Failed to register trigger: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to register trigger: ${errorMessage}`, error);
       throw new BusinessException(
         'Failed to register trigger',
         'TRIGGER_REGISTRATION_FAILED',
         undefined,
-        error
+        {
+          error: error instanceof Error ? error.message : String(error),
+        }
       );
     }
   }
@@ -102,13 +111,16 @@ export class TriggerService {
       }
 
       this.activeTriggers.set(trigger.id, { userId, trigger });
-    } catch (error: any) {
-      this.logger.error(`Failed to activate trigger: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to activate trigger: ${errorMessage}`, error);
       throw new BusinessException(
         'Failed to activate trigger',
         'TRIGGER_ACTIVATION_FAILED',
         undefined,
-        error
+        {
+          error: error instanceof Error ? error.message : String(error),
+        }
       );
     }
   }
@@ -135,13 +147,16 @@ export class TriggerService {
       });
 
       this.logger.log(`Deactivated trigger ${triggerId}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to deactivate trigger: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to deactivate trigger: ${errorMessage}`, error);
       throw new BusinessException(
         'Failed to deactivate trigger',
         'TRIGGER_DEACTIVATION_FAILED',
         undefined,
-        error
+        {
+          error: error instanceof Error ? error.message : String(error),
+        }
       );
     }
   }
@@ -149,7 +164,10 @@ export class TriggerService {
   /**
    * Evaluate trigger conditions
    */
-  async evaluateTrigger(trigger: WorkflowTrigger, context: Record<string, any>): Promise<boolean> {
+  async evaluateTrigger(
+    trigger: WorkflowTrigger,
+    context: Record<string, string | number | boolean | Date>
+  ): Promise<boolean> {
     try {
       if (!trigger.conditions || trigger.conditions.length === 0) {
         return true;
@@ -171,8 +189,9 @@ export class TriggerService {
       }
 
       return result;
-    } catch (error: any) {
-      this.logger.error(`Failed to evaluate trigger: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to evaluate trigger: ${errorMessage}`, error);
       return false;
     }
   }
@@ -180,7 +199,10 @@ export class TriggerService {
   /**
    * Fire a trigger
    */
-  async fireTrigger(triggerId: string, data: Record<string, any> = {}): Promise<void> {
+  async fireTrigger(
+    triggerId: string,
+    data: Record<string, string | number | boolean | Date> = {}
+  ): Promise<void> {
     try {
       const triggerData = this.activeTriggers.get(triggerId);
       if (!triggerData) {
@@ -201,7 +223,7 @@ export class TriggerService {
         userId,
         triggerId,
         triggerType: trigger.type,
-        triggerData: data,
+        triggerData: this.serializeDataForQueue(data),
       });
 
       // Emit event for real-time updates
@@ -212,14 +234,12 @@ export class TriggerService {
       });
 
       this.logger.log(`Fired trigger ${triggerId} for user ${userId}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to fire trigger: ${error.message}`);
-      throw new BusinessException(
-        'Failed to fire trigger',
-        'TRIGGER_FIRE_FAILED',
-        undefined,
-        error
-      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to fire trigger: ${errorMessage}`, error);
+      throw new BusinessException('Failed to fire trigger', 'TRIGGER_FIRE_FAILED', undefined, {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -242,7 +262,7 @@ export class TriggerService {
         ? ((t.config as Record<string, unknown>).conditions as TriggerCondition[])
         : [],
       enabled: t.active,
-      metadata: t.metadata as Record<string, any>,
+      metadata: t.metadata as TriggerMetadata,
     }));
   }
 
@@ -251,7 +271,7 @@ export class TriggerService {
    */
   private async activateTimeTrigger(userId: string, trigger: WorkflowTrigger): Promise<void> {
     this.logger.debug(`Activating time trigger for user ${userId}: ${trigger.id}`);
-    const cronPattern = trigger.metadata?.cronPattern;
+    const cronPattern = trigger.metadata?.schedule?.cron;
     if (!cronPattern) {
       throw new Error('Time trigger requires cronPattern in metadata');
     }
@@ -271,7 +291,7 @@ export class TriggerService {
    * Activate event-based trigger
    */
   private async activateEventTrigger(userId: string, trigger: WorkflowTrigger): Promise<void> {
-    const eventName = trigger.metadata?.eventName;
+    const eventName = trigger.metadata?.source;
     if (!eventName) {
       throw new Error('Event trigger requires eventName in metadata');
     }
@@ -358,7 +378,10 @@ export class TriggerService {
   /**
    * Evaluate a single condition
    */
-  private evaluateCondition(condition: TriggerCondition, context: Record<string, any>): boolean {
+  private evaluateCondition(
+    condition: TriggerCondition,
+    context: Record<string, string | number | boolean | Date>
+  ): boolean {
     const fieldValue = this.getFieldValue(condition.field, context);
     const conditionValue = condition.value;
 
@@ -378,9 +401,9 @@ export class TriggerService {
       case ConditionOperator.LESS_THAN:
         return Number(fieldValue) < Number(conditionValue);
       case ConditionOperator.IN:
-        return Array.isArray(conditionValue) && conditionValue.includes(fieldValue);
+        return Array.isArray(conditionValue) && conditionValue.some(val => val === fieldValue);
       case ConditionOperator.NOT_IN:
-        return Array.isArray(conditionValue) && !conditionValue.includes(fieldValue);
+        return Array.isArray(conditionValue) && !conditionValue.some(val => val === fieldValue);
       case ConditionOperator.MATCHES_PATTERN:
         return new RegExp(String(conditionValue)).test(String(fieldValue));
       default:
@@ -391,14 +414,36 @@ export class TriggerService {
   /**
    * Get field value from context using dot notation
    */
-  private getFieldValue(field: string, context: Record<string, any>): any {
-    return field.split('.').reduce((obj, key) => obj?.[key], context);
+  private getFieldValue(
+    field: string,
+    context: Record<string, string | number | boolean | Date>
+  ): string | number | boolean | Date | undefined {
+    const keys = field.split('.');
+    let current: string | number | boolean | Date | Record<string, unknown> | undefined = context;
+
+    for (const key of keys) {
+      if (current && typeof current === 'object' && key in current) {
+        current = (current as Record<string, unknown>)[key] as
+          | string
+          | number
+          | boolean
+          | Date
+          | Record<string, unknown>
+          | undefined;
+      } else {
+        return undefined;
+      }
+    }
+
+    return current as string | number | boolean | Date | undefined;
   }
 
   /**
    * Get user context for context-based triggers
    */
-  private async getUserContext(userId: string): Promise<Record<string, any>> {
+  private async getUserContext(
+    userId: string
+  ): Promise<Record<string, string | number | boolean | Date>> {
     const [taskCount, upcomingEvents, recentEmails] = await Promise.all([
       this.prisma.task.count({
         where: { userId, status: 'pending' },
@@ -473,15 +518,16 @@ export class TriggerService {
             ? ((trigger.config as Record<string, unknown>).conditions as TriggerCondition[])
             : [],
           enabled: trigger.active,
-          metadata: trigger.metadata as Record<string, any>,
+          metadata: trigger.metadata as TriggerMetadata,
         };
 
         await this.activateTrigger(trigger.userId, workflowTrigger);
       }
 
       this.logger.log(`Loaded ${triggers.length} active triggers`);
-    } catch (error: any) {
-      this.logger.error(`Failed to load active triggers: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to load active triggers: ${errorMessage}`, error);
     }
   }
 
@@ -492,5 +538,24 @@ export class TriggerService {
     for (const [triggerId] of this.activeTriggers) {
       await this.deactivateTrigger(triggerId);
     }
+  }
+
+  /**
+   * Serialize data for queue by converting Date objects to strings
+   */
+  private serializeDataForQueue(
+    data: Record<string, string | number | boolean | Date>
+  ): Record<string, string | number | boolean> {
+    const serialized: Record<string, string | number | boolean> = {};
+
+    for (const [key, value] of Object.entries(data)) {
+      if (value instanceof Date) {
+        serialized[key] = value.toISOString();
+      } else {
+        serialized[key] = value;
+      }
+    }
+
+    return serialized;
   }
 }

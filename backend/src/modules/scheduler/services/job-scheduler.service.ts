@@ -2,10 +2,32 @@ import { Injectable, Logger } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ScheduledJob, JobType, JobSchedule, ExecutionStatus, JobAction } from '../interfaces';
+import {
+  ScheduledJob,
+  JobType,
+  JobSchedule,
+  ExecutionStatus,
+  JobAction,
+  JobMetadata,
+  JobExecutionResult,
+  ActionType,
+} from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 import * as cronParser from 'cron-parser';
 import { v4 as uuidv4 } from 'uuid';
+
+// Define the exact payload structure for scheduled jobs
+interface JobPayload {
+  action?: {
+    type: string;
+    target: string;
+    method: string;
+    parameters?: Record<string, string | number | boolean | Date>;
+  };
+  metadata?: {
+    [key: string]: string | number | boolean | string[];
+  };
+}
 
 @Injectable()
 export class JobSchedulerService {
@@ -52,13 +74,14 @@ export class JobSchedulerService {
       }
 
       this.logger.log(`Scheduled job ${job.id} for user ${job.userId}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to schedule job: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to schedule job: ${errorMessage}`);
       throw new BusinessException(
         'Failed to schedule job',
         'JOB_SCHEDULE_FAILED',
         undefined,
-        error
+        error instanceof Error ? { message: error.message } : undefined
       );
     }
   }
@@ -87,13 +110,14 @@ export class JobSchedulerService {
       }
 
       this.activeJobs.set(job.id, this.schedulerRegistry.getCronJob(job.id));
-    } catch (error: any) {
-      this.logger.error(`Failed to activate job: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to activate job: ${errorMessage}`);
       throw new BusinessException(
         'Failed to activate job',
         'JOB_ACTIVATION_FAILED',
         undefined,
-        error
+        error instanceof Error ? { message: error.message } : undefined
       );
     }
   }
@@ -116,13 +140,14 @@ export class JobSchedulerService {
       });
 
       this.logger.log(`Deactivated job ${jobId}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to deactivate job: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to deactivate job: ${errorMessage}`);
       throw new BusinessException(
         'Failed to deactivate job',
         'JOB_DEACTIVATION_FAILED',
         undefined,
-        error
+        error instanceof Error ? { message: error.message } : undefined
       );
     }
   }
@@ -159,17 +184,42 @@ export class JobSchedulerService {
 
       // Reactivate if enabled
       if (updatedJob.enabled) {
-        await this.activateJob(updatedJob as any);
+        const scheduledJob = this.mapDatabaseJobToScheduledJob(
+          updatedJob as {
+            id: string;
+            userId: string | null;
+            name: string;
+            description: string | null;
+            type: string;
+            schedule: string | null;
+            payload: {
+              [key: string]:
+                | string
+                | number
+                | boolean
+                | Date
+                | null
+                | Record<string, string | number | boolean | Date | null>;
+            } | null;
+            enabled: boolean;
+            lastRun: Date | null;
+            nextRun: Date | null;
+            createdAt: Date;
+            updatedAt: Date;
+          }
+        );
+        await this.activateJob(scheduledJob);
       }
 
       this.logger.log(`Updated schedule for job ${jobId}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to update job schedule: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to update job schedule: ${errorMessage}`);
       throw new BusinessException(
         'Failed to update job schedule',
         'JOB_UPDATE_FAILED',
         undefined,
-        error
+        error instanceof Error ? { message: error.message } : undefined
       );
     }
   }
@@ -314,8 +364,11 @@ export class JobSchedulerService {
       });
 
       this.logger.log(`Successfully executed job ${job.id}`);
-    } catch (error: any) {
-      this.logger.error(`Job execution failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode =
+        error instanceof Error && 'code' in error ? String(error.code) : 'EXECUTION_ERROR';
+      this.logger.error(`Job execution failed: ${errorMessage}`);
 
       // Update execution record
       await this.prisma.jobExecution.update({
@@ -324,8 +377,8 @@ export class JobSchedulerService {
           status: ExecutionStatus.FAILED,
           completedAt: new Date(),
           error: {
-            code: error.code || 'EXECUTION_ERROR',
-            message: error.message,
+            code: errorCode,
+            message: errorMessage,
             retryable: true,
           },
         },
@@ -341,7 +394,7 @@ export class JobSchedulerService {
   /**
    * Execute job action
    */
-  private async executeJobAction(job: ScheduledJob): Promise<any> {
+  private async executeJobAction(job: ScheduledJob): Promise<JobExecutionResult> {
     // This would call the appropriate service based on action type
     // For now, returning mock result
     return {
@@ -495,7 +548,31 @@ export class JobSchedulerService {
 
       for (const job of jobs) {
         try {
-          await this.activateJob(job as any);
+          const scheduledJob = this.mapDatabaseJobToScheduledJob(
+            job as {
+              id: string;
+              userId: string | null;
+              name: string;
+              description: string | null;
+              type: string;
+              schedule: string | null;
+              payload: {
+                [key: string]:
+                  | string
+                  | number
+                  | boolean
+                  | Date
+                  | null
+                  | Record<string, string | number | boolean | Date | null>;
+              } | null;
+              enabled: boolean;
+              lastRun: Date | null;
+              nextRun: Date | null;
+              createdAt: Date;
+              updatedAt: Date;
+            }
+          );
+          await this.activateJob(scheduledJob);
         } catch (error) {
           this.logger.error(`Failed to load job ${job.id}: ${error}`);
         }
@@ -524,23 +601,143 @@ export class JobSchedulerService {
 
   private serializePayload(
     action: JobAction,
-    metadata: Record<string, string | number | boolean | object>
-  ): Record<string, string | number | boolean | object> {
-    const result: Record<string, string | number | boolean | object> = {};
-    result.action = {
+    metadata: JobMetadata
+  ): Record<string, string | number | boolean | Date | null> {
+    const result: Record<string, string | number | boolean | Date | null> = {};
+    result.action = JSON.stringify({
       type: action.type,
       target: action.target,
       method: action.method,
       parameters: action.parameters || {},
       retryPolicy: action.retryPolicy || null,
-    };
+    });
 
     if (metadata) {
-      result.metadata = metadata;
+      result.metadata = JSON.stringify(metadata);
     } else {
-      result.metadata = {};
+      result.metadata = '{}';
     }
 
     return result;
+  }
+
+  /**
+   * Map database job record to ScheduledJob interface
+   */
+  private mapDatabaseJobToScheduledJob(job: {
+    id: string;
+    userId: string | null;
+    name: string;
+    description: string | null;
+    type: string;
+    schedule: string | null;
+    payload: {
+      [key: string]:
+        | string
+        | number
+        | boolean
+        | Date
+        | null
+        | Record<string, string | number | boolean | Date | null>;
+    } | null;
+    enabled: boolean;
+    lastRun: Date | null;
+    nextRun: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): ScheduledJob {
+    if (!job.userId) {
+      throw new BusinessException('Job has no associated user', 'INVALID_JOB_DATA');
+    }
+
+    const validatedPayload = this.validateAndParsePayload(job.payload);
+
+    return {
+      id: job.id,
+      userId: job.userId,
+      name: job.name,
+      description: job.description ? job.description : 'Scheduled job',
+      type: job.type as JobType,
+      schedule: this.parseSchedule(job.schedule),
+      action: this.parseAction(validatedPayload),
+      enabled: job.enabled,
+      metadata: this.parseMetadata(validatedPayload),
+      lastRun: job.lastRun ? job.lastRun : new Date(0),
+      nextRun: job.nextRun ? job.nextRun : new Date(Date.now() + 86400000),
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
+    };
+  }
+
+  private validateAndParsePayload(
+    payload: {
+      [key: string]:
+        | string
+        | number
+        | boolean
+        | Date
+        | null
+        | Record<string, string | number | boolean | Date | null>;
+    } | null
+  ): JobPayload {
+    if (!payload || typeof payload !== 'object') {
+      return {};
+    }
+
+    const validatedPayload: JobPayload = {};
+
+    if (payload.action && typeof payload.action === 'object') {
+      const action = payload.action as Record<string, string | number | boolean | Date | null>;
+      validatedPayload.action = {
+        type: typeof action.type === 'string' ? action.type : 'custom_function',
+        target: typeof action.target === 'string' ? action.target : 'default',
+        method: typeof action.method === 'string' ? action.method : 'execute',
+        parameters:
+          action.parameters &&
+          typeof action.parameters === 'object' &&
+          !Array.isArray(action.parameters) &&
+          !(action.parameters instanceof Date)
+            ? (action.parameters as Record<string, string | number | boolean | Date>)
+            : {},
+      };
+    }
+
+    if (payload.metadata && typeof payload.metadata === 'object') {
+      const metadata = payload.metadata as Record<string, string | number | boolean | string[]>;
+      validatedPayload.metadata = metadata;
+    }
+
+    return validatedPayload;
+  }
+
+  /**
+   * Parse action from payload
+   */
+  private parseAction(payload: JobPayload | null): JobAction {
+    if (!payload?.action) {
+      return {
+        type: ActionType.CUSTOM_FUNCTION,
+        target: 'default',
+        method: 'execute',
+      };
+    }
+
+    return {
+      type: payload.action.type as ActionType,
+      target: payload.action.target,
+      method: payload.action.method,
+      parameters: payload.action.parameters,
+    };
+  }
+
+  /**
+   * Parse metadata from payload
+   */
+  private parseMetadata(payload: JobPayload | null): JobMetadata {
+    if (!payload?.metadata) {
+      return {};
+    }
+
+    return payload.metadata;
   }
 }

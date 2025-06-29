@@ -14,7 +14,30 @@ import {
   JobExecution,
   SchedulerMetrics,
   JobStatistics,
+  JobMetadata,
+  ActionType,
+  ExecutionStatus,
+  JobExecutionResult,
+  JobError,
+  RecurrenceFrequency,
 } from './interfaces';
+
+// Define database job interface
+interface DatabaseJob {
+  id: string;
+  userId: string | null;
+  name: string;
+  description?: string | null;
+  type: string;
+  schedule?: string | null;
+  payload: string | number | boolean | object | null; // Prisma JsonValue - remove undefined
+  enabled: boolean;
+  lastRun?: Date | null;
+  nextRun?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  action?: Record<string, unknown>;
+}
 import { BusinessException } from '../../common/exceptions';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -41,7 +64,7 @@ export class SchedulerService {
     description: string,
     schedule: JobSchedule,
     action: JobAction,
-    metadata?: Record<string, any>
+    metadata?: JobMetadata
   ): Promise<ScheduledJob> {
     try {
       const job: ScheduledJob = {
@@ -61,13 +84,14 @@ export class SchedulerService {
       await this.jobScheduler.scheduleJob(job);
 
       return job;
-    } catch (error: any) {
-      this.logger.error(`Failed to create job: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to create job: ${errorMessage}`, error);
       throw new BusinessException(
         'Failed to create scheduled job',
         'JOB_CREATE_FAILED',
         undefined,
-        error
+        error instanceof Error ? { message: error.message, stack: error.stack } : undefined
       );
     }
   }
@@ -124,7 +148,9 @@ export class SchedulerService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return jobs.map(job => this.mapJobToScheduledJob(job));
+    return jobs
+      .map(job => this.mapJobToScheduledJob(job))
+      .filter((job): job is ScheduledJob => job !== null);
   }
 
   /**
@@ -181,7 +207,10 @@ export class SchedulerService {
     // Handle enable/disable
     if (updates.enabled !== undefined && updates.enabled !== job.enabled) {
       if (updates.enabled) {
-        await this.jobScheduler.activateJob(updated as any);
+        const mappedJob = this.mapJobToScheduledJob(updated);
+        if (mappedJob) {
+          await this.jobScheduler.activateJob(mappedJob);
+        }
       } else {
         await this.jobScheduler.deactivateJob(jobId);
       }
@@ -242,7 +271,7 @@ export class SchedulerService {
     return {
       id: execution.id,
       jobId: execution.jobId,
-      status: execution.status as any,
+      status: execution.status as ExecutionStatus,
       startedAt: execution.startedAt,
       retryCount: execution.retryCount,
     };
@@ -308,12 +337,12 @@ export class SchedulerService {
     return executions.map(exec => ({
       id: exec.id,
       jobId: exec.jobId,
-      status: exec.status as any,
+      status: exec.status as ExecutionStatus,
       startedAt: exec.startedAt,
       completedAt: exec.completedAt || undefined,
       duration: exec.duration || undefined,
-      result: exec.result,
-      error: exec.error as any,
+      result: exec.result as JobExecutionResult,
+      error: this.convertToJobError(exec.error),
       retryCount: exec.retryCount,
     }));
   }
@@ -363,11 +392,11 @@ export class SchedulerService {
       category: 'notifications',
       schedule: {
         type: JobType.RECURRING,
-        frequency: 'daily' as any,
+        frequency: RecurrenceFrequency.DAILY,
         time: '18:00',
       },
       action: {
-        type: 'email_send' as any,
+        type: ActionType.EMAIL_SEND,
         target: 'user',
         method: 'sendDailySummary',
       },
@@ -383,12 +412,12 @@ export class SchedulerService {
       category: 'analytics',
       schedule: {
         type: JobType.RECURRING,
-        frequency: 'weekly' as any,
+        frequency: RecurrenceFrequency.WEEKLY,
         daysOfWeek: [5], // Friday
         time: '16:00',
       },
       action: {
-        type: 'report_generate' as any,
+        type: ActionType.REPORT_GENERATE,
         target: 'analytics',
         method: 'generateWeeklyReview',
         parameters: {
@@ -409,12 +438,12 @@ export class SchedulerService {
       category: 'maintenance',
       schedule: {
         type: JobType.RECURRING,
-        frequency: 'monthly' as any,
+        frequency: RecurrenceFrequency.MONTHLY,
         daysOfMonth: [1], // 1st of month
         time: '02:00',
       },
       action: {
-        type: 'data_cleanup' as any,
+        type: ActionType.DATA_CLEANUP,
         target: 'tasks',
         method: 'archiveCompleted',
         parameters: {
@@ -437,7 +466,7 @@ export class SchedulerService {
         intervalMinutes: 30,
       },
       action: {
-        type: 'sync_integration' as any,
+        type: ActionType.SYNC_INTEGRATION,
         target: 'integrations',
         method: 'syncAll',
         parameters: {
@@ -456,11 +485,11 @@ export class SchedulerService {
       category: 'notifications',
       schedule: {
         type: JobType.RECURRING,
-        frequency: 'daily' as any,
+        frequency: RecurrenceFrequency.DAILY,
         time: '08:00',
       },
       action: {
-        type: 'notification_send' as any,
+        type: ActionType.NOTIFICATION_SEND,
         target: 'user',
         method: 'sendReminderDigest',
         parameters: {
@@ -474,21 +503,26 @@ export class SchedulerService {
     });
   }
 
-  private mapJobToScheduledJob(job: any): ScheduledJob {
+  private mapJobToScheduledJob(job: DatabaseJob): ScheduledJob | null {
+    // Only process jobs with valid userId
+    if (!job.userId) {
+      return null;
+    }
+
     return {
       id: job.id,
-      userId: job.userId || '',
-      name: job.name,
-      description: job.description || undefined,
+      userId: job.userId,
+      name: String(job.name),
+      description: job.description ? String(job.description) : undefined,
       type: job.type as JobType,
-      schedule: this.parseSchedule(job.schedule),
+      schedule: this.parseSchedule(job.schedule as string | null),
       action: this.parseAction(job.payload),
-      enabled: job.enabled,
+      enabled: Boolean(job.enabled),
       metadata: this.parseMetadata(job.payload),
-      lastRun: job.lastRun || undefined,
-      nextRun: job.nextRun || undefined,
-      createdAt: job.createdAt,
-      updatedAt: job.updatedAt,
+      lastRun: job.lastRun ? new Date(job.lastRun) : undefined,
+      nextRun: job.nextRun ? new Date(job.nextRun) : undefined,
+      createdAt: new Date(job.createdAt),
+      updatedAt: new Date(job.updatedAt),
     };
   }
 
@@ -497,33 +531,86 @@ export class SchedulerService {
       return { type: JobType.ONE_TIME };
     }
     try {
-      return JSON.parse(schedule);
+      return JSON.parse(schedule) as JobSchedule;
     } catch {
       return { type: JobType.ONE_TIME };
     }
   }
 
-  private parseAction(payload: any): JobAction {
+  private parseAction(payload: string | number | boolean | object | null): JobAction {
     if (!payload || typeof payload !== 'object') {
       return {
-        type: 'custom_function' as any,
+        type: ActionType.CUSTOM_FUNCTION,
         target: 'default',
         method: 'execute',
       };
     }
-    return (
-      payload.action || {
-        type: 'custom_function' as any,
-        target: 'default',
-        method: 'execute',
+
+    try {
+      const payloadObj = payload as Record<string, string | number | boolean | object>;
+      if (typeof payloadObj.action === 'string') {
+        return JSON.parse(payloadObj.action) as JobAction;
+      } else if (payloadObj.action && typeof payloadObj.action === 'object') {
+        return payloadObj.action as JobAction;
       }
-    );
+    } catch {
+      // Fall through to default
+    }
+
+    return {
+      type: ActionType.CUSTOM_FUNCTION,
+      target: 'default',
+      method: 'execute',
+    };
   }
 
-  private parseMetadata(payload: any): Record<string, any> {
+  private convertToJobError(
+    error: string | number | boolean | object | null
+  ): JobError | undefined {
+    if (!error) {
+      return undefined;
+    }
+
+    if (typeof error === 'object' && error !== null) {
+      const errorObj = error as Record<string, string | number | boolean>;
+      return {
+        code: typeof errorObj.code === 'string' ? errorObj.code : 'EXECUTION_ERROR',
+        message: typeof errorObj.message === 'string' ? errorObj.message : 'Job execution failed',
+        retryable: typeof errorObj.retryable === 'boolean' ? errorObj.retryable : false,
+      };
+    }
+
+    if (typeof error === 'string') {
+      return {
+        code: 'EXECUTION_ERROR',
+        message: error,
+        retryable: false,
+      };
+    }
+
+    return {
+      code: 'UNKNOWN_ERROR',
+      message: 'An unknown error occurred',
+      retryable: false,
+    };
+  }
+
+  private parseMetadata(payload: string | number | boolean | object | null): JobMetadata {
     if (!payload || typeof payload !== 'object') {
       return {};
     }
-    return payload.metadata || {};
+
+    try {
+      const payloadObj = payload as Record<string, string | number | boolean | object>;
+      if (typeof payloadObj.metadata === 'string') {
+        return JSON.parse(payloadObj.metadata) as JobMetadata;
+      } else if (payloadObj.metadata && typeof payloadObj.metadata === 'object') {
+        return payloadObj.metadata as JobMetadata;
+      }
+    } catch {
+      // Fall through to default
+    }
+
+    return {};
   }
 }

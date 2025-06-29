@@ -10,17 +10,25 @@ export class HealthService {
   async getHealth(): Promise<{
     status: string;
     timestamp: string;
-    services: Record<string, boolean>;
+    services: Record<string, { status: string; responseTime?: number; error?: string }>;
     version: string;
   }> {
     const timestamp = new Date().toISOString();
 
+    const databaseStart = Date.now();
+    const databaseHealthy = await this.checkDatabase();
+    const databaseResponseTime = Date.now() - databaseStart;
+
     const services = {
-      database: await this.checkDatabase(),
+      database: {
+        status: databaseHealthy ? 'healthy' : 'unhealthy',
+        responseTime: databaseResponseTime,
+        ...(databaseHealthy ? {} : { error: 'Database connection failed' }),
+      },
       // Add other service checks here
     };
 
-    const allHealthy = Object.values(services).every(Boolean);
+    const allHealthy = Object.values(services).every(service => service.status === 'healthy');
 
     return {
       status: allHealthy ? 'healthy' : 'degraded',

@@ -22,6 +22,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SearchService, SearchableType } from './search.service';
+import { SearchableContent, SearchMetadata } from './interfaces/search.interface';
 import {
   SearchDto,
   SearchSuggestionsDto,
@@ -34,6 +35,7 @@ import {
   SimilarItemsResponseDto,
 } from './dto';
 import { ErrorResponseDto } from '../../common/dto/api-response.dto';
+import { RequestUser } from '../../common/interfaces/user.interface';
 
 @ApiTags('search')
 @Controller('search')
@@ -104,14 +106,34 @@ export class SearchController {
     description: 'Unauthorized - Invalid or missing JWT token',
     type: ErrorResponseDto,
   })
-  async search(@CurrentUser() user: any, @Query() query: SearchDto): Promise<SearchResponseDto> {
-    return this.searchService.search(user.id, query.query, {
+  async search(
+    @CurrentUser() user: RequestUser,
+    @Query() query: SearchDto
+  ): Promise<SearchResponseDto> {
+    const results = await this.searchService.search(user.id, query.query, {
       limit: query.limit,
       offset: query.offset,
       threshold: query.threshold,
       includeMetadata: query.includeMetadata,
       includeDistance: query.includeDistance,
     });
+
+    return {
+      results: results.results.map(result => ({
+        id: result.id,
+        score: result.score,
+        data: {
+          content: this.extractContent(result.data),
+          type: this.extractType(result.data),
+          metadata: this.extractMetadata(result.data),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        metadata: result.metadata,
+      })),
+      total: results.total,
+      took: 0,
+    };
   }
 
   @Get('type/:type')
@@ -148,24 +170,41 @@ export class SearchController {
     type: ErrorResponseDto,
   })
   async searchByType(
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @Param('type') type: SearchableType,
     @Query() query: SearchDto
   ): Promise<SearchResponseDto> {
-    return this.searchService.searchByType(user.id, type, query.query, {
+    const results = await this.searchService.searchByType(user.id, type, query.query, {
       limit: query.limit,
       offset: query.offset,
       threshold: query.threshold,
       includeMetadata: query.includeMetadata,
       includeDistance: query.includeDistance,
     });
+
+    return {
+      results: results.results.map(result => ({
+        id: result.id,
+        score: result.score,
+        data: {
+          content: this.extractContent(result.data),
+          type: this.extractType(result.data),
+          metadata: this.extractMetadata(result.data),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        metadata: result.metadata,
+      })),
+      total: results.total,
+      took: 0,
+    };
   }
 
   @Get('suggestions')
   @ApiOperation({ summary: 'Get search suggestions' })
   @ApiResponse({ status: 200, type: SuggestionsResponseDto })
   async getSuggestions(
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @Query() query: SearchSuggestionsDto
   ): Promise<SuggestionsResponseDto> {
     const suggestions = await this.searchService.getSuggestions(user.id, query.query, query.limit);
@@ -177,7 +216,7 @@ export class SearchController {
   @ApiOperation({ summary: 'Find similar items' })
   @ApiResponse({ status: 200, type: SimilarItemsResponseDto })
   async findSimilar(
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @Param('itemId') itemId: string,
     @Query('limit') limit?: number
   ): Promise<SimilarItemsResponseDto> {
@@ -187,9 +226,9 @@ export class SearchController {
       items: results.map(r => ({
         id: r.id,
         similarity: r.score,
-        type: r.data.type || 'unknown',
-        title: r.data.metadata?.title || r.data.content.substring(0, 100),
-        metadata: r.data.metadata,
+        type: this.extractType(r.data),
+        title: this.extractTitle(r.data),
+        metadata: this.extractMetadata(r.data),
       })),
       total: results.length,
     };
@@ -253,7 +292,7 @@ export class SearchController {
   })
   @HttpCode(HttpStatus.CREATED)
   async indexContent(
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @Body() dto: IndexContentDto
   ): Promise<IndexResponseDto> {
     try {
@@ -262,15 +301,16 @@ export class SearchController {
           id: dto.id,
           type: dto.type,
           content: dto.content,
-          metadata: dto.metadata,
+          metadata: dto.metadata ? this.convertMetadataToJsonObject(dto.metadata) : undefined,
         },
       ]);
 
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
       };
     }
   }
@@ -280,7 +320,7 @@ export class SearchController {
   @ApiResponse({ status: 201, type: BulkIndexResponseDto })
   @HttpCode(HttpStatus.CREATED)
   async bulkIndex(
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @Body() dto: BulkIndexDto
   ): Promise<BulkIndexResponseDto> {
     const results = {
@@ -296,15 +336,16 @@ export class SearchController {
             id: item.id,
             type: item.type,
             content: item.content,
-            metadata: item.metadata,
+            metadata: item.metadata ? this.convertMetadataToJsonObject(item.metadata) : undefined,
           },
         ]);
         results.indexed++;
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.failed++;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
         results.errors.push({
           id: item.id,
-          error: error.message,
+          error: errorMessage,
         });
       }
     }
@@ -320,10 +361,11 @@ export class SearchController {
     try {
       await this.searchService.indexTask(taskId);
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
       };
     }
   }
@@ -336,10 +378,11 @@ export class SearchController {
     try {
       await this.searchService.indexEmail(emailId);
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
       };
     }
   }
@@ -352,10 +395,11 @@ export class SearchController {
     try {
       await this.searchService.indexCalendarEvent(eventId);
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
       };
     }
   }
@@ -368,10 +412,11 @@ export class SearchController {
     try {
       await this.searchService.indexMemory(memoryId);
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
       };
     }
   }
@@ -382,5 +427,66 @@ export class SearchController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeFromIndex(@Param('itemId') itemId: string): Promise<void> {
     await this.searchService.removeFromIndex(itemId);
+  }
+
+  // Helper methods for extracting properties from SearchableContent union type
+  private extractType(data: SearchableContent): string {
+    if ('type' in data && typeof data.type === 'string') {
+      return data.type;
+    }
+    // Determine type based on properties
+    if ('title' in data) return 'task';
+    if ('subject' in data) return 'email';
+    if ('summary' in data) return 'event';
+    if ('name' in data) return 'integration';
+    return 'unknown';
+  }
+
+  private extractTitle(data: SearchableContent): string {
+    if ('title' in data && typeof data.title === 'string') return data.title;
+    if ('subject' in data && typeof data.subject === 'string') return data.subject;
+    if ('summary' in data && typeof data.summary === 'string') return data.summary;
+    if ('name' in data && typeof data.name === 'string') return data.name;
+    return 'Untitled';
+  }
+
+  private extractMetadata(data: SearchableContent): SearchMetadata | undefined {
+    if ('metadata' in data && data.metadata) {
+      return data.metadata as SearchMetadata;
+    }
+    return undefined;
+  }
+
+  private extractContent(data: SearchableContent): string {
+    if ('content' in data && typeof data.content === 'string') return data.content;
+    if ('description' in data && data.description && typeof data.description === 'string')
+      return data.description;
+    if ('title' in data && typeof data.title === 'string') return data.title;
+    if ('subject' in data && typeof data.subject === 'string') return data.subject;
+    if ('summary' in data && typeof data.summary === 'string') return data.summary;
+    if ('name' in data && typeof data.name === 'string') return data.name;
+    return '';
+  }
+
+  private convertMetadataToJsonObject(
+    metadata: SearchMetadata
+  ): Record<string, string | number | boolean> {
+    const result: Record<string, string | number | boolean> = {};
+
+    result.contentType = metadata.contentType;
+    result.contentId = metadata.contentId;
+    result.userId = metadata.userId;
+    if (metadata.title) result.title = metadata.title;
+    if (metadata.description) result.description = metadata.description;
+    if (metadata.tags) result.tags = metadata.tags.join(',');
+    if (metadata.priority) result.priority = metadata.priority;
+    if (metadata.status) result.status = metadata.status;
+    if (metadata.createdAt) result.createdAt = metadata.createdAt;
+    if (metadata.updatedAt) result.updatedAt = metadata.updatedAt;
+    if (metadata.additionalData) {
+      Object.assign(result, metadata.additionalData);
+    }
+
+    return result;
   }
 }

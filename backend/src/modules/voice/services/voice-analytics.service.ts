@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CacheService } from '../../cache/services/cache.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Prisma } from '@prisma/client';
+import { BusinessException } from '../../../common/exceptions/business.exception';
 
 interface VoiceMetrics {
   totalInteractions: number;
@@ -27,6 +29,63 @@ interface VoiceInsights {
     confidenceImprovement: number;
     errorRateChange: number;
   };
+}
+
+interface VoiceInteractionData {
+  id: string;
+  userId: string;
+  type: string;
+  provider: string;
+  inputText: string | null;
+  outputText: string | null;
+  audioFileUrl: string | null;
+  duration: number | null;
+  language: string;
+  voiceId: string | null;
+  speed: number;
+  pitch: number;
+  cost: Prisma.Decimal | null;
+  metadata: Prisma.JsonValue;
+  createdAt: Date;
+  // Additional computed fields for analytics
+  confidence?: number;
+  intent?: string;
+  error?: string;
+  transcript?: string;
+}
+
+interface TrackingInteractionData {
+  transcript: string;
+  intent: string;
+  confidence: number;
+  responseTime: number;
+  success: boolean;
+  error?: string;
+}
+
+interface VoiceUsageReport {
+  period: {
+    start: Date;
+    end: Date;
+  };
+  summary: VoiceMetrics & {
+    averagePerDay: number;
+  };
+  dailyUsage: Record<string, number>;
+  hourlyDistribution: number[];
+  topQueries: Array<{ query: string; count: number }>;
+}
+
+interface PerformanceTrends {
+  responseTimeImprovement: number;
+  confidenceImprovement: number;
+  errorRateChange: number;
+}
+
+interface CommandPattern {
+  pattern: string;
+  frequency: number;
+  examples: string[];
 }
 
 @Injectable()
@@ -56,12 +115,12 @@ export class VoiceAnalyticsService {
     const startDate = this.getStartDate(timeRange);
 
     try {
-      const interactions = await this.prisma.voiceInteraction.findMany({
+      const interactions = (await this.prisma.voiceInteraction.findMany({
         where: {
           userId,
           createdAt: { gte: startDate },
         },
-      });
+      })) as unknown as VoiceInteractionData[];
 
       const metrics = this.calculateMetrics(interactions);
 
@@ -71,7 +130,11 @@ export class VoiceAnalyticsService {
       return metrics;
     } catch (error) {
       this.logger.error('Failed to get voice metrics', error);
-      throw error;
+      throw new BusinessException(
+        'Failed to retrieve voice metrics',
+        'VOICE_METRICS_FETCH_FAILED',
+        500
+      );
     }
   }
 
@@ -80,11 +143,11 @@ export class VoiceAnalyticsService {
    */
   async getVoiceInsights(userId: string, limit: number = 10): Promise<VoiceInsights> {
     try {
-      const interactions = await this.prisma.voiceInteraction.findMany({
+      const interactions = (await this.prisma.voiceInteraction.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
         take: 100, // Last 100 interactions for analysis
-      });
+      })) as unknown as VoiceInteractionData[];
 
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -124,24 +187,18 @@ export class VoiceAnalyticsService {
       };
     } catch (error) {
       this.logger.error('Failed to get voice insights', error);
-      throw error;
+      throw new BusinessException(
+        'Failed to retrieve voice insights',
+        'VOICE_INSIGHTS_FETCH_FAILED',
+        500
+      );
     }
   }
 
   /**
    * Track voice interaction
    */
-  async trackInteraction(
-    userId: string,
-    interaction: {
-      transcript: string;
-      intent: string;
-      confidence: number;
-      responseTime: number;
-      success: boolean;
-      error?: string;
-    }
-  ): Promise<void> {
+  async trackInteraction(userId: string, interaction: TrackingInteractionData): Promise<void> {
     try {
       // Emit event for real-time analytics
       this.eventEmitter.emit('voice.interaction.tracked', {
@@ -159,16 +216,14 @@ export class VoiceAnalyticsService {
       }
     } catch (error) {
       this.logger.error('Failed to track voice interaction', error);
+      // Don't re-throw here as tracking failures shouldn't break the main flow
     }
   }
 
   /**
    * Get voice command patterns
    */
-  async getCommandPatterns(
-    userId: string,
-    days: number = 7
-  ): Promise<Array<{ pattern: string; frequency: number; examples: string[] }>> {
+  async getCommandPatterns(userId: string, days: number = 7): Promise<CommandPattern[]> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -197,7 +252,7 @@ export class VoiceAnalyticsService {
       patternsByIntent.get(intent)?.push(inputText);
     });
 
-    const patterns: Array<{ pattern: string; frequency: number; examples: string[] }> = [];
+    const patterns: CommandPattern[] = [];
 
     patternsByIntent.forEach((transcripts, intent) => {
       const commonPhrases = this.extractCommonPhrases(transcripts);
@@ -214,8 +269,12 @@ export class VoiceAnalyticsService {
   /**
    * Generate voice usage report
    */
-  async generateUsageReport(userId: string, startDate: Date, endDate: Date): Promise<any> {
-    const interactions = await this.prisma.voiceInteraction.findMany({
+  async generateUsageReport(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<VoiceUsageReport> {
+    const interactions = (await this.prisma.voiceInteraction.findMany({
       where: {
         userId,
         createdAt: {
@@ -223,7 +282,7 @@ export class VoiceAnalyticsService {
           lte: endDate,
         },
       },
-    });
+    })) as unknown as VoiceInteractionData[];
 
     const dailyUsage = this.groupByDay(interactions);
     const hourlyDistribution = this.calculateHourlyDistribution(interactions);
@@ -248,7 +307,7 @@ export class VoiceAnalyticsService {
   /**
    * Private helper methods
    */
-  private calculateMetrics(interactions: any[]): VoiceMetrics {
+  private calculateMetrics(interactions: VoiceInteractionData[]): VoiceMetrics {
     if (interactions.length === 0) {
       return {
         totalInteractions: 0,
@@ -263,15 +322,22 @@ export class VoiceAnalyticsService {
     }
 
     // Calculate averages
-    const totalResponseTime = interactions.reduce((sum, i) => sum + (i.duration || 0), 0);
+    const totalResponseTime = interactions.reduce((sum, i) => sum + (Number(i.duration) || 0), 0);
     const totalConfidence = interactions.reduce((sum, i) => sum + (i.confidence || 0), 0);
-    const errorCount = interactions.filter(i => i.error).length;
+    const errorCount = interactions.filter(i => i.error || i.type === 'error').length;
 
     // Intent distribution
     const intentCounts = new Map<string, number>();
     interactions.forEach(i => {
-      if (i.intent) {
-        intentCounts.set(i.intent, (intentCounts.get(i.intent) || 0) + 1);
+      const intent =
+        i.intent ||
+        (typeof i.metadata === 'object' &&
+        i.metadata !== null &&
+        typeof (i.metadata as Record<string, unknown>).intent === 'string'
+          ? ((i.metadata as Record<string, unknown>).intent as string)
+          : null);
+      if (intent) {
+        intentCounts.set(intent, (intentCounts.get(intent) || 0) + 1);
       }
     });
 
@@ -311,23 +377,35 @@ export class VoiceAnalyticsService {
     };
   }
 
-  private identifyImprovementAreas(interactions: any[]): string[] {
+  private identifyImprovementAreas(interactions: VoiceInteractionData[]): string[] {
     const areas: string[] = [];
 
     // Check confidence levels
-    const lowConfidenceCount = interactions.filter(i => i.confidence < 0.7).length;
-    if (lowConfidenceCount > interactions.length * 0.2) {
+    const confidenceValues = interactions
+      .map(
+        i =>
+          i.confidence ||
+          (typeof i.metadata === 'object' &&
+          i.metadata !== null &&
+          typeof (i.metadata as Record<string, unknown>).confidence === 'number'
+            ? ((i.metadata as Record<string, unknown>).confidence as number)
+            : null)
+      )
+      .filter(c => c !== null) as number[];
+
+    const lowConfidenceCount = confidenceValues.filter(c => c < 0.7).length;
+    if (lowConfidenceCount > confidenceValues.length * 0.2) {
       areas.push('Consider speaking more clearly or adjusting microphone settings');
     }
 
     // Check response times
-    const slowResponses = interactions.filter(i => i.duration > 5000).length;
+    const slowResponses = interactions.filter(i => Number(i.duration) > 5000).length;
     if (slowResponses > interactions.length * 0.1) {
       areas.push('Some queries are taking longer to process');
     }
 
     // Check error rate
-    const errors = interactions.filter(i => i.error).length;
+    const errors = interactions.filter(i => i.error || i.type === 'error').length;
     if (errors > interactions.length * 0.05) {
       areas.push('Reduce errors by checking network connection and audio quality');
     }
@@ -349,13 +427,16 @@ export class VoiceAnalyticsService {
       .trim();
   }
 
-  private calculateAverageLength(interactions: any[]): number {
+  private calculateAverageLength(interactions: VoiceInteractionData[]): number {
     if (interactions.length === 0) return 0;
-    const totalLength = interactions.reduce((sum, i) => sum + (i.transcript?.length || 0), 0);
+    const totalLength = interactions.reduce((sum, i) => {
+      const text = i.transcript || i.inputText || i.outputText || '';
+      return sum + text.length;
+    }, 0);
     return Math.round(totalLength / interactions.length);
   }
 
-  private async calculatePerformanceTrends(userId: string): Promise<any> {
+  private async calculatePerformanceTrends(userId: string): Promise<PerformanceTrends> {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -393,8 +474,12 @@ export class VoiceAnalyticsService {
     return lowerIsBetter ? -change : change;
   }
 
-  private async getMetricsForPeriod(userId: string, startDate: Date, endDate: Date): Promise<any> {
-    const interactions = await this.prisma.voiceInteraction.findMany({
+  private async getMetricsForPeriod(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<VoiceMetrics> {
+    const interactions = (await this.prisma.voiceInteraction.findMany({
       where: {
         userId,
         createdAt: {
@@ -402,7 +487,7 @@ export class VoiceAnalyticsService {
           lte: endDate,
         },
       },
-    });
+    })) as unknown as VoiceInteractionData[];
 
     return this.calculateMetrics(interactions);
   }
@@ -423,13 +508,13 @@ export class VoiceAnalyticsService {
     });
 
     return Array.from(phraseCounts.entries())
-      .filter(([_, count]) => count > 1)
+      .filter(([, count]) => count > 1)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([phrase]) => phrase);
   }
 
-  private groupByDay(interactions: any[]): Record<string, number> {
+  private groupByDay(interactions: VoiceInteractionData[]): Record<string, number> {
     const groups: Record<string, number> = {};
 
     interactions.forEach(interaction => {
@@ -440,7 +525,7 @@ export class VoiceAnalyticsService {
     return groups;
   }
 
-  private calculateHourlyDistribution(interactions: any[]): number[] {
+  private calculateHourlyDistribution(interactions: VoiceInteractionData[]): number[] {
     const hourCounts = new Array(24).fill(0);
 
     interactions.forEach(interaction => {
@@ -497,17 +582,49 @@ export class VoiceAnalyticsService {
     }
   }
 
-  private async updateUserVoiceStats(userId: string, interaction: any): Promise<void> {
-    // Update user voice preferences based on usage patterns
-    // This could include updating preferred voice settings, language, etc.
-    this.logger.debug(`Updating voice stats for user ${userId} with interaction ${interaction.id}`);
+  private async updateUserVoiceStats(
+    userId: string,
+    interaction: TrackingInteractionData
+  ): Promise<void> {
+    try {
+      // Update user voice preferences based on usage patterns
+      // This could include updating preferred voice settings, language, etc.
+      this.logger.debug(`Updating voice stats for user ${userId}`, {
+        intent: interaction.intent,
+        confidence: interaction.confidence,
+        responseTime: interaction.responseTime,
+        success: interaction.success,
+      });
 
-    // In a complete implementation, this would update user preferences
-    // based on the interaction patterns, voice settings, language usage, etc.
+      // In a complete implementation, this would update user preferences
+      // based on the interaction patterns, voice settings, language usage, etc.
+    } catch (error) {
+      this.logger.error('Failed to update user voice stats', error);
+      throw new BusinessException(
+        'Failed to update user voice statistics',
+        'VOICE_STATS_UPDATE_FAILED',
+        500
+      );
+    }
   }
 
-  private async handleLowConfidenceInteraction(userId: string, interaction: any): Promise<void> {
-    // Log and potentially notify about low confidence interactions
-    this.logger.warn(`Low confidence interaction for user ${userId}: ${interaction.confidence}`);
+  private async handleLowConfidenceInteraction(
+    userId: string,
+    interaction: TrackingInteractionData
+  ): Promise<void> {
+    try {
+      // Log and potentially notify about low confidence interactions
+      this.logger.warn(
+        `Low confidence interaction for user ${userId}: confidence=${interaction.confidence}, success=${interaction.success}`
+      );
+
+      // In a complete implementation, this could trigger additional actions:
+      // - Send notification to user about potential issues
+      // - Store feedback for voice recognition improvement
+      // - Adjust user-specific recognition parameters
+    } catch (error) {
+      this.logger.error('Failed to handle low confidence interaction', error);
+      // Don't throw here as this is a background operation
+    }
   }
 }

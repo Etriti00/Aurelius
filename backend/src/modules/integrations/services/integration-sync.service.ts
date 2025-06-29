@@ -1,10 +1,39 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { Prisma, Integration, SyncStatistics } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { QueueService } from '../../queue/services/queue.service';
 import { CacheService } from '../../cache/services/cache.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
-import { SyncResult, IntegrationStatusEnum } from '../interfaces';
+import { SyncResult, IntegrationStatusEnum, SyncItem } from '../interfaces';
+import { IntegrationSyncStatusResponse } from '../dto/integration.dto';
+
+// Define additional interfaces
+// SyncStatistics is imported from Prisma - adding computed stats interface
+interface ComputedSyncStatistics extends SyncStatistics {
+  successRate?: number;
+  errorRate?: number;
+  averageItemsPerSync?: number;
+}
+
+interface HealthCheckData {
+  endpoint: string;
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  responseTime?: number;
+  lastChecked: Date;
+  errors?: string[];
+}
+
+interface SyncProgressInfo {
+  integrationId: string;
+  status: 'idle' | 'syncing' | 'error' | 'paused';
+  lastSync?: Date;
+  nextSync?: Date;
+  progress?: number;
+  currentOperation?: string;
+  errors: string[];
+}
+
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
@@ -36,15 +65,19 @@ export class IntegrationSyncService {
 
       for (const integration of integrations) {
         await this.queueService.addIntegrationSyncJob({
-          type: 'sync',
           integrationId: integration.id,
           syncType: 'incremental',
+          metadata: {
+            triggeredBy: 'system',
+            priority: 'medium',
+          },
         });
       }
 
       this.logger.log(`Queued sync for ${integrations.length} integrations`);
-    } catch (error: any) {
-      this.logger.error(`Periodic sync scheduling failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Periodic sync scheduling failed: ${errorMessage}`, error);
     }
   }
 
@@ -63,8 +96,9 @@ export class IntegrationSyncService {
       for (const integration of integrations) {
         await this.checkHealth(integration);
       }
-    } catch (error: any) {
-      this.logger.error(`Health check failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Health check failed: ${errorMessage}`, error);
     }
   }
 
@@ -104,12 +138,25 @@ export class IntegrationSyncService {
             type: 'integration_sync_complete',
             title: 'Integration Sync Complete',
             message: this.buildSyncMessage(integration.provider, result),
-            metadata: { integrationId, result },
+            metadata: {
+              integrationId,
+              result: {
+                success: result.success,
+                itemsProcessed: result.itemsProcessed,
+                itemsSynced: result.itemsSynced,
+                errors: result.errors,
+                syncType: result.syncType,
+                startedAt: result.startedAt.toISOString(),
+                completedAt: result.completedAt?.toISOString(),
+                nextSyncAt: result.nextSyncAt?.toISOString(),
+              },
+            },
           });
         }
       }
-    } catch (error: any) {
-      this.logger.error(`Failed to process sync result: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to process sync result: ${errorMessage}`, error);
     }
   }
 
@@ -118,8 +165,8 @@ export class IntegrationSyncService {
    */
   async handleSyncConflict(
     integrationId: string,
-    localItem: any,
-    remoteItem: any,
+    localItem: SyncItem,
+    remoteItem: SyncItem,
     conflictType: 'update' | 'delete'
   ): Promise<'local' | 'remote' | 'merge'> {
     // Get integration conflict resolution strategy
@@ -137,8 +184,8 @@ export class IntegrationSyncService {
       typeof integration.settings === 'object' &&
       !Array.isArray(integration.settings)
     ) {
-      const settingsObj = integration.settings as Record<string, any>;
-      if (settingsObj.conflictResolution) {
+      const settingsObj = integration.settings as Prisma.JsonObject;
+      if (settingsObj.conflictResolution && typeof settingsObj.conflictResolution === 'string') {
         strategy = settingsObj.conflictResolution;
       }
     }
@@ -173,11 +220,41 @@ export class IntegrationSyncService {
   }
 
   /**
+   * Get sync progress information
+   */
+  private async getSyncProgressInfo(integrationId: string): Promise<SyncProgressInfo | null> {
+    // Implementation for getting detailed sync progress
+    const integration = await this.prisma.integration.findUnique({
+      where: { id: integrationId },
+    });
+
+    if (!integration) {
+      return null;
+    }
+
+    return {
+      integrationId,
+      status: integration.status === 'ACTIVE' ? 'idle' : 'error',
+      lastSync: integration.lastSyncAt ? integration.lastSyncAt : undefined,
+      nextSync: new Date(Date.now() + 24 * 60 * 60 * 1000), // Default to 24h from now
+      progress: 0,
+      errors: integration.syncError ? [integration.syncError] : [],
+    };
+  }
+
+  /**
+   * Get detailed sync progress for an integration
+   */
+  async getSyncProgress(integrationId: string): Promise<SyncProgressInfo | null> {
+    return this.getSyncProgressInfo(integrationId);
+  }
+
+  /**
    * Get sync status
    */
-  async getSyncStatus(integrationId: string): Promise<any> {
+  async getSyncStatus(integrationId: string): Promise<IntegrationSyncStatusResponse | null> {
     const cacheKey = `sync:status:${integrationId}`;
-    const cached = await this.cacheService.get(cacheKey);
+    const cached = await this.cacheService.get<IntegrationSyncStatusResponse>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -190,12 +267,23 @@ export class IntegrationSyncService {
       return null;
     }
 
-    const status = {
+    const syncStatsDb = await this.getSyncStatistics(integrationId);
+    const syncStats = {
+      totalSyncs: syncStatsDb.totalSyncs,
+      successfulSyncs: syncStatsDb.successfulSyncs,
+      failedSyncs: syncStatsDb.failedSyncs,
+      itemsSynced: syncStatsDb.itemsSynced,
+      successRate: syncStatsDb.successRate,
+      errorRate: syncStatsDb.errorRate,
+      averageItemsPerSync: syncStatsDb.averageItemsPerSync,
+    };
+
+    const status: IntegrationSyncStatusResponse = {
       integrationId,
-      status: integration.status,
-      lastSyncAt: integration.lastSyncAt,
-      nextSyncAt: this.calculateNextSyncTime(integration),
-      syncStats: await this.getSyncStatistics(integrationId),
+      status: integration.status as 'idle' | 'syncing' | 'error' | 'paused',
+      lastSync: integration.lastSyncAt || undefined,
+      nextSync: this.calculateNextSyncTime(integration) || undefined,
+      syncStats,
       errors: this.getIntegrationErrors(integration),
     };
 
@@ -220,10 +308,13 @@ export class IntegrationSyncService {
 
     // Queue sync job with high priority
     await this.queueService.addIntegrationSyncJob({
-      type: 'sync',
       integrationId,
       syncType,
-      forced: true,
+      forceFull: true,
+      metadata: {
+        triggeredBy: 'user',
+        priority: 'high',
+      },
     });
 
     // Mark as syncing
@@ -244,7 +335,7 @@ export class IntegrationSyncService {
   /**
    * Check integration health
    */
-  private async checkHealth(integration: any): Promise<void> {
+  private async checkHealth(integration: Integration): Promise<void> {
     try {
       // Check last sync time
       if (integration.lastSyncAt) {
@@ -263,22 +354,27 @@ export class IntegrationSyncService {
 
       // Check error rate
       const stats = await this.getSyncStatistics(integration.id);
-      if (stats.errorRate > 0.2) {
+      if (stats.errorRate !== undefined && stats.errorRate > 0.2) {
         // 20% error rate
         await this.prisma.integration.update({
           where: { id: integration.id },
           data: {
             status: IntegrationStatusEnum.ERROR,
             settings: this.updateSettingsWithHealthCheck(integration, {
-              lastCheck: new Date(),
-              issue: 'high_error_rate',
-              errorRate: stats.errorRate,
+              endpoint: `integration-${integration.provider}`,
+              status: 'unhealthy',
+              lastChecked: new Date(),
+              errors: ['high_error_rate'],
             }),
           },
         });
       }
-    } catch (error: any) {
-      this.logger.error(`Health check failed for integration ${integration.id}: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Health check failed for integration ${integration.id}: ${errorMessage}`,
+        error
+      );
     }
   }
 
@@ -305,9 +401,9 @@ export class IntegrationSyncService {
   /**
    * Get sync statistics
    */
-  private async getSyncStatistics(integrationId: string): Promise<any> {
+  private async getSyncStatistics(integrationId: string): Promise<ComputedSyncStatistics> {
     const cacheKey = `sync:stats:${integrationId}`;
-    const cached = await this.cacheService.get(cacheKey);
+    const cached = await this.cacheService.get<ComputedSyncStatistics>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -318,13 +414,19 @@ export class IntegrationSyncService {
 
     if (!stats) {
       return {
+        id: '',
+        integrationId,
         totalSyncs: 0,
         successfulSyncs: 0,
         failedSyncs: 0,
+        itemsSynced: 0,
+        lastSyncAt: null,
+        updatedAt: new Date(),
         successRate: 0,
         errorRate: 0,
-        totalItemsSynced: 0,
         averageItemsPerSync: 0,
+        averageDuration: 0,
+        errors: [],
       };
     }
 
@@ -357,9 +459,13 @@ export class IntegrationSyncService {
     // Queue retryable errors
     if (errorGroups.retryable && errorGroups.retryable.length > 0) {
       await this.queueService.addIntegrationSyncJob({
-        type: 'retry_sync_errors',
         integrationId,
-        errors: errorGroups.retryable,
+        syncType: 'incremental',
+        metadata: {
+          triggeredBy: 'system',
+          priority: 'low',
+          retryAttempt: 1,
+        },
       });
     }
 
@@ -377,8 +483,8 @@ export class IntegrationSyncService {
    */
   private async queueManualConflictResolution(
     integrationId: string,
-    localItem: any,
-    remoteItem: any,
+    localItem: SyncItem,
+    remoteItem: SyncItem,
     conflictType: string
   ): Promise<void> {
     await this.prisma.syncConflict.create({
@@ -387,8 +493,24 @@ export class IntegrationSyncService {
         resourceType: this.getResourceType(localItem),
         resourceId: localItem.id,
         conflictType,
-        localData: localItem,
-        remoteData: remoteItem,
+        localData: {
+          id: localItem.id,
+          type: localItem.type,
+          data: localItem.data,
+          lastModified: localItem.lastModified.toISOString(),
+          checksum: localItem.checksum,
+          createdAt: localItem.createdAt.toISOString(),
+          updatedAt: localItem.updatedAt?.toISOString(),
+        },
+        remoteData: {
+          id: remoteItem.id,
+          type: remoteItem.type,
+          data: remoteItem.data,
+          lastModified: remoteItem.lastModified.toISOString(),
+          checksum: remoteItem.checksum,
+          createdAt: remoteItem.createdAt.toISOString(),
+          updatedAt: remoteItem.updatedAt?.toISOString(),
+        },
       },
     });
   }
@@ -396,7 +518,7 @@ export class IntegrationSyncService {
   /**
    * Calculate next sync time
    */
-  private calculateNextSyncTime(integration: any): Date | null {
+  private calculateNextSyncTime(integration: Integration): Date | null {
     if (
       !integration.settings ||
       typeof integration.settings !== 'object' ||
@@ -405,7 +527,7 @@ export class IntegrationSyncService {
       return null;
     }
 
-    const settingsObj = integration.settings as Record<string, any>;
+    const settingsObj = integration.settings as Prisma.JsonObject;
     if (!settingsObj.syncInterval) {
       return null;
     }
@@ -414,7 +536,8 @@ export class IntegrationSyncService {
     if (integration.lastSyncAt) {
       lastSync = integration.lastSyncAt;
     }
-    const intervalMinutes = settingsObj.syncInterval;
+    const intervalMinutes =
+      typeof settingsObj.syncInterval === 'number' ? settingsObj.syncInterval : 30; // Default to 30 minutes
 
     return new Date(new Date(lastSync).getTime() + intervalMinutes * 60 * 1000);
   }
@@ -422,7 +545,7 @@ export class IntegrationSyncService {
   /**
    * Get integration errors from settings
    */
-  private getIntegrationErrors(integration: any): string[] {
+  private getIntegrationErrors(integration: Integration): string[] {
     if (
       !integration.settings ||
       typeof integration.settings !== 'object' ||
@@ -431,15 +554,15 @@ export class IntegrationSyncService {
       return [];
     }
 
-    const settingsObj = integration.settings as Record<string, any>;
+    const settingsObj = integration.settings as Prisma.JsonObject;
     if (
       settingsObj.lastSyncResult &&
       typeof settingsObj.lastSyncResult === 'object' &&
       !Array.isArray(settingsObj.lastSyncResult)
     ) {
-      const lastSyncResult = settingsObj.lastSyncResult as Record<string, any>;
+      const lastSyncResult = settingsObj.lastSyncResult as Prisma.JsonObject;
       if (Array.isArray(lastSyncResult.errors)) {
-        return lastSyncResult.errors;
+        return lastSyncResult.errors.filter((error): error is string => typeof error === 'string');
       }
     }
 
@@ -449,7 +572,7 @@ export class IntegrationSyncService {
   /**
    * Get settings object safely
    */
-  private getSettingsObject(integration: any): Record<string, any> {
+  private getSettingsObject(integration: Integration): Prisma.JsonObject {
     if (
       !integration.settings ||
       typeof integration.settings !== 'object' ||
@@ -457,28 +580,37 @@ export class IntegrationSyncService {
     ) {
       return {};
     }
-    return integration.settings as Record<string, any>;
+    return integration.settings as Prisma.JsonObject;
   }
 
   /**
    * Update settings with health check data
    */
   private updateSettingsWithHealthCheck(
-    integration: any,
-    healthCheckData: any
-  ): Record<string, any> {
+    integration: Integration,
+    healthCheckData: HealthCheckData
+  ): Prisma.JsonObject {
     const currentSettings = this.getSettingsObject(integration);
-    const newSettings: Record<string, any> = {};
+    const newSettings: Record<string, Prisma.JsonValue> = {};
 
     // Copy existing settings
     for (const key in currentSettings) {
       if (currentSettings.hasOwnProperty(key)) {
-        newSettings[key] = currentSettings[key];
+        const value = currentSettings[key];
+        if (value !== undefined) {
+          newSettings[key] = value;
+        }
       }
     }
 
-    // Add health check data
-    newSettings.healthCheck = healthCheckData;
+    // Add health check data as serializable object
+    newSettings.healthCheck = {
+      endpoint: healthCheckData.endpoint,
+      status: healthCheckData.status,
+      responseTime: healthCheckData.responseTime,
+      lastChecked: healthCheckData.lastChecked.toISOString(),
+      errors: healthCheckData.errors || [],
+    };
 
     return newSettings;
   }
@@ -517,11 +649,11 @@ export class IntegrationSyncService {
   /**
    * Build update data for sync statistics
    */
-  private buildUpdateData(result: SyncResult): Record<string, any> {
-    const updateData: Record<string, any> = {
+  private buildUpdateData(result: SyncResult): Prisma.JsonObject {
+    const updateData: Record<string, Prisma.JsonValue> = {
       totalSyncs: { increment: 1 },
       itemsSynced: { increment: result.itemsSynced },
-      lastSyncAt: new Date(),
+      lastSyncAt: new Date().toISOString(),
     };
 
     if (result.errors.length === 0) {
@@ -538,18 +670,9 @@ export class IntegrationSyncService {
   /**
    * Compute statistics with proper calculations
    */
-  private computeStatistics(stats: any): any {
-    const computed: any = {
-      id: stats.id,
-      integrationId: stats.integrationId,
-      totalSyncs: stats.totalSyncs,
-      successfulSyncs: stats.successfulSyncs,
-      failedSyncs: stats.failedSyncs,
-      lastSyncAt: stats.lastSyncAt,
-      averageDuration: stats.averageDuration,
-      itemsSynced: stats.itemsSynced,
-      errors: stats.errors,
-      updatedAt: stats.updatedAt,
+  private computeStatistics(stats: SyncStatistics): ComputedSyncStatistics {
+    const computed: ComputedSyncStatistics = {
+      ...stats, // Copy all existing properties
     };
 
     if (stats.totalSyncs > 0) {
@@ -579,7 +702,7 @@ export class IntegrationSyncService {
   /**
    * Get resource type from item
    */
-  private getResourceType(item: any): string {
+  private getResourceType(item: SyncItem): string {
     if (item.type) {
       return item.type;
     }

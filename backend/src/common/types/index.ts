@@ -127,3 +127,4 @@ export * from './ai.types';
 export * from './integration.types';
 export * from './notification.types';
 export * from './workflow.types';
+export * from './voice.types';

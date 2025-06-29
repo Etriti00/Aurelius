@@ -6,6 +6,7 @@ import { Cache } from 'cache-manager';
 import { createHash } from 'crypto';
 
 import { AIServiceException } from '../../../common/exceptions/app.exception';
+import { ElevenLabsVoice } from '../../../common/types/voice.types';
 
 interface ElevenLabsConfig {
   apiKey: string;
@@ -169,11 +170,11 @@ export class ElevenLabsService {
     }
   }
 
-  async getAvailableVoices(): Promise<any[]> {
+  async getAvailableVoices(): Promise<ElevenLabsVoice[]> {
     const cacheKey = 'elevenlabs:voices';
 
     // Check cache first (cache for 1 hour)
-    const cached = await this.cacheManager.get<any[]>(cacheKey);
+    const cached = await this.cacheManager.get<ElevenLabsVoice[]>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -202,7 +203,7 @@ export class ElevenLabsService {
     }
   }
 
-  async getVoiceInfo(voiceId: string): Promise<any> {
+  async getVoiceInfo(voiceId: string): Promise<ElevenLabsVoice | null> {
     try {
       const response = await fetch(`${this.config.baseUrl}/voices/${voiceId}`, {
         headers: {

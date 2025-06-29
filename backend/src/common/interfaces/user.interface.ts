@@ -25,7 +25,7 @@ export interface User {
   updatedAt: Date;
   lastActiveAt?: Date;
   deletedAt?: Date;
-  preferences: any;
+  preferences: Record<string, string | number | boolean | null>;
   timezone: string;
 }
 

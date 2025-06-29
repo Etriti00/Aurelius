@@ -106,9 +106,12 @@ export class StorageService {
       file.cdnUrl = this.cdnService.getCdnUrl(file.key);
 
       return file;
-    } catch (error: any) {
-      this.logger.error(`Failed to upload file: ${error.message}`);
-      throw new BusinessException('Failed to upload file', 'FILE_UPLOAD_FAILED', undefined, error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(`Failed to upload file: ${errorMessage}`);
+      throw new BusinessException('Failed to upload file', 'FILE_UPLOAD_FAILED', undefined, {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

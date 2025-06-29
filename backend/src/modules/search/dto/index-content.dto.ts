@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsOptional, IsObject, IsEnum, IsArray } from 'class-validator';
 import { SearchableType } from '../search.service';
+import { SearchMetadata } from '../interfaces/search.interface';
 
 export class IndexContentDto {
   @ApiProperty({ description: 'Unique identifier for the content' })
@@ -18,10 +19,26 @@ export class IndexContentDto {
   @IsEnum(SearchableType)
   type: SearchableType;
 
-  @ApiPropertyOptional({ description: 'Additional metadata' })
+  @ApiPropertyOptional({
+    description: 'Additional metadata',
+    type: 'object',
+    properties: {
+      contentType: { type: 'string' },
+      contentId: { type: 'string' },
+      userId: { type: 'string' },
+      title: { type: 'string' },
+      description: { type: 'string' },
+      tags: { type: 'array', items: { type: 'string' } },
+      priority: { type: 'string' },
+      status: { type: 'string' },
+      createdAt: { type: 'string' },
+      updatedAt: { type: 'string' },
+      additionalData: { type: 'object' },
+    },
+  })
   @IsObject()
   @IsOptional()
-  metadata?: Record<string, any>;
+  metadata?: SearchMetadata;
 
   constructor() {
     this.id = '';

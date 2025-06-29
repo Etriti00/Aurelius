@@ -337,32 +337,44 @@ export class OAuthService {
   /**
    * Map user info based on provider
    */
-  private mapUserInfo(provider: OAuthProvider, data: any): OAuthUserInfo {
+  private mapUserInfo(
+    provider: OAuthProvider,
+    data: Record<string, string | number | boolean | object>
+  ): OAuthUserInfo {
     switch (provider) {
       case OAuthProvider.GOOGLE:
         return {
-          id: data.id,
-          email: data.email,
-          name: data.name,
-          picture: data.picture,
+          id: String(data.id),
+          email: typeof data.email === 'string' ? data.email : '',
+          name: typeof data.name === 'string' ? data.name : '',
+          picture: typeof data.picture === 'string' ? data.picture : undefined,
           provider: provider,
         };
 
       case OAuthProvider.MICROSOFT:
         return {
-          id: data.id,
-          email: data.mail || data.userPrincipalName,
-          name: data.displayName,
+          id: String(data.id),
+          email:
+            typeof data.mail === 'string'
+              ? data.mail
+              : typeof data.userPrincipalName === 'string'
+                ? data.userPrincipalName
+                : '',
+          name: typeof data.displayName === 'string' ? data.displayName : '',
           picture: undefined, // Microsoft requires separate API call for photo
           provider: provider,
         };
 
       case OAuthProvider.SLACK:
+        const slackUser = data.user as
+          | Record<string, string | number | boolean | object>
+          | undefined;
         return {
-          id: data.user?.id,
-          email: data.user?.email,
-          name: data.user?.name,
-          picture: data.user?.image_512,
+          id: slackUser && typeof slackUser.id === 'string' ? slackUser.id : '',
+          email: slackUser && typeof slackUser.email === 'string' ? slackUser.email : '',
+          name: slackUser && typeof slackUser.name === 'string' ? slackUser.name : '',
+          picture:
+            slackUser && typeof slackUser.image_512 === 'string' ? slackUser.image_512 : undefined,
           provider: provider,
         };
 

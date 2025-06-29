@@ -18,7 +18,7 @@ export class EmailNotificationService {
       to: userId, // Will be resolved to user email in processor
       subject: notification.title,
       template: 'notification',
-      data: {
+      context: {
         title: notification.title,
         message: notification.message,
         type: notification.type,

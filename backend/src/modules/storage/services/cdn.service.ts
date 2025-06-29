@@ -94,12 +94,9 @@ export class CdnService {
       this.logger.error(
         `Failed to purge CDN cache: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
-      throw new BusinessException(
-        'Failed to purge CDN cache',
-        'CDN_PURGE_FAILED',
-        undefined,
-        error
-      );
+      throw new BusinessException('Failed to purge CDN cache', 'CDN_PURGE_FAILED', undefined, {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

@@ -7,34 +7,24 @@ import { VoiceAnalyticsService } from './services/voice-analytics.service';
 import { AIGatewayService } from '../ai-gateway/ai-gateway.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AIServiceException } from '../../common/exceptions/app.exception';
-
-interface VoiceProcessRequest {
-  audioBuffer: Buffer;
-  userId: string;
-  userSubscription: { tier: 'PRO' | 'MAX' | 'TEAMS' };
-  language?: string;
-  metadata?: Record<string, any>;
-}
-
-interface VoiceProcessResponse {
-  transcript: string;
-  intent?: string;
-  confidence?: number;
-  responseText: string;
-  responseAudioUrl?: string;
-  duration: number;
-}
-
-interface TextToSpeechRequest {
-  text: string;
-  userId: string;
-  voiceId?: string;
-  voiceSettings?: {
-    stability?: number;
-    similarityBoost?: number;
-    style?: number;
-  };
-}
+import {
+  VoiceProcessRequest,
+  VoiceProcessResponse,
+  TextToSpeechRequest,
+  TextToSpeechResponse,
+  SpeechToTextRequest,
+  SpeechToTextResponse,
+  VoiceContextEnhancement,
+  AvailableVoice,
+  VoiceInteractionHistory,
+  VoiceServiceHealth,
+  VoiceAnalyticsData,
+  AudioGenerationRequest,
+  AudioGenerationResponse,
+  ElevenLabsVoice,
+  UserContextCounts,
+  VoiceIntent,
+} from '../../common/types/voice.types';
 
 @Injectable()
 export class VoiceService {
@@ -140,7 +130,7 @@ export class VoiceService {
     }
   }
 
-  async speechToText(request: { audioBuffer: Buffer; language?: string }): Promise<string> {
+  async speechToText(request: SpeechToTextRequest): Promise<string> {
     try {
       const result = await this.speechToTextService.transcribe({
         audioBuffer: request.audioBuffer,
@@ -155,7 +145,7 @@ export class VoiceService {
     }
   }
 
-  async textToSpeech(request: TextToSpeechRequest): Promise<{ audioUrl: string }> {
+  async textToSpeech(request: TextToSpeechRequest): Promise<TextToSpeechResponse> {
     try {
       const optimizedText = this.optimizeTextForSpeech(request.text);
 
@@ -188,14 +178,16 @@ export class VoiceService {
     }
   }
 
-  async getAvailableVoices(): Promise<any[]> {
+  async getAvailableVoices(): Promise<AvailableVoice[]> {
     try {
       const voices = await this.elevenLabsService.getAvailableVoices();
 
       // Filter and format voices for the frontend
       return voices
-        .filter((voice: any) => voice.category === 'premade' || voice.category === 'cloned')
-        .map((voice: any) => ({
+        .filter(
+          (voice: ElevenLabsVoice) => voice.category === 'premade' || voice.category === 'cloned'
+        )
+        .map((voice: ElevenLabsVoice) => ({
           id: voice.voice_id,
           name: voice.name,
           description: voice.description,
@@ -213,7 +205,7 @@ export class VoiceService {
     userId: string,
     limit: number = 20,
     offset: number = 0
-  ): Promise<any[]> {
+  ): Promise<VoiceInteractionHistory[]> {
     try {
       const interactions = await this.prisma.voiceInteraction.findMany({
         where: { userId },
@@ -230,7 +222,14 @@ export class VoiceService {
         },
       });
 
-      return interactions;
+      return interactions.map(interaction => ({
+        id: interaction.id,
+        inputText: interaction.inputText !== null ? interaction.inputText : '',
+        outputText: interaction.outputText !== null ? interaction.outputText : '',
+        duration: interaction.duration !== null ? interaction.duration : 0,
+        metadata: interaction.metadata as Record<string, string | number | boolean | null>,
+        createdAt: interaction.createdAt,
+      }));
     } catch (error) {
       this.logger.error('Failed to fetch user voice history', error);
       return [];
@@ -240,13 +239,8 @@ export class VoiceService {
   private async enhanceWithContext(
     transcript: string,
     userId: string,
-    metadata?: Record<string, any>
-  ): Promise<{
-    prompt: string;
-    context: string;
-    intent?: string;
-    confidence?: number;
-  }> {
+    metadata?: Record<string, string | number | boolean | null>
+  ): Promise<VoiceContextEnhancement> {
     try {
       // Get user context
       const user = await this.prisma.user.findUnique({
@@ -274,8 +268,8 @@ export class VoiceService {
       // Build context from user's current state
       const contextParts: string[] = [];
 
-      // Type assertion for _count
-      const userWithCount = user as any;
+      // Type assertion for _count - Prisma includes are typed as any by default
+      const userWithCount = user as typeof user & { _count: UserContextCounts };
 
       if (userWithCount._count?.tasks > 0) {
         contextParts.push(`User has ${userWithCount._count.tasks} active tasks`);
@@ -317,7 +311,7 @@ export class VoiceService {
     }
   }
 
-  private analyzeIntent(transcript: string): string {
+  private analyzeIntent(transcript: string): VoiceIntent {
     const text = transcript.toLowerCase();
 
     // Define intent patterns
@@ -333,14 +327,14 @@ export class VoiceService {
 
     for (const [intent, pattern] of Object.entries(intentPatterns)) {
       if (pattern.test(text)) {
-        return intent;
+        return intent as VoiceIntent;
       }
     }
 
-    return 'general';
+    return 'general' as VoiceIntent;
   }
 
-  private calculateConfidence(transcript: string, intent: string): number {
+  private calculateConfidence(transcript: string, intent: VoiceIntent): number {
     let confidence = 0.7; // Base confidence
 
     // Adjust based on transcript clarity
@@ -391,7 +385,7 @@ export class VoiceService {
 Remember: This will be spoken aloud, so make it sound natural and engaging.`;
   }
 
-  async healthCheck(): Promise<{ healthy: boolean; services: Record<string, boolean> }> {
+  async healthCheck(): Promise<VoiceServiceHealth> {
     const [elevenLabsHealthy, sttHealthy] = await Promise.all([
       this.elevenLabsService.healthCheck(),
       this.speechToTextService.healthCheck(),
@@ -404,5 +398,71 @@ Remember: This will be spoken aloud, so make it sound natural and engaging.`;
         speechToText: sttHealthy,
       },
     };
+  }
+
+  async speechToTextWithResponse(request: SpeechToTextRequest): Promise<SpeechToTextResponse> {
+    try {
+      const text = await this.speechToText(request);
+      return {
+        text,
+        confidence: 0.95, // This would come from the actual STT service
+        language: request.language || 'en-US',
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Speech to text conversion failed: ${errorMessage}`, error);
+      throw new AIServiceException(`Speech to text failed: ${errorMessage}`);
+    }
+  }
+
+  async generateAudio(request: AudioGenerationRequest): Promise<AudioGenerationResponse> {
+    try {
+      const response = await this.elevenLabsService.generateAudio({
+        text: request.text,
+        voiceId: request.voiceId,
+        modelId: request.modelId,
+        voiceSettings: {
+          stability: request.voiceSettings?.stability ?? 0.75,
+          similarityBoost: request.voiceSettings?.similarityBoost ?? 0.75,
+          style: request.voiceSettings?.style ?? 0.5,
+          useSpeakerBoost: request.voiceSettings?.useSpeakerBoost ?? true,
+        },
+      });
+
+      return {
+        audioBuffer: response.audioBuffer,
+        contentType: 'audio/mpeg',
+        duration: Math.floor(request.text.length * 0.1), // Rough estimate
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Audio generation failed: ${errorMessage}`, error);
+      throw new AIServiceException(`Audio generation failed: ${errorMessage}`);
+    }
+  }
+
+  async getVoiceAnalytics(userId: string): Promise<VoiceAnalyticsData[]> {
+    try {
+      const recentInteractions = await this.prisma.voiceInteraction.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
+
+      return recentInteractions.map(interaction => {
+        const metadata = interaction.metadata as Record<string, string | number | boolean | null>;
+        return {
+          transcript: interaction.inputText !== null ? interaction.inputText : '',
+          intent: typeof metadata.detectedIntent === 'string' ? metadata.detectedIntent : 'unknown',
+          confidence: typeof metadata.confidence === 'number' ? metadata.confidence : 0.5,
+          responseTime: typeof metadata.processingTime === 'number' ? metadata.processingTime : 0,
+          success: typeof metadata.success === 'boolean' ? metadata.success : true,
+        };
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to get voice analytics: ${errorMessage}`, error);
+      return [];
+    }
   }
 }

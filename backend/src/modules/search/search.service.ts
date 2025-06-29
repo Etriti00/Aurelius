@@ -1,9 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma, Task, CalendarEvent } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SemanticSearchService } from './services/semantic-search.service';
 import { VectorService } from './services/vector.service';
 import { CacheService } from '../cache/services/cache.service';
 import { SearchQuery, SearchResponse, SearchOptions, SearchResult } from './interfaces';
+
+// Define types for models with relations
+type TaskWithRelations = Task & {
+  subtasks?: Array<{ id: string; title: string }>;
+  labels?: string[];
+};
+
+type EventWithRelations = CalendarEvent;
+
+// Types for content indexing are defined above with relations
 import { BusinessException } from '../../common/exceptions';
 
 export enum SearchableType {
@@ -56,9 +67,15 @@ export class SearchService {
           useHybridSearch: searchQuery.type === 'hybrid',
         }
       );
-    } catch (error: any) {
-      this.logger.error(`Search failed: ${error.message}`);
-      throw new BusinessException('Search failed', 'SEARCH_FAILED', undefined, error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Search failed: ${errorMessage}`, error);
+      throw new BusinessException(
+        'Search failed',
+        'SEARCH_FAILED',
+        undefined,
+        error instanceof Error ? { message: error.message } : undefined
+      );
     }
   }
 
@@ -87,13 +104,23 @@ export class SearchService {
           useHybridSearch: true,
         }
       );
-    } catch (error: any) {
-      this.logger.error(`Search by type failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Search by type failed: ${errorMessage}`, error);
       throw new BusinessException(
         'Search by type failed',
         'SEARCH_BY_TYPE_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              context: 'search operation',
+            }
+          : {
+              message: 'Unknown error occurred during search operation',
+              error: String(error),
+            }
       );
     }
   }
@@ -132,9 +159,24 @@ export class SearchService {
         task.userId,
         SearchableType.TASK
       );
-    } catch (error: any) {
-      this.logger.error(`Failed to index task: ${error.message}`);
-      throw new BusinessException('Failed to index task', 'TASK_INDEX_FAILED', undefined, error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to index task: ${errorMessage}`, error);
+      throw new BusinessException(
+        'Failed to index task',
+        'TASK_INDEX_FAILED',
+        undefined,
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              context: 'task indexing operation',
+            }
+          : {
+              message: 'Unknown error occurred during task indexing',
+              error: String(error),
+            }
+      );
     }
   }
 
@@ -155,7 +197,7 @@ export class SearchService {
       }
 
       // Combine email content for indexing
-      const content = this.buildEmailContent(email);
+      const content = this.buildEmailContentFromEmail(email);
       const metadata = {
         type: SearchableType.EMAIL,
         subject: email.subject,
@@ -173,9 +215,24 @@ export class SearchService {
         email.userId,
         SearchableType.EMAIL
       );
-    } catch (error: any) {
-      this.logger.error(`Failed to index email: ${error.message}`);
-      throw new BusinessException('Failed to index email', 'EMAIL_INDEX_FAILED', undefined, error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to index email: ${errorMessage}`, error);
+      throw new BusinessException(
+        'Failed to index email',
+        'EMAIL_INDEX_FAILED',
+        undefined,
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              context: 'email indexing operation',
+            }
+          : {
+              message: 'Unknown error occurred during email indexing',
+              error: String(error),
+            }
+      );
     }
   }
 
@@ -211,13 +268,23 @@ export class SearchService {
         event.userId,
         SearchableType.CALENDAR_EVENT
       );
-    } catch (error: any) {
-      this.logger.error(`Failed to index calendar event: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to index calendar event: ${errorMessage}`, error);
       throw new BusinessException(
         'Failed to index calendar event',
         'EVENT_INDEX_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              context: 'search operation',
+            }
+          : {
+              message: 'Unknown error occurred during search operation',
+              error: String(error),
+            }
       );
     }
   }
@@ -249,13 +316,23 @@ export class SearchService {
         memory.userId,
         SearchableType.MEMORY
       );
-    } catch (error: any) {
-      this.logger.error(`Failed to index memory: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to index memory: ${errorMessage}`, error);
       throw new BusinessException(
         'Failed to index memory',
         'MEMORY_INDEX_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              context: 'search operation',
+            }
+          : {
+              message: 'Unknown error occurred during search operation',
+              error: String(error),
+            }
       );
     }
   }
@@ -269,7 +346,7 @@ export class SearchService {
       id: string;
       type: SearchableType;
       content: string;
-      metadata?: Record<string, any>;
+      metadata?: Prisma.JsonObject;
     }>
   ): Promise<void> {
     try {
@@ -285,9 +362,15 @@ export class SearchService {
       }));
 
       await this.semanticSearch.batchIndex(documents);
-    } catch (error: any) {
-      this.logger.error(`Bulk index failed: ${error.message}`);
-      throw new BusinessException('Bulk index failed', 'BULK_INDEX_FAILED', undefined, error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Bulk index failed: ${errorMessage}`, error);
+      throw new BusinessException(
+        'Bulk index failed',
+        'BULK_INDEX_FAILED',
+        undefined,
+        error instanceof Error ? { message: error.message } : undefined
+      );
     }
   }
 
@@ -297,13 +380,23 @@ export class SearchService {
   async removeFromIndex(itemId: string): Promise<void> {
     try {
       await this.vectorService.deleteDocument(itemId);
-    } catch (error: any) {
-      this.logger.error(`Failed to remove from index: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to remove from index: ${errorMessage}`, error);
       throw new BusinessException(
         'Failed to remove from index',
         'INDEX_REMOVAL_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              context: 'search operation',
+            }
+          : {
+              message: 'Unknown error occurred during search operation',
+              error: String(error),
+            }
       );
     }
   }
@@ -315,11 +408,17 @@ export class SearchService {
     try {
       const results = await this.semanticSearch.findSimilar(itemId, limit);
 
-      // Filter by userId
-      return results.filter(r => r.data.userId === userId);
-    } catch (error: any) {
-      this.logger.error(`Find similar failed: ${error.message}`);
-      throw new BusinessException('Find similar failed', 'FIND_SIMILAR_FAILED', undefined, error);
+      // Filter by userId from metadata
+      return results.filter(r => r.metadata?.userId === userId);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Find similar failed: ${errorMessage}`, error);
+      throw new BusinessException(
+        'Find similar failed',
+        'FIND_SIMILAR_FAILED',
+        undefined,
+        error instanceof Error ? { message: error.message } : undefined
+      );
     }
   }
 
@@ -336,8 +435,9 @@ export class SearchService {
       return recentSearches
         .filter(search => search.toLowerCase().includes(partialQuery.toLowerCase()))
         .slice(0, limit);
-    } catch (error: any) {
-      this.logger.error(`Get suggestions failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Get suggestions failed: ${errorMessage}`, error);
       return [];
     }
   }
@@ -345,27 +445,33 @@ export class SearchService {
   /**
    * Build task content for indexing
    */
-  private buildTaskContent(task: any): string {
-    const parts = [task.title, task.description || '', task.notes || ''];
+  private buildTaskContent(task: TaskWithRelations): string {
+    const parts = [task.title, task.description || ''];
 
     if (task.subtasks && task.subtasks.length > 0) {
-      parts.push(...task.subtasks.map((st: any) => st.title));
+      parts.push(...task.subtasks.map(st => st.title));
     }
 
     if (task.labels && task.labels.length > 0) {
-      parts.push(...task.labels.map((l: any) => l.name));
+      parts.push(...task.labels);
     }
 
     return parts.filter(Boolean).join(' ');
   }
 
   /**
-   * Build email content for indexing
+   * Build email content for indexing from Email
    */
-  private buildEmailContent(email: any): string {
+  private buildEmailContentFromEmail(email: {
+    subject: string;
+    bodyText?: string;
+    from: string;
+    to: string[] | string;
+    content?: string;
+  }): string {
     const parts = [
       email.subject || '',
-      email.bodyText || '',
+      email.bodyText || email.content || '',
       `From: ${email.from}`,
       `To: ${Array.isArray(email.to) ? email.to.join(', ') : email.to}`,
     ];
@@ -376,11 +482,16 @@ export class SearchService {
   /**
    * Build event content for indexing
    */
-  private buildEventContent(event: any): string {
+  private buildEventContent(event: EventWithRelations): string {
     const parts = [event.title, event.description || '', event.location || ''];
 
-    if (event.attendees && event.attendees.length > 0) {
-      parts.push(`Attendees: ${event.attendees.map((a: any) => a.email).join(', ')}`);
+    if (event.attendees && Array.isArray(event.attendees)) {
+      const attendeeEmails = event.attendees
+        .filter(a => typeof a === 'object' && a !== null && 'email' in a)
+        .map(a => (a as { email: string }).email);
+      if (attendeeEmails.length > 0) {
+        parts.push(`Attendees: ${attendeeEmails.join(', ')}`);
+      }
     }
 
     return parts.filter(Boolean).join(' ');

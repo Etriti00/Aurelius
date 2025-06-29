@@ -38,8 +38,10 @@ import {
   ImageTransformDto,
   ImageUrlResponseDto,
   StorageStatsDto,
+  FileTypeStatsDto,
 } from './dto';
-import { StorageListOptions } from './interfaces';
+import { StorageListOptions, StorageFile } from './interfaces';
+import { RequestUser } from '../../common/interfaces/user.interface';
 
 @ApiTags('storage')
 @Controller('storage')
@@ -55,7 +57,7 @@ export class StorageController {
   @ApiBody({ type: UploadFileDto })
   @ApiResponse({ status: 201, type: FileResponseDto })
   async uploadFile(
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @UploadedFile(
       new ParseFilePipe({
         validators: [
@@ -91,7 +93,7 @@ export class StorageController {
   @ApiBody({ type: UploadMultipleFilesDto })
   @ApiResponse({ status: 201, type: [FileResponseDto] })
   async uploadMultipleFiles(
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @UploadedFiles(
       new ParseFilePipe({
         validators: [
@@ -117,7 +119,7 @@ export class StorageController {
   @ApiOperation({ summary: 'List user files' })
   @ApiResponse({ status: 200, type: FileListResponseDto })
   async listFiles(
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @Query('prefix') prefix?: string,
     @Query('limit') limit?: number,
     @Query('continuationToken') continuationToken?: string
@@ -142,7 +144,7 @@ export class StorageController {
   @Get('stats')
   @ApiOperation({ summary: 'Get storage statistics' })
   @ApiResponse({ status: 200, type: StorageStatsDto })
-  async getStorageStats(@CurrentUser() user: any): Promise<StorageStatsDto> {
+  async getStorageStats(@CurrentUser() user: RequestUser): Promise<StorageStatsDto> {
     const stats = await this.storageService.getUserStorageStats(user.id);
     const limit = 10 * 1024 * 1024 * 1024; // 10GB default limit
 
@@ -161,7 +163,7 @@ export class StorageController {
           };
           return acc;
         },
-        {} as Record<string, any>
+        {} as Record<string, FileTypeStatsDto>
       ),
       lastUpdated: new Date(),
     };
@@ -170,7 +172,10 @@ export class StorageController {
   @Get(':id')
   @ApiOperation({ summary: 'Get file details' })
   @ApiResponse({ status: 200, type: FileResponseDto })
-  async getFile(@CurrentUser() user: any, @Param('id') fileId: string): Promise<FileResponseDto> {
+  async getFile(
+    @CurrentUser() user: RequestUser,
+    @Param('id') fileId: string
+  ): Promise<FileResponseDto> {
     const file = await this.storageService.getFile(fileId, user.id);
 
     if (!file) {
@@ -184,7 +189,7 @@ export class StorageController {
   @ApiOperation({ summary: 'Get signed URL for private file' })
   @ApiResponse({ status: 200, type: SignedUrlResponseDto })
   async getSignedUrl(
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @Param('id') fileId: string,
     @Query() query: GetSignedUrlDto
   ): Promise<SignedUrlResponseDto> {
@@ -204,7 +209,7 @@ export class StorageController {
   @ApiOperation({ summary: 'Get image URL with transformations' })
   @ApiResponse({ status: 200, type: ImageUrlResponseDto })
   async getImageUrl(
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @Param('id') fileId: string,
     @Query() query: ImageTransformDto
   ): Promise<ImageUrlResponseDto> {
@@ -215,8 +220,8 @@ export class StorageController {
       width: query.width,
       height: query.height,
       quality: query.quality,
-      format: query.format as any,
-      fit: query.fit as any,
+      format: query.format,
+      fit: query.fit,
       blur: query.blur,
       sharpen: query.sharpen,
       grayscale: query.grayscale,
@@ -233,11 +238,11 @@ export class StorageController {
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a file' })
   @ApiResponse({ status: 204 })
-  async deleteFile(@CurrentUser() user: any, @Param('id') fileId: string): Promise<void> {
+  async deleteFile(@CurrentUser() user: RequestUser, @Param('id') fileId: string): Promise<void> {
     await this.storageService.deleteFile(fileId, user.id);
   }
 
-  private mapToFileResponse(file: any): FileResponseDto {
+  private mapToFileResponse(file: StorageFile): FileResponseDto {
     return {
       id: file.id,
       filename: file.filename,
@@ -248,10 +253,19 @@ export class StorageController {
       cdnUrl: file.cdnUrl,
       bucket: file.bucket,
       key: file.key,
-      metadata: file.metadata,
+      metadata: file.metadata
+        ? ({
+            ...file.metadata.customProperties,
+            tags: file.metadata.tags?.join(','),
+            description: file.metadata.description,
+            version: file.metadata.version,
+            checksum: file.metadata.checksum,
+            encoding: file.metadata.encoding,
+          } as Record<string, string | number | boolean>)
+        : undefined,
       uploadedAt: file.uploadedAt,
       lastModified: file.lastModified,
-      variants: file.variants,
+      variants: file.metadata?.variants,
     };
   }
 

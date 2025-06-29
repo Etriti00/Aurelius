@@ -1,13 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { QueueService } from '../../queue/services/queue.service';
+import { CreateNotificationDto, NotificationPriority } from '../dto/create-notification.dto';
 import {
-  CreateNotificationDto,
   NotificationType,
-  NotificationPriority,
-} from '../dto/create-notification.dto';
+  NotificationPriority as TypesNotificationPriority,
+  NotificationChannel,
+} from '../../../common/types/notification.types';
 import { UpdateNotificationDto } from '../dto/update-notification.dto';
 import { NotificationQueryDto } from '../dto/notification-query.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class NotificationsService {
@@ -29,16 +31,19 @@ export class NotificationsService {
 
     // Queue notification delivery
     await this.queueService.addNotificationJob({
-      notificationId: notification.id,
       userId: notification.userId,
-      type: notification.type,
+      type: notification.type as NotificationType,
+      title: notification.title,
+      message: notification.message,
+      priority: this.mapPriorityToEnum(notification.priority),
+      channels: [NotificationChannel.IN_APP], // Default to in-app notifications
     });
 
     return notification;
   }
 
   async getUserNotifications(userId: string, query: NotificationQueryDto) {
-    const where: any = { userId };
+    const where: Prisma.NotificationWhereInput = { userId };
 
     if (query.type != null) {
       where.type = query.type;
@@ -133,7 +138,7 @@ export class NotificationsService {
       type: string;
       title: string;
       message: string;
-      metadata?: any;
+      metadata?: Prisma.JsonValue;
       priority?: string;
     }
   ) {
@@ -158,15 +163,17 @@ export class NotificationsService {
       type: string;
       title: string;
       message: string;
-      metadata?: any;
+      metadata?: Prisma.JsonValue;
       priority?: string;
     }
   ) {
     const notifications = await this.prisma.notification.createMany({
       data: userIds.map(userId => ({
         userId,
-        ...notification,
-        metadata: notification.metadata || {},
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        metadata: notification.metadata || Prisma.JsonNull,
         priority: notification.priority || 'medium',
       })),
     });
@@ -174,8 +181,11 @@ export class NotificationsService {
     // Queue batch notification delivery
     await this.queueService.addBatchNotificationJob({
       userIds,
-      type: notification.type,
+      type: notification.type as NotificationType,
+      title: notification.title,
       message: notification.message,
+      priority: this.mapPriorityToEnum(notification.priority),
+      channels: [NotificationChannel.IN_APP], // Default to in-app notifications
     });
 
     return { count: notifications.count };
@@ -186,7 +196,25 @@ export class NotificationsService {
     if (validTypes.includes(type as NotificationType)) {
       return type as NotificationType;
     }
-    return NotificationType.INFO;
+    return NotificationType.SYSTEM_UPDATE; // Use a valid enum value
+  }
+
+  private mapPriorityToEnum(priority: string | undefined): TypesNotificationPriority {
+    if (!priority) {
+      return TypesNotificationPriority.MEDIUM;
+    }
+
+    switch (priority.toUpperCase()) {
+      case 'LOW':
+        return TypesNotificationPriority.LOW;
+      case 'HIGH':
+        return TypesNotificationPriority.HIGH;
+      case 'URGENT':
+        return TypesNotificationPriority.URGENT;
+      case 'MEDIUM':
+      default:
+        return TypesNotificationPriority.MEDIUM;
+    }
   }
 
   private validateNotificationPriority(

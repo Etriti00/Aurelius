@@ -23,14 +23,19 @@ export class MicrosoftStrategy extends PassportStrategy(Strategy, 'microsoft') {
   async validate(
     accessToken: string,
     refreshToken: string,
-    profile: any,
+    profile: {
+      id: string;
+      emails: Array<{ value: string }>;
+      displayName: string;
+      photos?: Array<{ value: string }>;
+    },
     done: VerifyCallback
   ): Promise<void> {
     try {
       const oauthUser = {
         email: profile.emails[0].value,
         name: profile.displayName,
-        avatar: profile.photos[0]?.value,
+        avatar: profile.photos?.[0]?.value,
         provider: 'microsoft' as const,
         providerId: profile.id,
       };

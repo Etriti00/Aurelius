@@ -2,6 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../security/services/encryption.service';
 import { AppIntegrationException } from '../../common/exceptions';
+import {
+  UserIntegrationResponse,
+  IntegrationStatusResponse,
+  ConnectIntegrationResponse,
+  DisconnectIntegrationResponse,
+  IntegrationTokens,
+} from './dto/integration.dto';
 
 @Injectable()
 export class IntegrationsService {
@@ -12,8 +19,8 @@ export class IntegrationsService {
     private readonly encryptionService: EncryptionService
   ) {}
 
-  async getUserIntegrations(userId: string): Promise<any[]> {
-    return this.prisma.integration.findMany({
+  async getUserIntegrations(userId: string): Promise<UserIntegrationResponse[]> {
+    const integrations = await this.prisma.integration.findMany({
       where: { userId },
       select: {
         id: true,
@@ -25,10 +32,23 @@ export class IntegrationsService {
         createdAt: true,
       },
     });
+
+    return integrations.map(integration => ({
+      id: integration.id,
+      provider: integration.provider,
+      status: integration.status,
+      lastSyncAt: integration.lastSyncAt,
+      syncError: integration.syncError,
+      settings: integration.settings as Record<string, string | number | boolean | object>,
+      createdAt: integration.createdAt,
+    }));
   }
 
-  async getIntegrationStatus(userId: string, provider: string): Promise<any> {
-    return this.prisma.integration.findFirst({
+  async getIntegrationStatus(
+    userId: string,
+    provider: string
+  ): Promise<IntegrationStatusResponse | null> {
+    const integration = await this.prisma.integration.findFirst({
       where: { userId, provider },
       select: {
         id: true,
@@ -38,6 +58,18 @@ export class IntegrationsService {
         syncError: true,
       },
     });
+
+    if (!integration) {
+      return null;
+    }
+
+    return {
+      id: integration.id,
+      provider: integration.provider,
+      status: integration.status,
+      lastSyncAt: integration.lastSyncAt,
+      syncError: integration.syncError,
+    };
   }
 
   async connectIntegration(
@@ -50,7 +82,7 @@ export class IntegrationsService {
       tokenType?: string;
       providerAccountId?: string;
     }
-  ): Promise<any> {
+  ): Promise<ConnectIntegrationResponse> {
     try {
       this.logger.debug(`Connecting ${provider} integration for user ${userId}`);
 
@@ -116,7 +148,10 @@ export class IntegrationsService {
     }
   }
 
-  async disconnectIntegration(userId: string, provider: string): Promise<any> {
+  async disconnectIntegration(
+    userId: string,
+    provider: string
+  ): Promise<DisconnectIntegrationResponse> {
     const integration = await this.prisma.integration.findFirst({
       where: { userId, provider },
     });
@@ -131,15 +166,7 @@ export class IntegrationsService {
     return { message: `${provider} integration disconnected` };
   }
 
-  async getIntegrationTokens(
-    userId: string,
-    provider: string
-  ): Promise<{
-    accessToken: string;
-    refreshToken?: string;
-    tokenExpiry?: Date;
-    tokenType?: string;
-  } | null> {
+  async getIntegrationTokens(userId: string, provider: string): Promise<IntegrationTokens | null> {
     try {
       const integration = await this.prisma.integration.findFirst({
         where: {

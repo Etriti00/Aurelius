@@ -39,6 +39,12 @@ import {
 } from './dto';
 import { ErrorResponseDto } from '../../common/dto/api-response.dto';
 
+interface AuthenticatedUser {
+  id: string;
+  email: string;
+  name?: string;
+}
+
 @ApiTags('billing')
 @Controller('billing')
 export class BillingController {
@@ -97,7 +103,7 @@ export class BillingController {
     type: ErrorResponseDto,
   })
   async createCheckout(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateCheckoutDto
   ): Promise<CheckoutResponseDto> {
     return this.billingService.createCheckoutSession(user.id, dto);
@@ -109,7 +115,7 @@ export class BillingController {
   @ApiOperation({ summary: 'Create subscription' })
   @ApiResponse({ status: 201, type: SubscriptionResponseDto })
   async createSubscription(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateSubscriptionDto
   ): Promise<SubscriptionResponseDto> {
     return this.billingService.createSubscription(user.id, dto);
@@ -138,7 +144,7 @@ export class BillingController {
     description: 'No active subscription found',
     type: ErrorResponseDto,
   })
-  async getSubscription(@CurrentUser() user: any): Promise<SubscriptionResponseDto> {
+  async getSubscription(@CurrentUser() user: AuthenticatedUser): Promise<SubscriptionResponseDto> {
     return this.billingService.getCurrentSubscription(user.id);
   }
 
@@ -148,7 +154,7 @@ export class BillingController {
   @ApiOperation({ summary: 'Update subscription' })
   @ApiResponse({ status: 200, type: SubscriptionResponseDto })
   async updateSubscription(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateSubscriptionDto
   ): Promise<SubscriptionResponseDto> {
     return this.billingService.updateSubscription(user.id, dto);
@@ -160,7 +166,7 @@ export class BillingController {
   @ApiOperation({ summary: 'Cancel subscription' })
   @ApiResponse({ status: 200, type: SubscriptionResponseDto })
   async cancelSubscription(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CancelSubscriptionDto
   ): Promise<SubscriptionResponseDto> {
     return this.billingService.cancelSubscription(user.id, dto);
@@ -172,7 +178,7 @@ export class BillingController {
   @ApiOperation({ summary: 'Create billing portal session' })
   @ApiResponse({ status: 201, type: BillingPortalResponseDto })
   async createBillingPortal(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateBillingPortalDto
   ): Promise<BillingPortalResponseDto> {
     return this.billingService.createBillingPortalSession(user.id, dto);
@@ -184,7 +190,7 @@ export class BillingController {
   @ApiOperation({ summary: 'Record usage' })
   @ApiResponse({ status: 201, type: UsageResponseDto })
   async recordUsage(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: RecordUsageDto
   ): Promise<UsageResponseDto> {
     return this.billingService.recordUsage(user.id, dto);
@@ -195,7 +201,7 @@ export class BillingController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get usage summary' })
   @ApiResponse({ status: 200, type: UsageSummaryDto })
-  async getUsageSummary(@CurrentUser() user: any): Promise<UsageSummaryDto> {
+  async getUsageSummary(@CurrentUser() user: AuthenticatedUser): Promise<UsageSummaryDto> {
     return this.billingService.getUsageSummary(user.id);
   }
 
@@ -205,7 +211,7 @@ export class BillingController {
   @ApiOperation({ summary: 'List invoices' })
   @ApiResponse({ status: 200, type: InvoiceListResponseDto })
   async listInvoices(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query() query: ListInvoicesDto
   ): Promise<InvoiceListResponseDto> {
     return this.billingService.listInvoices(user.id, query);
@@ -216,7 +222,9 @@ export class BillingController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List payment methods' })
   @ApiResponse({ status: 200, type: ListPaymentMethodsResponseDto })
-  async listPaymentMethods(@CurrentUser() user: any): Promise<ListPaymentMethodsResponseDto> {
+  async listPaymentMethods(
+    @CurrentUser() user: AuthenticatedUser
+  ): Promise<ListPaymentMethodsResponseDto> {
     return this.billingService.listPaymentMethods(user.id);
   }
 
@@ -226,7 +234,7 @@ export class BillingController {
   @ApiOperation({ summary: 'Add payment method' })
   @ApiResponse({ status: 201, type: PaymentMethodDto })
   async addPaymentMethod(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: AddPaymentMethodDto
   ): Promise<PaymentMethodDto> {
     return this.billingService.addPaymentMethod(user.id, dto);
@@ -239,7 +247,7 @@ export class BillingController {
   @ApiResponse({ status: 204 })
   @HttpCode(HttpStatus.NO_CONTENT)
   async removePaymentMethod(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') paymentMethodId: string
   ): Promise<void> {
     await this.billingService.removePaymentMethod(user.id, paymentMethodId);

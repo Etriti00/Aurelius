@@ -21,8 +21,8 @@ export class StripeWebhookDto {
   @ApiProperty({ description: 'Event data' })
   @IsObject()
   data: {
-    object: any;
-    previous_attributes?: any;
+    object: Record<string, string | number | boolean | null>;
+    previous_attributes?: Record<string, string | number | boolean | null>;
   };
 
   @ApiProperty({ description: 'Livemode flag' })

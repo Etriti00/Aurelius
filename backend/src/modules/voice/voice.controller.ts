@@ -17,6 +17,14 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ProcessVoiceDto } from './dto/process-voice.dto';
 import { TextToSpeechDto } from './dto/text-to-speech.dto';
+import { RequestUser } from '../../common/types/auth.types';
+import {
+  VoiceProcessResponse,
+  TextToSpeechResponse,
+  AvailableVoice,
+  VoiceInteractionHistory,
+  VoiceServiceHealth,
+} from '../../common/types/voice.types';
 
 @ApiTags('voice')
 @Controller('voice')
@@ -35,9 +43,9 @@ export class VoiceController {
   @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 requests per minute
   async processVoiceCommand(
     @UploadedFile() audioFile: Express.Multer.File,
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @Body() processVoiceDto: ProcessVoiceDto
-  ): Promise<any> {
+  ): Promise<VoiceProcessResponse> {
     if (!audioFile) {
       throw new Error('Audio file is required');
     }
@@ -45,7 +53,7 @@ export class VoiceController {
     return this.voiceService.processVoiceCommand({
       audioBuffer: audioFile.buffer,
       userId: user.id,
-      userSubscription: user.subscription,
+      userSubscription: { tier: user.subscriptionTier as 'PRO' | 'MAX' | 'TEAMS' },
       language: processVoiceDto.language,
       metadata: processVoiceDto.metadata,
     });
@@ -57,9 +65,9 @@ export class VoiceController {
   @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute
   async textToSpeech(
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @Body() textToSpeechDto: TextToSpeechDto
-  ): Promise<{ audioUrl: string }> {
+  ): Promise<TextToSpeechResponse> {
     return this.voiceService.textToSpeech({
       text: textToSpeechDto.text,
       userId: user.id,
@@ -71,7 +79,7 @@ export class VoiceController {
   @Get('voices')
   @ApiOperation({ summary: 'Get available voices for text-to-speech' })
   @ApiResponse({ status: 200, description: 'Available voices retrieved successfully' })
-  async getAvailableVoices(): Promise<any[]> {
+  async getAvailableVoices(): Promise<AvailableVoice[]> {
     return this.voiceService.getAvailableVoices();
   }
 
@@ -79,10 +87,10 @@ export class VoiceController {
   @ApiOperation({ summary: 'Get user voice interaction history' })
   @ApiResponse({ status: 200, description: 'Voice history retrieved successfully' })
   async getVoiceHistory(
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string
-  ): Promise<any[]> {
+  ): Promise<VoiceInteractionHistory[]> {
     const limitNum = limit ? parseInt(limit) : 20;
     const offsetNum = offset ? parseInt(offset) : 0;
     return this.voiceService.getUserVoiceHistory(user.id, limitNum, offsetNum);
@@ -91,7 +99,7 @@ export class VoiceController {
   @Get('health')
   @ApiOperation({ summary: 'Check voice service health' })
   @ApiResponse({ status: 200, description: 'Health check completed' })
-  async healthCheck(): Promise<any> {
+  async healthCheck(): Promise<VoiceServiceHealth> {
     return this.voiceService.healthCheck();
   }
 }

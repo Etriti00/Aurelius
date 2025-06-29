@@ -8,14 +8,17 @@ interface CacheOptions {
 
 @Injectable()
 export class LRUCacheService {
-  private caches = new Map<string, LRUCache<string, any>>();
+  private caches = new Map<string, LRUCache<string, string | number | boolean | object>>();
 
   /**
    * Create or get a named cache instance
    */
-  getCache(name: string, options: CacheOptions = {}): LRUCache<string, any> {
+  getCache(
+    name: string,
+    options: CacheOptions = {}
+  ): LRUCache<string, string | number | boolean | object> {
     if (!this.caches.has(name)) {
-      const cache = new LRUCache<string, any>({
+      const cache = new LRUCache<string, string | number | boolean | object>({
         max: options.max || 1000,
         ttl: options.ttl || 1000 * 60 * 5, // 5 minutes default
         updateAgeOnGet: true,
@@ -23,7 +26,11 @@ export class LRUCacheService {
       });
       this.caches.set(name, cache);
     }
-    return this.caches.get(name)!;
+    const cache = this.caches.get(name);
+    if (!cache) {
+      throw new Error(`Cache '${name}' not found`);
+    }
+    return cache;
   }
 
   /**
@@ -39,7 +46,7 @@ export class LRUCacheService {
    */
   set<T>(cacheName: string, key: string, value: T, ttl?: number): void {
     const cache = this.getCache(cacheName);
-    cache.set(key, value, { ttl });
+    cache.set(key, value as string | number | boolean | object, { ttl });
   }
 
   /**

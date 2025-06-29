@@ -63,7 +63,7 @@ interface AuditLogEntry {
   action: AuditAction;
   resource: string;
   resourceId?: string;
-  details?: Record<string, any>;
+  details?: Record<string, string | number | boolean | object>;
   ipAddress?: string;
   userAgent?: string;
   success: boolean;
@@ -94,7 +94,7 @@ export class AuditLogService {
           action: entry.action,
           resource: entry.resource,
           resourceId: entry.resourceId,
-          newValues: sanitizedDetails,
+          newValues: sanitizedDetails as Prisma.InputJsonValue,
           ipAddress: entry.ipAddress ? await this.encryptionService.encrypt(entry.ipAddress) : null,
           userAgent: entry.userAgent,
           success: entry.success,
@@ -164,7 +164,7 @@ export class AuditLogService {
     resource: string,
     resourceId: string,
     action: 'read' | 'create' | 'update' | 'delete',
-    details?: Record<string, any>
+    details?: Record<string, string | number | boolean | object>
   ): Promise<void> {
     const actionMap = {
       read: AuditAction.DATA_READ,
@@ -189,7 +189,7 @@ export class AuditLogService {
   async logSecurityAlert(
     userId: string | undefined,
     alertType: string,
-    details: Record<string, any>,
+    details: Record<string, string | number | boolean | object>,
     ipAddress?: string
   ): Promise<void> {
     await this.log({
@@ -218,7 +218,7 @@ export class AuditLogService {
     success?: boolean;
     limit?: number;
     offset?: number;
-  }): Promise<{ logs: any[]; total: number }> {
+  }): Promise<{ logs: Array<Record<string, unknown>>; total: number }> {
     const where: Prisma.AuditLogWhereInput = {};
 
     if (filters.userId) where.userId = filters.userId;
@@ -256,7 +256,17 @@ export class AuditLogService {
   /**
    * Get user activity summary
    */
-  async getUserActivitySummary(userId: string, days: number = 30): Promise<any> {
+  async getUserActivitySummary(
+    userId: string,
+    days: number = 30
+  ): Promise<{
+    totalActions: number;
+    successfulActions: number;
+    failedActions: number;
+    actionsByType: Record<string, number>;
+    activityByDay: Record<string, number>;
+    lastActivity?: Date;
+  }> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -369,7 +379,27 @@ export class AuditLogService {
   /**
    * Generate compliance report
    */
-  async generateComplianceReport(startDate: Date, endDate: Date): Promise<any> {
+  async generateComplianceReport(
+    startDate: Date,
+    endDate: Date
+  ): Promise<{
+    period: { start: Date; end: Date };
+    totalEvents: number;
+    userActivity: Record<string, { actions: number; logins: number; dataAccess: number }>;
+    securityEvents: {
+      loginFailures: number;
+      securityAlerts: number;
+      accessDenied: number;
+      suspiciousActivity: number;
+    };
+    dataAccess: {
+      reads: number;
+      creates: number;
+      updates: number;
+      deletes: number;
+      exports: number;
+    };
+  }> {
     const logs = await this.prisma.auditLog.findMany({
       where: {
         timestamp: {
@@ -382,7 +412,7 @@ export class AuditLogService {
     const report = {
       period: { start: startDate, end: endDate },
       totalEvents: logs.length,
-      userActivity: {} as Record<string, any>,
+      userActivity: {} as Record<string, { actions: number; logins: number; dataAccess: number }>,
       securityEvents: {
         loginFailures: 0,
         securityAlerts: 0,
@@ -454,7 +484,9 @@ export class AuditLogService {
   /**
    * Sanitize sensitive details
    */
-  private sanitizeDetails(details?: Record<string, any>): any {
+  private sanitizeDetails(
+    details?: Record<string, string | number | boolean | object>
+  ): Record<string, unknown> | null {
     if (!details) return null;
 
     return this.encryptionService.sanitizeForLogging(details);

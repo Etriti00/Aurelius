@@ -8,15 +8,24 @@ export interface CacheOptions {
   ttl?: number;
 }
 
+interface CacheableService {
+  cacheService?: CacheService;
+}
+
+interface UserCacheContext {
+  userId?: string;
+  user?: { id: string };
+}
+
 /**
  * Cache method decorator
  */
 export function Cacheable(options: CacheOptions = {}) {
-  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
+  return function (target: object, propertyName: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
-      const cacheService = (this as any).cacheService as CacheService;
+    descriptor.value = async function (...args: unknown[]) {
+      const cacheService = (this as CacheableService).cacheService;
 
       if (!cacheService) {
         throw new Error('CacheService not injected. Make sure to inject it in the constructor.');
@@ -53,8 +62,8 @@ export function CacheEvict(keyPattern: string) {
   return function (_target: object, _propertyName: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
-      const cacheService = (this as any).cacheService as CacheService;
+    descriptor.value = async function (...args: unknown[]) {
+      const cacheService = (this as CacheableService).cacheService;
 
       if (!cacheService) {
         throw new Error('CacheService not injected. Make sure to inject it in the constructor.');
@@ -77,12 +86,16 @@ export function CacheEvict(keyPattern: string) {
  * User cache decorator - caches per user
  */
 export function UserCache(options: CacheOptions = {}) {
-  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
+  return function (target: object, propertyName: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
-      const cacheService = (this as any).cacheService as CacheService;
-      const userId = args[0]?.userId || args[0]?.user?.id || args[0];
+    descriptor.value = async function (...args: unknown[]) {
+      const cacheService = (this as CacheableService).cacheService;
+      const firstArg = args[0] as UserCacheContext | string | undefined;
+      const userId =
+        typeof firstArg === 'object' && firstArg !== null
+          ? firstArg.userId || firstArg.user?.id
+          : firstArg;
 
       if (!cacheService) {
         throw new Error('CacheService not injected.');

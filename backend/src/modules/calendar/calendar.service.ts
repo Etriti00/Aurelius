@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { CalendarEvent, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -7,8 +8,8 @@ export class CalendarService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async getEvents(userId: string, startDate?: Date, endDate?: Date): Promise<any[]> {
-    const where: any = { userId, status: 'CONFIRMED' };
+  async getEvents(userId: string, startDate?: Date, endDate?: Date): Promise<CalendarEvent[]> {
+    const where: Prisma.CalendarEventWhereInput = { userId, status: 'CONFIRMED' };
 
     if (startDate || endDate) {
       where.startTime = {};
@@ -22,7 +23,7 @@ export class CalendarService {
     });
   }
 
-  async getUpcoming(userId: string, limit: number = 10): Promise<any[]> {
+  async getUpcoming(userId: string, limit: number = 10): Promise<CalendarEvent[]> {
     return this.prisma.calendarEvent.findMany({
       where: {
         userId,
@@ -34,7 +35,7 @@ export class CalendarService {
     });
   }
 
-  async getToday(userId: string): Promise<any[]> {
+  async getToday(userId: string): Promise<CalendarEvent[]> {
     const today = new Date();
     const startOfDay = new Date(today.setHours(0, 0, 0, 0));
     const endOfDay = new Date(today.setHours(23, 59, 59, 999));
@@ -76,11 +77,13 @@ export class CalendarService {
     };
   }
 
-  async getAnalytics(userId: string): Promise<any> {
+  async getAnalytics(
+    userId: string
+  ): Promise<{ thisWeek: number; upcoming: number; avgDuration: number; busyDays: number }> {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const [thisWeek, upcoming] = await Promise.all([
+    const [thisWeek, upcoming, events] = await Promise.all([
       this.prisma.calendarEvent.count({
         where: {
           userId,
@@ -95,8 +98,36 @@ export class CalendarService {
           status: 'CONFIRMED',
         },
       }),
+      this.prisma.calendarEvent.findMany({
+        where: {
+          userId,
+          startTime: { gte: weekAgo, lte: now },
+          status: 'CONFIRMED',
+        },
+        select: {
+          startTime: true,
+          endTime: true,
+        },
+      }),
     ]);
 
-    return { thisWeek, upcoming };
+    const avgDuration =
+      events.length > 0
+        ? events.reduce(
+            (sum, event) => sum + (event.endTime.getTime() - event.startTime.getTime()),
+            0
+          ) /
+          events.length /
+          (1000 * 60)
+        : 0;
+
+    const uniqueDays = new Set(events.map(event => event.startTime.toDateString())).size;
+
+    return {
+      thisWeek,
+      upcoming,
+      avgDuration: Math.round(avgDuration),
+      busyDays: uniqueDays,
+    };
   }
 }

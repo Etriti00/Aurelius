@@ -114,7 +114,7 @@ export class StringUtils {
   /**
    * Convert object to query string
    */
-  static toQueryString(obj: Record<string, any>): string {
+  static toQueryString(obj: Record<string, string | number | boolean | null | undefined>): string {
     const params = new URLSearchParams();
 
     Object.entries(obj).forEach(([key, value]) => {

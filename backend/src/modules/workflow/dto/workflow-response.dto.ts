@@ -30,7 +30,7 @@ export class WorkflowResponseDto {
   updatedAt: Date;
 
   @ApiPropertyOptional({ description: 'Additional metadata' })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean | null>;
 
   constructor() {
     this.id = '';

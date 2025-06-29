@@ -49,13 +49,23 @@ export class EmbeddingService {
       }
 
       return embedding;
-    } catch (error: any) {
-      this.logger.error(`Failed to generate embedding: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(`Failed to generate embedding: ${errorMessage}`);
       throw new BusinessException(
         'Failed to generate embedding',
         'EMBEDDING_GENERATION_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+            }
+          : {
+              message: 'Unknown error occurred during embedding generation',
+              error: String(error),
+            }
       );
     }
   }
@@ -114,8 +124,9 @@ export class EmbeddingService {
         let newEmbeddingIndex = 0;
 
         for (let i = 0; i < batch.length; i++) {
-          if (cachedEmbeddings.has(i)) {
-            batchEmbeddings.push(cachedEmbeddings.get(i)!);
+          const cachedEmbedding = cachedEmbeddings.get(i);
+          if (cachedEmbedding) {
+            batchEmbeddings.push(cachedEmbedding);
           } else {
             batchEmbeddings.push(newEmbeddings[newEmbeddingIndex++]);
           }
@@ -125,13 +136,23 @@ export class EmbeddingService {
       }
 
       return allEmbeddings;
-    } catch (error: any) {
-      this.logger.error(`Failed to generate batch embeddings: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(`Failed to generate batch embeddings: ${errorMessage}`);
       throw new BusinessException(
         'Failed to generate batch embeddings',
         'BATCH_EMBEDDING_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+            }
+          : {
+              message: 'Unknown error occurred during batch embedding generation',
+              error: String(error),
+            }
       );
     }
   }

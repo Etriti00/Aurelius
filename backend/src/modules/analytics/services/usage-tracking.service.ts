@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -23,7 +24,7 @@ export class UsageTrackingService {
       throw new Error('Usage record not found');
     }
 
-    const updateData: any = {
+    const updateData: Prisma.UsageUpdateInput = {
       actionsUsed: { increment: 1 },
     };
 
@@ -40,7 +41,7 @@ export class UsageTrackingService {
 
     const actionField = actionTypeMap[actionType];
     if (actionField) {
-      updateData[actionField] = { increment: 1 };
+      (updateData as Record<string, unknown>)[actionField] = { increment: 1 };
     }
 
     // Update model usage
@@ -53,7 +54,7 @@ export class UsageTrackingService {
 
       const modelField = modelMap[model];
       if (modelField) {
-        updateData[modelField] = { increment: 1 };
+        (updateData as Record<string, unknown>)[modelField] = { increment: 1 };
       }
     }
 

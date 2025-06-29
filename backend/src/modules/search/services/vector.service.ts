@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   VectorDocument,
@@ -6,6 +7,9 @@ import {
   VectorSearchOptions,
   IndexOptions,
   BulkIndexResult,
+  SearchMetadata,
+  SearchFilter,
+  SearchableContent,
 } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 
@@ -86,7 +90,17 @@ export class VectorService {
         'Failed to index document',
         'VECTOR_INDEX_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+              context: 'vector document indexing',
+            }
+          : {
+              message: 'Unknown error occurred during vector document indexing',
+              error: String(error),
+            }
       );
     }
   }
@@ -186,25 +200,44 @@ export class VectorService {
             ? 1 - row.similarity
             : undefined,
         data: {
+          id: row.id,
           content: row.content,
-          metadata: row.metadata,
-          type: row.type,
-          userId: row.userId,
-          createdAt: row.createdAt,
-          updatedAt: row.updatedAt,
-        },
+          context: row.type,
+          importance: 1,
+          createdAt: row.createdAt.toISOString(),
+          lastAccessedAt: new Date().toISOString(),
+        } as SearchableContent,
       }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Vector search failed: ${errorMessage}`);
-      throw new BusinessException('Vector search failed', 'VECTOR_SEARCH_FAILED', undefined, error);
+      throw new BusinessException(
+        'Vector search failed',
+        'VECTOR_SEARCH_FAILED',
+        undefined,
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+              context: 'vector service operation',
+            }
+          : {
+              message: 'Unknown error occurred in vector service',
+              error: String(error),
+            }
+      );
     }
   }
 
   /**
    * Find k-nearest neighbors
    */
-  async findKNN(embedding: number[], k: number = 10, filters?: any): Promise<SearchResult[]> {
+  async findKNN(
+    embedding: number[],
+    k: number = 10,
+    filters?: Record<string, string | number | boolean | Date | string[] | number[]>
+  ): Promise<SearchResult[]> {
     try {
       let query = `
         SELECT 
@@ -238,16 +271,20 @@ export class VectorService {
         score: row.distance !== undefined && row.distance !== null ? 1 / (1 + row.distance) : 0, // Convert distance to similarity score
         distance: row.distance !== undefined && row.distance !== null ? row.distance : 0,
         data: {
+          id: row.id,
           content: row.content,
-          metadata: row.metadata,
-          type: row.type,
-          userId: row.userId,
-        },
+          context: row.type,
+          importance: 1,
+          createdAt: new Date().toISOString(),
+          lastAccessedAt: new Date().toISOString(),
+        } as SearchableContent,
       }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`KNN search failed: ${errorMessage}`);
-      throw new BusinessException('KNN search failed', 'KNN_SEARCH_FAILED', undefined, error);
+      throw new BusinessException('KNN search failed', 'KNN_SEARCH_FAILED', undefined, {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -266,7 +303,17 @@ export class VectorService {
         'Failed to delete document',
         'VECTOR_DELETE_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+              context: 'vector service operation',
+            }
+          : {
+              message: 'Unknown error occurred in vector service',
+              error: String(error),
+            }
       );
     }
   }
@@ -274,7 +321,9 @@ export class VectorService {
   /**
    * Delete documents by filter
    */
-  async deleteByFilter(filter: any): Promise<number> {
+  async deleteByFilter(
+    filter: Record<string, string | number | boolean | Date | string[] | number[]>
+  ): Promise<number> {
     try {
       const result = await this.prisma.vectorEmbedding.deleteMany({
         where: filter,
@@ -287,7 +336,17 @@ export class VectorService {
         'Failed to delete documents',
         'VECTOR_BULK_DELETE_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+              context: 'vector service operation',
+            }
+          : {
+              message: 'Unknown error occurred in vector service',
+              error: String(error),
+            }
       );
     }
   }
@@ -320,7 +379,17 @@ export class VectorService {
         'Failed to create vector index',
         'VECTOR_INDEX_CREATE_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+              context: 'vector service operation',
+            }
+          : {
+              message: 'Unknown error occurred in vector service',
+              error: String(error),
+            }
       );
     }
   }
@@ -352,7 +421,7 @@ export class VectorService {
     if (!metricOps) {
       throw new BusinessException('Invalid metric type', 'INVALID_METRIC', undefined, {
         metric,
-        allowed: Object.keys(allowedMetrics),
+        allowed: Object.keys(allowedMetrics).join(', '),
       });
     }
 
@@ -403,7 +472,17 @@ export class VectorService {
         'Failed to get index statistics',
         'VECTOR_STATS_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+              context: 'vector service operation',
+            }
+          : {
+              message: 'Unknown error occurred in vector service',
+              error: String(error),
+            }
       );
     }
   }
@@ -412,12 +491,8 @@ export class VectorService {
    * Build filter clauses for raw SQL
    */
   private buildFilterClauses(
-    filters: Array<{
-      field: string;
-      operator: string;
-      value: string | number | boolean | string[];
-    }>,
-    params: Array<string | number | boolean | Array<string | number>>
+    filters: SearchFilter[],
+    params: Array<string | number | boolean | Date | Array<string | number>>
   ): string {
     const clauses: string[] = [];
 
@@ -450,31 +525,32 @@ export class VectorService {
 
       const paramIndex = params.length + 1;
       const field = this.escapeIdentifier(filter.field);
+      const value = filter.value instanceof Date ? filter.value.toISOString() : filter.value;
 
       switch (filter.operator) {
         case 'eq':
           clauses.push(`${field} = $${paramIndex}`);
-          params.push(filter.value);
+          params.push(value);
           break;
         case 'neq':
           clauses.push(`${field} != $${paramIndex}`);
-          params.push(filter.value);
+          params.push(value);
           break;
         case 'gt':
           clauses.push(`${field} > $${paramIndex}`);
-          params.push(filter.value);
+          params.push(value);
           break;
         case 'gte':
           clauses.push(`${field} >= $${paramIndex}`);
-          params.push(filter.value);
+          params.push(value);
           break;
         case 'lt':
           clauses.push(`${field} < $${paramIndex}`);
-          params.push(filter.value);
+          params.push(value);
           break;
         case 'lte':
           clauses.push(`${field} <= $${paramIndex}`);
-          params.push(filter.value);
+          params.push(value);
           break;
         case 'in':
           if (!Array.isArray(filter.value)) {
@@ -502,8 +578,8 @@ export class VectorService {
    * Build Prisma-compatible filters
    */
   private buildPrismaFilters(
-    filters: Record<string, string | number | boolean>,
-    params: Array<string | number | boolean | Array<string | number>>
+    filters: Record<string, string | number | boolean | Date | string[] | number[]>,
+    params: Array<string | number | boolean | Date | Array<string | number>>
   ): string | null {
     if (!filters || Object.keys(filters).length === 0) {
       return null;
@@ -557,18 +633,38 @@ export class VectorService {
    * Generate content hash for deduplication
    */
   private generateContentHash(content: string): string {
-    const crypto = require('crypto');
-    return crypto.createHash('sha256').update(content).digest('hex');
+    return createHash('sha256').update(content).digest('hex');
   }
 
   /**
-   * Get metadata safely
+   * Get metadata safely - converts SearchMetadata to VectorMetadata
    */
-  private getMetadata(metadata: VectorMetadata | undefined): VectorMetadata {
-    if (metadata) {
-      return metadata;
+  private getMetadata(metadata: SearchMetadata | VectorMetadata | undefined): VectorMetadata {
+    if (!metadata) {
+      return {};
     }
-    return {};
+
+    // If it's already VectorMetadata (has index signature), return as is
+    if ('title' in metadata || 'description' in metadata || Object.keys(metadata).length === 0) {
+      return metadata as VectorMetadata;
+    }
+
+    // Convert SearchMetadata to VectorMetadata
+    const searchMeta = metadata as SearchMetadata;
+    const vectorMeta: VectorMetadata = {
+      title: searchMeta.title,
+      description: searchMeta.description,
+      tags: searchMeta.tags,
+      source: searchMeta.contentType,
+      category: searchMeta.status,
+    };
+
+    // Add additional data if present
+    if (searchMeta.additionalData) {
+      Object.assign(vectorMeta, searchMeta.additionalData);
+    }
+
+    return vectorMeta;
   }
 
   /**

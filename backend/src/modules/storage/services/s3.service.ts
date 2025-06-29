@@ -85,14 +85,12 @@ export class S3Service implements StorageProvider {
         metadata: options.metadata,
         uploadedAt: new Date(),
       };
-    } catch (error: any) {
-      this.logger.error(`Failed to upload file to S3: ${error.message}`);
-      throw new BusinessException(
-        'Failed to upload file',
-        'STORAGE_UPLOAD_FAILED',
-        undefined,
-        error
-      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to upload file to S3: ${errorMessage}`);
+      throw new BusinessException('Failed to upload file', 'STORAGE_UPLOAD_FAILED', undefined, {
+        message: errorMessage,
+      });
     }
   }
 
@@ -146,13 +144,14 @@ export class S3Service implements StorageProvider {
         metadata: options.metadata,
         uploadedAt: new Date(),
       };
-    } catch (error: any) {
-      this.logger.error(`Failed to upload stream to S3: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to upload stream to S3: ${errorMessage}`);
       throw new BusinessException(
         'Failed to upload stream',
         'STORAGE_UPLOAD_STREAM_FAILED',
         undefined,
-        error
+        { message: errorMessage }
       );
     }
   }
@@ -172,19 +171,17 @@ export class S3Service implements StorageProvider {
 
       // Convert stream to buffer
       const chunks: Uint8Array[] = [];
-      for await (const chunk of response.Body as any) {
+      for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
         chunks.push(chunk);
       }
 
       return Buffer.concat(chunks);
-    } catch (error: any) {
-      this.logger.error(`Failed to download file from S3: ${error.message}`);
-      throw new BusinessException(
-        'Failed to download file',
-        'STORAGE_DOWNLOAD_FAILED',
-        undefined,
-        error
-      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to download file from S3: ${errorMessage}`);
+      throw new BusinessException('Failed to download file', 'STORAGE_DOWNLOAD_FAILED', undefined, {
+        message: errorMessage,
+      });
     }
   }
 
@@ -196,14 +193,12 @@ export class S3Service implements StorageProvider {
       });
 
       await this.s3Client.send(command);
-    } catch (error: any) {
-      this.logger.error(`Failed to delete file from S3: ${error.message}`);
-      throw new BusinessException(
-        'Failed to delete file',
-        'STORAGE_DELETE_FAILED',
-        undefined,
-        error
-      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to delete file from S3: ${errorMessage}`);
+      throw new BusinessException('Failed to delete file', 'STORAGE_DELETE_FAILED', undefined, {
+        message: errorMessage,
+      });
     }
   }
 
@@ -216,9 +211,15 @@ export class S3Service implements StorageProvider {
 
       await this.s3Client.send(command);
       return true;
-    } catch (error: any) {
-      if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'name' in error && error.name === 'NotFound') {
         return false;
+      }
+      if (error && typeof error === 'object' && '$metadata' in error) {
+        const metadata = error.$metadata as { httpStatusCode?: number };
+        if (metadata?.httpStatusCode === 404) {
+          return false;
+        }
       }
       throw error;
     }
@@ -240,13 +241,14 @@ export class S3Service implements StorageProvider {
       return await getSignedUrl(this.s3Client, command, {
         expiresIn: options.expiresIn || 3600, // 1 hour default
       });
-    } catch (error: any) {
-      this.logger.error(`Failed to generate signed URL: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to generate signed URL: ${errorMessage}`);
       throw new BusinessException(
         'Failed to generate signed URL',
         'STORAGE_SIGNED_URL_FAILED',
         undefined,
-        error
+        { message: errorMessage }
       );
     }
   }
@@ -286,9 +288,12 @@ export class S3Service implements StorageProvider {
         continuationToken: response.NextContinuationToken,
         isTruncated: response.IsTruncated || false,
       };
-    } catch (error: any) {
-      this.logger.error(`Failed to list files from S3: ${error.message}`);
-      throw new BusinessException('Failed to list files', 'STORAGE_LIST_FAILED', undefined, error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to list files from S3: ${errorMessage}`);
+      throw new BusinessException('Failed to list files', 'STORAGE_LIST_FAILED', undefined, {
+        message: errorMessage,
+      });
     }
   }
 
@@ -301,9 +306,12 @@ export class S3Service implements StorageProvider {
       });
 
       await this.s3Client.send(command);
-    } catch (error: any) {
-      this.logger.error(`Failed to copy file in S3: ${error.message}`);
-      throw new BusinessException('Failed to copy file', 'STORAGE_COPY_FAILED', undefined, error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to copy file in S3: ${errorMessage}`);
+      throw new BusinessException('Failed to copy file', 'STORAGE_COPY_FAILED', undefined, {
+        message: errorMessage,
+      });
     }
   }
 
@@ -311,9 +319,12 @@ export class S3Service implements StorageProvider {
     try {
       await this.copy(sourceKey, destinationKey);
       await this.delete(sourceKey);
-    } catch (error: any) {
-      this.logger.error(`Failed to move file in S3: ${error.message}`);
-      throw new BusinessException('Failed to move file', 'STORAGE_MOVE_FAILED', undefined, error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to move file in S3: ${errorMessage}`);
+      throw new BusinessException('Failed to move file', 'STORAGE_MOVE_FAILED', undefined, {
+        message: errorMessage,
+      });
     }
   }
 

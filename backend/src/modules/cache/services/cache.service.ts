@@ -1,4 +1,5 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { createHash } from 'crypto';
@@ -22,51 +23,68 @@ interface CacheOptions {
 
 type CacheLayer = 'L0_Local' | 'L1_Memory' | 'L2_Redis' | 'L3_Database';
 
-interface CacheEntry {
-  data: any;
+interface CacheEntry<T = unknown> {
+  data: T;
   timestamp: number;
   hits: number;
   strategy: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+}
+
+interface CachePatternConfig {
+  ttl: number;
+  strategy: string;
+  layers: CacheLayer[];
+}
+
+interface CacheStats {
+  local: { size: number; hits: number };
+  redis: { connected: boolean };
+  patterns: Record<string, { hits: number; misses: number }>;
+}
+
+interface CacheableService {
+  cacheService?: CacheService;
+  moduleRef?: ModuleRef;
 }
 
 @Injectable()
 export class CacheService {
   private readonly logger = new Logger(CacheService.name);
-  private readonly localCache = new Map<string, CacheEntry>(); // L0 Local cache
+  private readonly localCache = new Map<string, CacheEntry<unknown>>(); // L0 Local cache
   private readonly maxLocalCacheSize = 100; // Limit local cache size
 
   // Cache TTL configurations by pattern
-  private readonly cachePatterns = {
+  private readonly cachePatterns: Record<string, CachePatternConfig> = {
     'ai-responses': {
       ttl: 259200, // 72h
       strategy: 'semantic-dedup',
-      layers: ['L1_Memory', 'L2_Redis'] as CacheLayer[],
+      layers: ['L1_Memory', 'L2_Redis'],
     },
     'voice-transcripts': {
       ttl: 86400, // 24h
       strategy: 'exact-match',
-      layers: ['L1_Memory', 'L2_Redis'] as CacheLayer[],
+      layers: ['L1_Memory', 'L2_Redis'],
     },
     'tts-audio': {
       ttl: 604800, // 7d
       strategy: 'content-hash',
-      layers: ['L2_Redis'] as CacheLayer[],
+      layers: ['L2_Redis'],
     },
     'user-context': {
       ttl: 86400, // 24h
       strategy: 'sliding-window',
-      layers: ['L0_Local', 'L1_Memory'] as CacheLayer[],
+      layers: ['L0_Local', 'L1_Memory'],
     },
     'integration-data': {
       ttl: 300, // 5m
       strategy: 'refresh-ahead',
-      layers: ['L0_Local', 'L1_Memory', 'L2_Redis'] as CacheLayer[],
+      layers: ['L0_Local', 'L1_Memory', 'L2_Redis'],
     },
     'vector-search': {
       ttl: 172800, // 48h
       strategy: 'similarity-threshold',
-      layers: ['L1_Memory', 'L2_Redis'] as CacheLayer[],
+      layers: ['L1_Memory', 'L2_Redis'],
     },
   };
 
@@ -82,7 +100,7 @@ export class CacheService {
   /**
    * Generate a cache key with prefix - BACKWARD COMPATIBLE
    */
-  generateKey(prefix: string, ...parts: any[]): string {
+  generateKey(prefix: string, ...parts: unknown[]): string {
     const serialized = parts
       .map(part => (typeof part === 'object' ? JSON.stringify(part) : String(part)))
       .join(':');
@@ -92,7 +110,7 @@ export class CacheService {
   /**
    * Generate a hash-based cache key for long inputs - BACKWARD COMPATIBLE
    */
-  generateHashKey(prefix: string, data: any): string {
+  generateHashKey(prefix: string, data: unknown): string {
     const hash = createHash('sha256').update(JSON.stringify(data)).digest('hex').substring(0, 16);
     return `${prefix}:${hash}`;
   }
@@ -147,7 +165,7 @@ export class CacheService {
     const pattern = this.detectPattern(key);
     const config = this.getCacheConfig(pattern, ttlOrOptions);
 
-    const entry: CacheEntry = {
+    const entry: CacheEntry<T> = {
       data: value,
       timestamp: Date.now(),
       hits: 0,
@@ -208,9 +226,10 @@ export class CacheService {
   /**
    * Get remaining TTL - BACKWARD COMPATIBLE
    */
-  async ttl(_key: string): Promise<number> {
+  async ttl(key: string): Promise<number> {
     // Note: cache-manager v5 doesn't have a ttl method, return -1 for no expiry
     // The key parameter is kept for backward compatibility but not used
+    void key; // Explicitly mark as unused to satisfy linter
     return -1;
   }
 
@@ -280,11 +299,7 @@ export class CacheService {
     }
   }
 
-  async getCacheStats(): Promise<{
-    local: { size: number; hits: number };
-    redis: { connected: boolean };
-    patterns: Record<string, { hits: number; misses: number }>;
-  }> {
+  async getCacheStats(): Promise<CacheStats> {
     const localStats = {
       size: this.localCache.size,
       hits: Array.from(this.localCache.values()).reduce((sum, entry) => sum + entry.hits, 0),
@@ -306,7 +321,7 @@ export class CacheService {
         const localEntry = this.localCache.get(key);
         if (localEntry && !this.isExpired(localEntry, 30)) {
           // 30s TTL for local
-          return localEntry.data;
+          return localEntry.data as T;
         }
         return null;
       }
@@ -314,8 +329,8 @@ export class CacheService {
       case 'L1_Memory':
       case 'L2_Redis': {
         try {
-          const cached = await this.cacheManager.get<CacheEntry>(key);
-          return cached?.data || null;
+          const cached = await this.cacheManager.get<CacheEntry<T>>(key);
+          return cached?.data ?? null;
         } catch (error) {
           this.logger.warn(`Failed to get from ${layer}`, error);
           return null;
@@ -331,9 +346,9 @@ export class CacheService {
     }
   }
 
-  private async setInLayer(
+  private async setInLayer<T>(
     key: string,
-    entry: CacheEntry,
+    entry: CacheEntry<T>,
     layer: CacheLayer,
     ttl: number
   ): Promise<void> {
@@ -374,7 +389,7 @@ export class CacheService {
     }
   }
 
-  private setInLocalCache(key: string, entry: CacheEntry): void {
+  private setInLocalCache<T>(key: string, entry: CacheEntry<T>): void {
     // Implement LRU eviction if cache is full
     if (this.localCache.size >= this.maxLocalCacheSize) {
       const oldestKey = this.findOldestKey();
@@ -383,7 +398,7 @@ export class CacheService {
       }
     }
 
-    this.localCache.set(key, entry);
+    this.localCache.set(key, entry as CacheEntry<unknown>);
   }
 
   private findOldestKey(): string | null {
@@ -411,7 +426,7 @@ export class CacheService {
 
     const fasterLayers = configuredLayers.filter(layer => layerOrder.indexOf(layer) < foundIndex);
 
-    const entry: CacheEntry = {
+    const entry: CacheEntry<T> = {
       data: value,
       timestamp: Date.now(),
       hits: 0,
@@ -452,17 +467,16 @@ export class CacheService {
     strategy: string;
     layers: CacheLayer[];
   } {
-    const patternConfig = this.cachePatterns[pattern as keyof typeof this.cachePatterns];
+    const patternConfig = this.cachePatterns[pattern];
 
     return {
       ttl: options?.ttl || patternConfig?.ttl || 3600,
       strategy: options?.strategy || patternConfig?.strategy || 'exact-match',
-      layers: options?.layers ||
-        patternConfig?.layers || ['L1_Memory' as CacheLayer, 'L2_Redis' as CacheLayer],
+      layers: options?.layers || patternConfig?.layers || ['L1_Memory', 'L2_Redis'],
     };
   }
 
-  private isExpired(entry: CacheEntry, ttlSeconds: number): boolean {
+  private isExpired(entry: CacheEntry<unknown>, ttlSeconds: number): boolean {
     return Date.now() - entry.timestamp > ttlSeconds * 1000;
   }
 
@@ -499,11 +513,9 @@ export function SmartCache(options: CacheOptions) {
   return function (target: object, propertyName: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (
-      this: { cacheService?: CacheService; moduleRef?: { get: (type: any) => CacheService } },
-      ...args: unknown[]
-    ) {
-      const cacheService = this.cacheService || this.moduleRef?.get(CacheService);
+    descriptor.value = async function (this: CacheableService, ...args: unknown[]) {
+      const cacheService =
+        this.cacheService || this.moduleRef?.get(CacheService, { strict: false });
 
       if (!cacheService) {
         return originalMethod.apply(this, args);
@@ -528,7 +540,7 @@ export function SmartCache(options: CacheOptions) {
   };
 }
 
-function generateCacheKey(className: string, methodName: string, args: any[]): string {
+function generateCacheKey(className: string, methodName: string, args: unknown[]): string {
   const argsString = JSON.stringify(args);
   const hash = createHash('sha256').update(argsString).digest('hex').substring(0, 16);
   return `${className}:${methodName}:${hash}`;

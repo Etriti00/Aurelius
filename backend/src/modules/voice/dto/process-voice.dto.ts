@@ -18,16 +18,16 @@ export class ProcessVoiceDto {
   })
   @IsOptional()
   @IsObject()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean | null>;
 
   @ApiProperty({
     type: 'string',
     format: 'binary',
     description: 'Audio file (mp3, wav, webm, ogg)',
   })
-  audio: any;
+  audio: Buffer | Express.Multer.File;
 
   constructor() {
-    this.audio = null;
+    this.audio = Buffer.alloc(0);
   }
 }

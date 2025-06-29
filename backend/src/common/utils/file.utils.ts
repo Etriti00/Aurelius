@@ -125,8 +125,9 @@ export class FileUtils {
   static async deleteFile(filePath: string): Promise<void> {
     try {
       await unlink(filePath);
-    } catch (error: any) {
-      if (error.code !== 'ENOENT') {
+    } catch (error) {
+      const fsError = error as NodeJS.ErrnoException;
+      if (fsError.code !== 'ENOENT') {
         throw error;
       }
     }

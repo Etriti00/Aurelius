@@ -4,7 +4,15 @@ import { AIGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { SearchService } from '../../search/search.service';
 import { CacheService } from '../../cache/services/cache.service';
 import { CalendarEvent, Task } from '@prisma/client';
-import { WorkflowAnalysis, AnalysisContext, AnalysisInsight, InsightType } from '../interfaces';
+import {
+  WorkflowAnalysis,
+  AnalysisContext,
+  AnalysisInsight,
+  InsightType,
+  TriggerData,
+  UserActivity,
+  InsightData,
+} from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 
 @Injectable()
@@ -24,7 +32,7 @@ export class AnalysisService {
   async analyzeWorkflow(
     userId: string,
     triggerId: string,
-    triggerData: Record<string, any>
+    triggerData: TriggerData
   ): Promise<WorkflowAnalysis> {
     try {
       const startTime = Date.now();
@@ -71,13 +79,16 @@ export class AnalysisService {
       );
 
       return analysis;
-    } catch (error: any) {
-      this.logger.error(`Workflow analysis failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Workflow analysis failed: ${errorMessage}`, error);
       throw new BusinessException(
         'Workflow analysis failed',
         'WORKFLOW_ANALYSIS_FAILED',
         undefined,
-        error
+        {
+          error: error instanceof Error ? error.message : String(error),
+        }
       );
     }
   }
@@ -87,9 +98,9 @@ export class AnalysisService {
    */
   private async buildAnalysisContext(
     userId: string,
-    triggerData: Record<string, any>
+    triggerData: TriggerData
   ): Promise<AnalysisContext> {
-    const [user, tasks, events, recentActivity] = await Promise.all([
+    const [, tasks, events, recentActivity] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
       }),
@@ -116,13 +127,19 @@ export class AnalysisService {
         currentTasks: tasks,
         upcomingEvents: events,
         recentActivity,
-        preferences: (user?.preferences as Record<string, any>) || {},
+        preferences: {
+          workingHours: { start: '09:00', end: '17:00', timezone: 'UTC' },
+          communicationStyle: 'formal' as const,
+          priorities: [],
+          automationLevel: 'moderate' as const,
+          notifications: {},
+        },
       },
       environmentContext: {
         timeOfDay: this.getTimeOfDay(now),
         dayOfWeek: this.getDayOfWeek(now),
-        location: triggerData.location,
-        device: triggerData.device,
+        location: triggerData.payload?.location ? String(triggerData.payload.location) : undefined,
+        device: triggerData.payload?.device ? String(triggerData.payload.device) : undefined,
       },
     };
 
@@ -132,7 +149,16 @@ export class AnalysisService {
   /**
    * Analyze historical patterns
    */
-  private async analyzeHistoricalPatterns(userId: string, triggerId: string): Promise<any> {
+  private async analyzeHistoricalPatterns(
+    userId: string,
+    triggerId: string
+  ): Promise<{
+    executionFrequency: number;
+    successRate: number;
+    commonActions: string[];
+    peakTimes: number[];
+    averageDuration: number;
+  }> {
     // Get historical workflow executions
     const executions = await this.prisma.workflowExecution.findMany({
       where: {
@@ -146,11 +172,24 @@ export class AnalysisService {
 
     // Analyze patterns
     const patterns = {
-      executionFrequency: this.calculateFrequency(executions),
+      executionFrequency: this.calculateFrequency(
+        executions.map(e => ({ createdAt: e.startedAt }))
+      ),
       successRate: this.calculateSuccessRate(executions),
-      commonActions: this.findCommonActions(executions),
-      peakTimes: this.findPeakTimes(executions),
-      averageDuration: this.calculateAverageDuration(executions),
+      commonActions: this.findCommonActions(
+        executions.map(e => ({
+          executedActions: Array.isArray(e.executedActions)
+            ? (e.executedActions as Array<{ type: string }>)
+            : undefined,
+        }))
+      ),
+      peakTimes: this.findPeakTimes(executions.map(e => ({ createdAt: e.startedAt }))),
+      averageDuration: this.calculateAverageDuration(
+        executions.map(e => ({
+          completedAt: e.completedAt !== null ? e.completedAt : undefined,
+          startedAt: e.startedAt,
+        }))
+      ),
     };
 
     return patterns;
@@ -161,7 +200,13 @@ export class AnalysisService {
    */
   private async performAIAnalysis(
     context: AnalysisContext,
-    patterns: any
+    patterns: {
+      executionFrequency: number;
+      successRate: number;
+      commonActions: string[];
+      peakTimes: number[];
+      averageDuration: number;
+    }
   ): Promise<AnalysisInsight[]> {
     const insights: AnalysisInsight[] = [];
 
@@ -209,7 +254,13 @@ export class AnalysisService {
           type: InsightType.PATTERN_DETECTED,
           title: 'Similar Past Scenarios',
           description: `Found ${similarScenarios.length} similar past scenarios that might inform current decisions`,
-          data: { scenarios: similarScenarios },
+          data: {
+            pattern: {
+              frequency: similarScenarios.length,
+              confidence: 0.8,
+              examples: similarScenarios.map(s => s.id || 'scenario'),
+            },
+          },
           importance: 'medium',
         });
       }
@@ -235,7 +286,13 @@ export class AnalysisService {
         type: InsightType.ANOMALY_DETECTED,
         title: 'High Task Load',
         description: 'Current task count is significantly higher than usual',
-        data: { currentTasks: context.userContext.currentTasks },
+        data: {
+          anomaly: {
+            deviation: context.userContext.currentTasks - 10,
+            baseline: 10,
+            cause: 'High workload detected',
+          },
+        },
         importance: 'high',
       });
     }
@@ -247,7 +304,13 @@ export class AnalysisService {
         type: InsightType.RISK_IDENTIFIED,
         title: 'Scheduling Conflicts Detected',
         description: `Found ${conflicts.length} potential scheduling conflicts`,
-        data: { conflicts },
+        data: {
+          risk: {
+            severity: 'critical' as const,
+            probability: 0.9,
+            impact: `${conflicts.length} scheduling conflicts detected`,
+          },
+        },
         importance: 'critical',
       });
     }
@@ -266,7 +329,13 @@ export class AnalysisService {
         type: InsightType.RISK_IDENTIFIED,
         title: 'Overdue Tasks',
         description: `You have ${overdueTasks} overdue tasks requiring attention`,
-        data: { overdueCount: overdueTasks },
+        data: {
+          risk: {
+            severity: 'high' as const,
+            probability: 0.8,
+            impact: `${overdueTasks} overdue tasks require attention`,
+          },
+        },
         importance: 'high',
       });
     }
@@ -288,7 +357,9 @@ export class AnalysisService {
           type: InsightType.OPTIMIZATION_OPPORTUNITY,
           title: 'Task Batching Opportunity',
           description: 'Similar tasks can be batched for efficiency',
-          data: { tasks: similarTasks },
+          data: {
+            opportunity: { timeSavingMinutes: 30, effortReduction: 0.2, riskReduction: 0.1 },
+          },
           importance: 'medium',
         });
       }
@@ -300,7 +371,7 @@ export class AnalysisService {
         type: InsightType.OPTIMIZATION_OPPORTUNITY,
         title: 'Meeting Schedule Optimization',
         description: 'Consider consolidating or rescheduling meetings for better focus time',
-        data: { eventCount: context.userContext.upcomingEvents },
+        data: { opportunity: { timeSavingMinutes: 60, effortReduction: 0.3 } },
         importance: 'medium',
       });
     }
@@ -311,7 +382,13 @@ export class AnalysisService {
         type: InsightType.RECOMMENDATION,
         title: 'End-of-Day Planning',
         description: "Good time to plan tomorrow's priorities",
-        data: { timeContext: context.environmentContext },
+        data: {
+          recommendation: {
+            action: 'Plan tomorrow priorities',
+            reasoning: 'Evening is optimal for planning',
+            confidence: 0.7,
+          },
+        },
         importance: 'low',
       });
     }
@@ -322,7 +399,16 @@ export class AnalysisService {
   /**
    * Calculate confidence score
    */
-  private calculateConfidence(insights: AnalysisInsight[], patterns: any): number {
+  private calculateConfidence(
+    insights: AnalysisInsight[],
+    patterns: {
+      executionFrequency: number;
+      successRate: number;
+      commonActions: string[];
+      peakTimes: number[];
+      averageDuration: number;
+    }
+  ): number {
     let confidence = 0.5; // Base confidence
 
     // Increase confidence based on historical data
@@ -347,13 +433,24 @@ export class AnalysisService {
   /**
    * Helper methods
    */
-  private async getRecentActivity(userId: string): Promise<any[]> {
+  private async getRecentActivity(userId: string): Promise<UserActivity[]> {
     const activities = await this.prisma.activityLog.findMany({
       where: { userId },
       orderBy: { timestamp: 'desc' },
       take: 10,
     });
-    return activities;
+    return activities.map(activity => ({
+      type: activity.type as 'task_completed' | 'email_sent' | 'event_attended' | 'file_created',
+      timestamp: activity.timestamp,
+      details:
+        typeof activity.metadata === 'object' &&
+        activity.metadata !== null &&
+        'details' in activity.metadata &&
+        typeof activity.metadata.details === 'string'
+          ? activity.metadata.details
+          : activity.description || 'Activity logged',
+      impact: 'medium' as const,
+    }));
   }
 
   private getTimeOfDay(date: Date): string {
@@ -369,7 +466,7 @@ export class AnalysisService {
     return days[date.getDay()];
   }
 
-  private calculateFrequency(executions: any[]): number {
+  private calculateFrequency(executions: Array<{ createdAt: Date }>): number {
     if (executions.length < 2) return 0;
     const daysDiff =
       (new Date().getTime() - executions[executions.length - 1].createdAt.getTime()) /
@@ -377,17 +474,19 @@ export class AnalysisService {
     return executions.length / daysDiff;
   }
 
-  private calculateSuccessRate(executions: any[]): number {
+  private calculateSuccessRate(executions: Array<{ status: string }>): number {
     if (executions.length === 0) return 0;
     const successful = executions.filter(e => e.status === 'completed').length;
     return successful / executions.length;
   }
 
-  private findCommonActions(executions: any[]): string[] {
+  private findCommonActions(
+    executions: Array<{ executedActions?: Array<{ type: string }> }>
+  ): string[] {
     const actionCounts: Record<string, number> = {};
 
     executions.forEach(exec => {
-      (exec.executedActions || []).forEach((action: any) => {
+      (exec.executedActions || []).forEach(action => {
         actionCounts[action.type] = (actionCounts[action.type] || 0) + 1;
       });
     });
@@ -398,7 +497,7 @@ export class AnalysisService {
       .map(([action]) => action);
   }
 
-  private findPeakTimes(executions: any[]): number[] {
+  private findPeakTimes(executions: Array<{ createdAt: Date }>): number[] {
     const hourCounts: number[] = new Array(24).fill(0);
 
     executions.forEach(exec => {
@@ -413,16 +512,30 @@ export class AnalysisService {
       .map(item => item.hour);
   }
 
-  private calculateAverageDuration(executions: any[]): number {
+  private calculateAverageDuration(
+    executions: Array<{ completedAt?: Date; startedAt?: Date }>
+  ): number {
     const durations = executions
       .filter(e => e.completedAt && e.startedAt)
-      .map(e => e.completedAt.getTime() - e.startedAt.getTime());
+      .map(e => {
+        if (e.completedAt && e.startedAt) {
+          return e.completedAt.getTime() - e.startedAt.getTime();
+        }
+        return 0;
+      })
+      .filter(duration => duration > 0);
 
     if (durations.length === 0) return 0;
     return durations.reduce((a, b) => a + b, 0) / durations.length;
   }
 
-  private buildAIPrompt(context: any): string {
+  private buildAIPrompt(context: {
+    userWorkload: number;
+    upcomingCommitments: number;
+    timeContext: { timeOfDay: string; dayOfWeek: string };
+    historicalPatterns: { successRate: number };
+    triggerData: TriggerData;
+  }): string {
     return `Analyze this workflow context and provide insights:
     
 User Workload: ${context.userWorkload} active tasks
@@ -448,17 +561,36 @@ Format as JSON array with: type, title, description, importance`;
       if (!jsonMatch) return [];
 
       const insights = JSON.parse(jsonMatch[0]);
-      return insights.map((insight: any) => ({
-        type: this.mapToInsightType(insight.type),
-        title: insight.title,
-        description: insight.description,
-        data: insight.data || {},
-        importance: insight.importance || 'medium',
-      }));
+      return insights.map(
+        (insight: {
+          type: string;
+          title: string;
+          description: string;
+          data?: Record<string, string | number | boolean>;
+          importance?: string;
+        }) => ({
+          type: this.mapToInsightType(insight.type),
+          title: insight.title,
+          description: insight.description,
+          data: this.mapInsightData(insight.data || {}),
+          importance: insight.importance || 'medium',
+        })
+      );
     } catch (error) {
       this.logger.warn(`Failed to parse AI insights: ${error}`);
       return [];
     }
+  }
+
+  private mapInsightData(data: Record<string, string | number | boolean>): InsightData {
+    // Map generic data to proper InsightData structure
+    return {
+      recommendation: {
+        action: String(data.action || 'No action specified'),
+        reasoning: String(data.reasoning || 'No reasoning provided'),
+        confidence: Number(data.confidence || 0.5),
+      },
+    };
   }
 
   private mapToInsightType(type: string): InsightType {

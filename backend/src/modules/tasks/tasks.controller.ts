@@ -23,6 +23,7 @@ import {
 } from '@nestjs/swagger';
 
 import { TasksService } from './tasks.service';
+import type { TaskFilters } from './tasks.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateTaskDto, TaskStatus, TaskPriority } from './dto/create-task.dto';
@@ -31,6 +32,47 @@ import { TaskResponseDto, TaskInsightsDto } from './dto/task-response.dto';
 import { PaginatedResponseDto, ErrorResponseDto } from '../../common/dto/api-response.dto';
 import { IdParamDto } from '../../common/dto/id-param.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+
+// Interface for authenticated user in requests
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+  name?: string | null;
+  roles: string[];
+}
+
+// Interface for task query filters
+export interface TaskQueryFilters {
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  search?: string;
+  labels?: string;
+  dueBefore?: string;
+  dueAfter?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+// Interface for task completion data
+export interface TaskCompletionData {
+  actualMinutes?: number;
+  notes?: string;
+}
+
+// Interface for bulk operation request
+export interface BulkOperationRequest {
+  operation: 'update' | 'delete' | 'complete';
+  taskIds: string[];
+  data?: Partial<UpdateTaskDto>;
+}
+
+// Interface for bulk operation response
+export interface BulkOperationResponse {
+  success: boolean;
+  processed: number;
+  failed: number;
+  errors: string[];
+}
 
 @ApiTags('tasks')
 @Controller('tasks')
@@ -131,20 +173,15 @@ export class TasksController {
     type: ErrorResponseDto,
   })
   async findAll(
-    @CurrentUser() user: any,
-    @Query()
-    query: PaginationDto & {
-      status?: TaskStatus;
-      priority?: TaskPriority;
-      search?: string;
-      labels?: string;
-      dueBefore?: string;
-      dueAfter?: string;
-      sortBy?: string;
-      sortOrder?: 'asc' | 'desc';
-    }
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: PaginationDto & TaskQueryFilters
   ): Promise<PaginatedResponseDto<TaskResponseDto>> {
-    return this.tasksService.findAll(user.id, query);
+    const filters: TaskFilters = {
+      ...query,
+      page: query.page ? String(query.page) : undefined,
+      limit: query.limit ? String(query.limit) : undefined,
+    };
+    return this.tasksService.findAll(user.id, filters);
   }
 
   @Get('insights')
@@ -171,7 +208,7 @@ export class TasksController {
     type: ErrorResponseDto,
   })
   async getInsights(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('period') period?: string
   ): Promise<TaskInsightsDto> {
     return this.tasksService.getInsights(user.id, period);
@@ -202,7 +239,10 @@ export class TasksController {
     description: 'Unauthorized',
     type: ErrorResponseDto,
   })
-  async findOne(@CurrentUser() user: any, @Param() params: IdParamDto): Promise<TaskResponseDto> {
+  async findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: IdParamDto
+  ): Promise<TaskResponseDto> {
     return this.tasksService.findOne(user.id, params.id);
   }
 
@@ -256,10 +296,14 @@ export class TasksController {
     type: ErrorResponseDto,
   })
   async create(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() createTaskDto: CreateTaskDto
   ): Promise<TaskResponseDto> {
-    return this.tasksService.create(user.id, createTaskDto);
+    const taskData = {
+      ...createTaskDto,
+      dueDate: createTaskDto.dueDate ? new Date(createTaskDto.dueDate) : undefined,
+    };
+    return this.tasksService.create(user.id, taskData);
   }
 
   @Put(':id')
@@ -297,11 +341,17 @@ export class TasksController {
     type: ErrorResponseDto,
   })
   async update(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param() params: IdParamDto,
     @Body() updateTaskDto: UpdateTaskDto
   ): Promise<TaskResponseDto> {
-    return this.tasksService.update(user.id, params.id, updateTaskDto);
+    const taskData = {
+      ...updateTaskDto,
+      dueDate: updateTaskDto.dueDate ? new Date(updateTaskDto.dueDate) : undefined,
+      startDate: updateTaskDto.startDate ? new Date(updateTaskDto.startDate) : undefined,
+      completedAt: updateTaskDto.completedAt ? new Date(updateTaskDto.completedAt) : undefined,
+    };
+    return this.tasksService.update(user.id, params.id, taskData);
   }
 
   @Patch(':id')
@@ -355,11 +405,17 @@ export class TasksController {
     type: ErrorResponseDto,
   })
   async partialUpdate(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param() params: IdParamDto,
     @Body() updateTaskDto: Partial<UpdateTaskDto>
   ): Promise<TaskResponseDto> {
-    return this.tasksService.update(user.id, params.id, updateTaskDto);
+    const taskData = {
+      ...updateTaskDto,
+      dueDate: updateTaskDto.dueDate ? new Date(updateTaskDto.dueDate) : undefined,
+      startDate: updateTaskDto.startDate ? new Date(updateTaskDto.startDate) : undefined,
+      completedAt: updateTaskDto.completedAt ? new Date(updateTaskDto.completedAt) : undefined,
+    };
+    return this.tasksService.update(user.id, params.id, taskData);
   }
 
   @Post(':id/complete')
@@ -412,9 +468,9 @@ export class TasksController {
     type: ErrorResponseDto,
   })
   async complete(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param() params: IdParamDto,
-    @Body() body?: { actualMinutes?: number; notes?: string }
+    @Body() body?: TaskCompletionData
   ): Promise<TaskResponseDto> {
     return this.tasksService.complete(user.id, params.id, body);
   }
@@ -444,7 +500,7 @@ export class TasksController {
     description: 'Unauthorized',
     type: ErrorResponseDto,
   })
-  async delete(@CurrentUser() user: any, @Param() params: IdParamDto): Promise<void> {
+  async delete(@CurrentUser() user: AuthenticatedUser, @Param() params: IdParamDto): Promise<void> {
     await this.tasksService.delete(user.id, params.id);
   }
 
@@ -502,19 +558,20 @@ export class TasksController {
     type: ErrorResponseDto,
   })
   async bulkOperation(
-    @CurrentUser() user: any,
-    @Body()
-    body: {
-      operation: 'update' | 'delete' | 'complete';
-      taskIds: string[];
-      data?: any;
-    }
-  ): Promise<{
-    success: boolean;
-    processed: number;
-    failed: number;
-    errors: string[];
-  }> {
-    return this.tasksService.bulkOperation(user.id, body);
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: BulkOperationRequest
+  ): Promise<BulkOperationResponse> {
+    const transformedBody = {
+      ...body,
+      data: body.data
+        ? {
+            ...body.data,
+            dueDate: body.data.dueDate ? new Date(body.data.dueDate) : undefined,
+            startDate: body.data.startDate ? new Date(body.data.startDate) : undefined,
+            completedAt: body.data.completedAt ? new Date(body.data.completedAt) : undefined,
+          }
+        : undefined,
+    };
+    return this.tasksService.bulkOperation(user.id, transformedBody);
   }
 }

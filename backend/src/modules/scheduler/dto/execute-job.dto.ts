@@ -1,5 +1,6 @@
 import { IsObject, IsOptional } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { JobActionParameters } from '../interfaces';
 
 export class ExecuteJobDto {
   @ApiPropertyOptional({
@@ -8,5 +9,5 @@ export class ExecuteJobDto {
   })
   @IsOptional()
   @IsObject()
-  parameters?: Record<string, any>;
+  parameters?: JobActionParameters;
 }

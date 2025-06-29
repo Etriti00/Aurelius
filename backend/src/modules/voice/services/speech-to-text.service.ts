@@ -131,12 +131,9 @@ export class SpeechToTextService {
         throw new BusinessException('Audio file too large', 'FILE_TOO_LARGE');
       }
 
-      throw new BusinessException(
-        'Speech-to-text transcription failed',
-        'STT_FAILED',
-        undefined,
-        error
-      );
+      throw new BusinessException('Speech-to-text transcription failed', 'STT_FAILED', undefined, {
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -167,12 +164,9 @@ export class SpeechToTextService {
     } catch (error) {
       const axiosError = error as { message: string };
       this.logger.error('Audio translation failed', axiosError);
-      throw new BusinessException(
-        'Audio translation failed',
-        'TRANSLATION_FAILED',
-        undefined,
-        error
-      );
+      throw new BusinessException('Audio translation failed', 'TRANSLATION_FAILED', undefined, {
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

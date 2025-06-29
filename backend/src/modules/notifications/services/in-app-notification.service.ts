@@ -1,5 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { AppWebSocketGateway } from '../../websocket/websocket.gateway';
+import { Prisma } from '@prisma/client';
+
+interface NotificationAction {
+  id: string;
+  label: string;
+  action: string;
+  data?: Prisma.JsonValue;
+}
+
+interface NotificationUpdate {
+  isRead?: boolean;
+  isActioned?: boolean;
+  readAt?: Date;
+  actions?: NotificationAction[];
+  metadata?: Prisma.JsonValue;
+}
 
 @Injectable()
 export class InAppNotificationService {
@@ -13,17 +29,30 @@ export class InAppNotificationService {
       message: string;
       type: string;
       priority: string;
-      actions?: any[];
+      actions?: NotificationAction[];
     }
   ) {
     // Send via WebSocket for real-time notification
-    this.wsGateway.sendToUser(userId, 'notification:new', notification);
+    const serializedNotification: Record<string, string | number | boolean | null> = {
+      id: notification.id,
+      title: notification.title,
+      message: notification.message,
+      type: notification.type,
+      priority: notification.priority,
+      actions: notification.actions ? JSON.stringify(notification.actions) : null,
+    };
+    this.wsGateway.sendToUser(userId, 'notification:new', serializedNotification);
   }
 
-  async sendNotificationUpdate(userId: string, notificationId: string, update: any) {
-    this.wsGateway.sendToUser(userId, 'notification:update', {
+  async sendNotificationUpdate(userId: string, notificationId: string, update: NotificationUpdate) {
+    const serializedUpdate: Record<string, string | number | boolean | null> = {
       id: notificationId,
-      ...update,
-    });
+      isRead: update.isRead ?? null,
+      isActioned: update.isActioned ?? null,
+      readAt: update.readAt ? update.readAt.toISOString() : null,
+      actions: update.actions ? JSON.stringify(update.actions) : null,
+      metadata: update.metadata ? JSON.stringify(update.metadata) : null,
+    };
+    this.wsGateway.sendToUser(userId, 'notification:update', serializedUpdate);
   }
 }

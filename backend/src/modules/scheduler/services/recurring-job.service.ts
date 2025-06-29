@@ -41,8 +41,9 @@ export class RecurringJobService {
       }
 
       this.logger.log(`Sent daily summaries to ${users.length} users`);
-    } catch (error: any) {
-      this.logger.error(`Daily summary job failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Daily summary job failed: ${errorMessage}`);
     }
   }
 
@@ -72,8 +73,9 @@ export class RecurringJobService {
       }
 
       this.logger.log(`Sent weekly reviews to ${users.length} users`);
-    } catch (error: any) {
-      this.logger.error(`Weekly review job failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Weekly review job failed: ${errorMessage}`);
     }
   }
 
@@ -113,8 +115,9 @@ export class RecurringJobService {
       }
 
       this.logger.log(`Sent ${tasks.length} task reminders`);
-    } catch (error: any) {
-      this.logger.error(`Task reminder job failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Task reminder job failed: ${errorMessage}`);
     }
   }
 
@@ -151,8 +154,9 @@ export class RecurringJobService {
       }
 
       this.logger.log(`Prepared ${events.length} meetings`);
-    } catch (error: any) {
-      this.logger.error(`Meeting preparation job failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Meeting preparation job failed: ${errorMessage}`);
     }
   }
 
@@ -194,8 +198,9 @@ export class RecurringJobService {
         `Cleanup complete: ${deletedNotifications.count} notifications, ` +
           `${deletedExecutions.count} job executions, ${deletedLogs.count} activity logs`
       );
-    } catch (error: any) {
-      this.logger.error(`Data cleanup job failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Data cleanup job failed: ${errorMessage}`);
     }
   }
 
@@ -224,8 +229,9 @@ export class RecurringJobService {
       }
 
       this.logger.log(`Generated usage reports for ${users.length} users`);
-    } catch (error: any) {
-      this.logger.error(`Usage report job failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Usage report job failed: ${errorMessage}`);
     }
   }
 
@@ -340,7 +346,12 @@ export class RecurringJobService {
   /**
    * Generate meeting preparation
    */
-  private async generateMeetingPreparation(event: any): Promise<void> {
+  private async generateMeetingPreparation(event: {
+    id: string;
+    userId: string;
+    title: string;
+    startTime: Date;
+  }): Promise<void> {
     // Get related tasks for the meeting preparation
     await this.prisma.task.findMany({
       where: {

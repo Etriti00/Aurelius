@@ -1,7 +1,16 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma, Usage, UsageHistory } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CacheService } from '../../cache/services/cache.service';
 import { AnalyticsQueryDto } from '../dto/analytics-query.dto';
+import {
+  UsageAnalytics,
+  UsageSummary,
+  PerformanceMetrics,
+  Insight,
+  ActivityTimelineItem,
+  IntegrationAnalytics,
+} from '../interfaces/analytics.interface';
 
 @Injectable()
 export class AnalyticsService {
@@ -10,7 +19,7 @@ export class AnalyticsService {
     private cacheService: CacheService
   ) {}
 
-  async getUserUsageAnalytics(userId: string, query: AnalyticsQueryDto) {
+  async getUserUsageAnalytics(userId: string, query: AnalyticsQueryDto): Promise<UsageAnalytics> {
     const cacheKey = this.cacheService.generateHashKey(`analytics:usage:${userId}`, query);
 
     return this.cacheService.getOrSet(
@@ -45,7 +54,7 @@ export class AnalyticsService {
     ); // Cache for 5 minutes
   }
 
-  async getCurrentPeriodUsage(userId: string) {
+  async getCurrentPeriodUsage(userId: string): Promise<Usage | null> {
     return this.prisma.usage.findUnique({
       where: { userId },
       include: {
@@ -58,7 +67,10 @@ export class AnalyticsService {
     });
   }
 
-  async getPerformanceMetrics(userId: string, query: AnalyticsQueryDto) {
+  async getPerformanceMetrics(
+    userId: string,
+    query: AnalyticsQueryDto
+  ): Promise<PerformanceMetrics> {
     const cacheKey = this.cacheService.generateHashKey(`analytics:performance:${userId}`, query);
 
     return this.cacheService.getOrSet(
@@ -97,7 +109,7 @@ export class AnalyticsService {
     );
   }
 
-  async generateInsights(userId: string) {
+  async generateInsights(userId: string): Promise<Insight[]> {
     // Generate AI-powered insights based on user data
     const [taskStats, emailStats, usageStats] = await Promise.all([
       this.prisma.task.aggregate({
@@ -116,7 +128,7 @@ export class AnalyticsService {
       }),
     ]);
 
-    const insights = [];
+    const insights: Insight[] = [];
 
     // Task completion insights
     if (taskStats._count.id > 10) {
@@ -153,10 +165,13 @@ export class AnalyticsService {
       });
     }
 
-    return { insights };
+    return insights;
   }
 
-  async getActivityTimeline(userId: string, query: AnalyticsQueryDto) {
+  async getActivityTimeline(
+    userId: string,
+    query: AnalyticsQueryDto
+  ): Promise<ActivityTimelineItem[]> {
     const limit = query.limit || 50;
     const offset = query.offset || 0;
 
@@ -175,13 +190,39 @@ export class AnalyticsService {
       },
     });
 
-    return {
-      activities,
-      hasMore: activities.length === limit,
-    };
+    // Group activities by date and transform to timeline items
+    const groupedByDate = activities.reduce(
+      (acc, activity) => {
+        const dateKey = activity.createdAt.toISOString().split('T')[0];
+        if (!acc[dateKey]) {
+          acc[dateKey] = {
+            date: dateKey,
+            activityCount: 0,
+            actions: [] as Array<{ type: string; count: number }>,
+          };
+        }
+        acc[dateKey].activityCount++;
+
+        const existingAction = acc[dateKey].actions.find(a => a.type === activity.type);
+        if (existingAction) {
+          existingAction.count++;
+        } else {
+          acc[dateKey].actions.push({ type: activity.type, count: 1 });
+        }
+
+        return acc;
+      },
+      {} as Record<string, ActivityTimelineItem>
+    );
+
+    return Object.values(groupedByDate);
   }
 
-  async getIntegrationAnalytics(userId: string, provider: string, query: AnalyticsQueryDto) {
+  async getIntegrationAnalytics(
+    userId: string,
+    provider: string,
+    query: AnalyticsQueryDto
+  ): Promise<IntegrationAnalytics> {
     const integration = await this.prisma.integration.findUnique({
       where: {
         userId_provider: {
@@ -196,7 +237,7 @@ export class AnalyticsService {
     }
 
     // Apply query filters
-    const whereClause: any = {
+    const whereClause: Prisma.ActionLogWhereInput = {
       userId,
       category: 'integration',
     };
@@ -221,69 +262,95 @@ export class AnalyticsService {
       return metadata && metadata.provider === provider;
     });
 
+    const syncHistory = providerLogs.filter(log => log.type === 'integration_sync');
+    const successfulSyncs = syncHistory.filter(log => log.status === 'success');
+    const errors = providerLogs
+      .filter(log => log.status === 'error')
+      .map(log => {
+        const metadata = log.metadata as Record<string, string>;
+        return metadata?.error || 'Sync error occurred';
+      });
+
     return {
-      integration,
-      syncHistory: providerLogs.filter(log => log.type === 'integration_sync'),
-      actionCount: providerLogs.length,
+      provider,
+      totalSyncs: syncHistory.length,
+      successRate:
+        syncHistory.length > 0
+          ? Math.round((successfulSyncs.length / syncHistory.length) * 100)
+          : 100,
       lastSync: integration.lastSyncAt,
-      nextSync: integration.nextSyncAt,
-      queryApplied: {
-        startDate: query.startDate,
-        endDate: query.endDate,
-        limit: query.limit,
-        offset: query.offset,
-      },
+      errors,
     };
   }
 
   // Private helper methods
-  private calculateUsageSummary(history: any[]) {
-    if (!history.length) return null;
+  private calculateUsageSummary(history: UsageHistory[]): UsageSummary {
+    if (!history.length) {
+      return {
+        totalActions: 0,
+        averageDaily: 0,
+        peakDay: null,
+        growth: 0,
+      };
+    }
 
     const totalActions = history.reduce((sum, h) => sum + h.actionsUsed, 0);
-    const totalOverage = history.reduce((sum, h) => sum + h.overageActions, 0);
-    const totalCost = history.reduce((sum, h) => sum + parseFloat(h.overageCost.toString()), 0);
+    const averageDaily = totalActions / history.length;
+
+    // Find peak day
+    const peakRecord = history.reduce((peak, current) =>
+      current.actionsUsed > peak.actionsUsed ? current : peak
+    );
+
+    // Calculate growth (compare first and last periods)
+    const growth =
+      history.length > 1
+        ? ((history[0].actionsUsed - history[history.length - 1].actionsUsed) /
+            history[history.length - 1].actionsUsed) *
+          100
+        : 0;
 
     return {
       totalActions,
-      totalOverage,
-      totalCost,
-      averageActionsPerPeriod: totalActions / history.length,
+      averageDaily,
+      peakDay: peakRecord.periodStart,
+      growth: Math.round(growth),
     };
   }
 
-  private calculateAverageResponseTime(logs: any[]) {
-    const logsWithDuration = logs.filter(log => log.duration);
+  private calculateAverageResponseTime(logs: Array<{ duration: number | null }>): number {
+    const logsWithDuration = logs.filter(log => log.duration !== null);
     if (!logsWithDuration.length) return 0;
 
-    const totalDuration = logsWithDuration.reduce((sum, log) => sum + log.duration, 0);
+    const totalDuration = logsWithDuration.reduce((sum, log) => sum + (log.duration || 0), 0);
     return Math.round(totalDuration / logsWithDuration.length);
   }
 
-  private calculateCacheHitRate(logs: any[]) {
+  private calculateCacheHitRate(logs: Array<{ fromCache: boolean }>): number {
     if (!logs.length) return 0;
     const cacheHits = logs.filter(log => log.fromCache).length;
     return Math.round((cacheHits / logs.length) * 100);
   }
 
-  private calculateSuccessRate(logs: any[]) {
+  private calculateSuccessRate(logs: Array<{ status: string }>): number {
     if (!logs.length) return 100;
     const successful = logs.filter(log => log.status === 'success').length;
     return Math.round((successful / logs.length) * 100);
   }
 
-  private groupActionsByType(logs: any[]) {
-    const grouped = logs.reduce((acc, log) => {
-      acc[log.type] = (acc[log.type] || 0) + 1;
-      return acc;
-    }, {});
-
-    return Object.entries(grouped)
-      .map(([type, count]) => ({ type, count }))
-      .sort((a, b) => (b.count as number) - (a.count as number));
+  private groupActionsByType(logs: Array<{ type: string }>): Record<string, number> {
+    return logs.reduce(
+      (acc, log) => {
+        acc[log.type] = (acc[log.type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
   }
 
-  private groupPerformanceByHour(logs: any[]) {
+  private groupPerformanceByHour(
+    logs: Array<{ createdAt: Date; duration: number | null }>
+  ): Array<{ hour: number; avgResponseTime: number; requestCount: number }> {
     const hourlyData = new Array(24).fill(null).map((_, hour) => ({
       hour,
       count: 0,
@@ -301,10 +368,10 @@ export class AnalyticsService {
 
     return hourlyData.map(data => ({
       hour: data.hour,
-      count: data.count,
-      avgDuration: data.durations.length
+      avgResponseTime: data.durations.length
         ? Math.round(data.durations.reduce((a, b) => a + b, 0) / data.durations.length)
         : 0,
+      requestCount: data.count,
     }));
   }
 }

@@ -6,7 +6,8 @@ import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
-import * as redisStore from 'cache-manager-redis-store';
+import { redisStore } from 'cache-manager-redis-store';
+import type { CacheModuleOptions } from '@nestjs/cache-manager';
 import { CsrfMiddleware } from './middleware/csrf.middleware';
 
 import { PrismaModule } from './modules/prisma/prisma.module';
@@ -87,8 +88,8 @@ import { AppService } from './app.service';
     // Redis Cache
     CacheModule.registerAsync({
       isGlobal: true,
-      useFactory: async () => ({
-        store: redisStore as any,
+      useFactory: async (): Promise<CacheModuleOptions> => ({
+        store: redisStore as unknown as string,
         host: process.env.REDIS_HOST || 'localhost',
         port: parseInt(process.env.REDIS_PORT || '6379'),
         ttl: 300, // 5 minutes default

@@ -47,7 +47,7 @@ export interface Integration {
   status: IntegrationStatusEnum;
   config: IntegrationConfig;
   capabilities: IntegrationCapability[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean | object>;
   lastSyncAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -151,5 +151,50 @@ export interface IntegrationMetadata {
   requiredScopes: string[];
   webhookSupport: boolean;
   status: 'active' | 'beta' | 'deprecated';
-  configSchema?: Record<string, any>;
+  configSchema?: Record<
+    string,
+    {
+      type: string;
+      required?: boolean;
+      description?: string;
+      default?: string | number | boolean;
+      min?: number;
+      max?: number;
+      enum?: string[];
+      items?: string;
+    }
+  >;
+}
+
+export interface DatabaseIntegration {
+  id: string;
+  userId: string;
+  provider: string;
+  accountName?: string | null;
+  accessToken: string;
+  refreshToken?: string | null;
+  tokenExpiry?: Date | null;
+  tokenType?: string | null;
+  status: string;
+  scopes?: string[] | null;
+  permissions: Record<string, boolean | string[]>;
+  settings: Record<string, string | number | boolean | object>;
+  lastSyncAt?: Date | null;
+  syncError?: string | null;
+  errorCount: number;
+  syncEnabled: boolean;
+  webhookUrl?: string | null;
+  webhookSecret?: string | null;
+  createdAt: Date;
+  updatedAt?: Date | null;
+}
+
+export interface SyncItem {
+  id: string;
+  type: string;
+  data: Record<string, string | number | boolean | object>;
+  lastModified: Date;
+  checksum?: string;
+  createdAt: Date;
+  updatedAt?: Date;
 }

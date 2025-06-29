@@ -57,13 +57,16 @@ export class SuggestionService {
         `Generated ${finalSuggestions.length} suggestions for analysis ${analysis.id}`
       );
       return finalSuggestions;
-    } catch (error: any) {
-      this.logger.error(`Failed to generate suggestions: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to generate suggestions: ${errorMessage}`);
       throw new BusinessException(
         'Failed to generate suggestions',
         'SUGGESTION_GENERATION_FAILED',
         undefined,
-        error
+        {
+          error: error instanceof Error ? error.message : String(error),
+        }
       );
     }
   }
@@ -231,7 +234,7 @@ export class SuggestionService {
     const patterns = analysis.insights.filter(i => i.type === 'pattern_detected');
 
     for (const pattern of patterns) {
-      if (pattern.data.frequency > 3) {
+      if (pattern.data.frequency !== undefined && pattern.data.frequency > 3) {
         suggestions.push({
           id: `sug-${Date.now()}-automate-${pattern.data.type}`,
           type: SuggestionType.AUTOMATE_TASK,
@@ -254,10 +257,12 @@ export class SuggestionService {
           ],
           priority: 9,
           estimatedImpact: {
-            timeSaved: pattern.data.frequency * 15, // 15 min per occurrence
+            timeSaved: (pattern.data.frequency !== undefined ? pattern.data.frequency : 0) * 15, // 15 min per occurrence
             effortReduced: 40,
           },
-          reasoning: `Automating this would save ~${pattern.data.frequency * 15} minutes per week`,
+          reasoning: `Automating this would save ~${
+            (pattern.data.frequency !== undefined ? pattern.data.frequency : 0) * 15
+          } minutes per week`,
           confidence: 0.9,
         });
       }

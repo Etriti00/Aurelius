@@ -7,15 +7,19 @@ import {
   Request,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { User } from '@prisma/client';
 
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequestUser } from '../../common/interfaces/user.interface';
+import { UsersService } from '../users/users.service';
 
 interface AuthResponse {
   accessToken: string;
@@ -24,15 +28,32 @@ interface AuthResponse {
   user: {
     id: string;
     email: string;
-    name?: string;
-    avatar?: string;
+    name?: string | null;
+    avatar?: string | null;
   };
+}
+
+interface OAuthRequest {
+  user: User;
+}
+
+interface UserProfileResponse {
+  id: string;
+  email: string;
+  name?: string | null;
+  avatar?: string | null;
+  createdAt: Date;
+  lastActiveAt?: Date | null;
+  preferences: Record<string, string | number | boolean | null>;
 }
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly usersService: UsersService
+  ) {}
 
   @Get('google')
   @ApiOperation({ summary: 'Initiate Google OAuth flow' })
@@ -46,7 +67,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Google OAuth callback' })
   @ApiResponse({ status: 200, description: 'Authentication successful', type: Object })
   @UseGuards(AuthGuard('google'))
-  async googleCallback(@Request() req: any): Promise<AuthResponse> {
+  async googleCallback(@Request() req: OAuthRequest): Promise<AuthResponse> {
     return this.handleOAuthCallback(req);
   }
 
@@ -62,7 +83,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Microsoft OAuth callback' })
   @ApiResponse({ status: 200, description: 'Authentication successful', type: Object })
   @UseGuards(AuthGuard('microsoft'))
-  async microsoftCallback(@Request() req: any): Promise<AuthResponse> {
+  async microsoftCallback(@Request() req: OAuthRequest): Promise<AuthResponse> {
     return this.handleOAuthCallback(req);
   }
 
@@ -78,7 +99,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Apple OAuth callback' })
   @ApiResponse({ status: 200, description: 'Authentication successful', type: Object })
   @UseGuards(AuthGuard('apple'))
-  async appleCallback(@Request() req: any): Promise<AuthResponse> {
+  async appleCallback(@Request() req: OAuthRequest): Promise<AuthResponse> {
     return this.handleOAuthCallback(req);
   }
 
@@ -102,7 +123,7 @@ export class AuthController {
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
   async logout(
-    @CurrentUser() user: any,
+    @CurrentUser() user: RequestUser,
     @Body() refreshTokenDto?: RefreshTokenDto
   ): Promise<{ message: string }> {
     if (refreshTokenDto?.refreshToken) {
@@ -121,15 +142,22 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
-  async getProfile(@CurrentUser() user: any): Promise<any> {
+  async getProfile(@CurrentUser() user: RequestUser): Promise<UserProfileResponse> {
+    // Fetch complete user profile from database
+    const fullUser = await this.usersService.findById(user.id);
+
+    if (!fullUser) {
+      throw new UnauthorizedException('User not found');
+    }
+
     return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      avatar: user.avatar,
-      createdAt: user.createdAt,
-      lastActiveAt: user.lastActiveAt,
-      preferences: user.preferences,
+      id: fullUser.id,
+      email: fullUser.email,
+      name: fullUser.name,
+      avatar: fullUser.avatar,
+      createdAt: fullUser.createdAt,
+      lastActiveAt: fullUser.lastActiveAt,
+      preferences: (fullUser.preferences as Record<string, string | number | boolean | null>) || {},
     };
   }
 
@@ -140,12 +168,12 @@ export class AuthController {
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 2, ttl: 300000 } }) // 2 requests per 5 minutes
-  async revokeAllTokens(@CurrentUser() user: any): Promise<{ message: string }> {
+  async revokeAllTokens(@CurrentUser() user: RequestUser): Promise<{ message: string }> {
     await this.authService.revokeAllUserTokens(user.id);
     return { message: 'All tokens revoked successfully' };
   }
 
-  private async handleOAuthCallback(req: any): Promise<AuthResponse> {
+  private async handleOAuthCallback(req: OAuthRequest): Promise<AuthResponse> {
     const tokens = await this.authService.generateTokens(req.user);
     return {
       ...tokens,

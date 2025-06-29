@@ -3,8 +3,15 @@ import type { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ResponseDto } from '../dto/response.dto';
 
+// Import ResponseData interface
+interface ResponseData {
+  [key: string]: string | number | boolean | null | ResponseData | ResponseData[];
+}
+
 @Injectable()
-export class TransformInterceptor<T> implements NestInterceptor<T, ResponseDto<T>> {
+export class TransformInterceptor<T extends ResponseData = ResponseData>
+  implements NestInterceptor<T, ResponseDto<T>>
+{
   private readonly logger = new Logger(TransformInterceptor.name);
   intercept(
     context: ExecutionContext,

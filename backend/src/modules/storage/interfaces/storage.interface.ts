@@ -28,7 +28,7 @@ export interface UploadOptions {
   folder?: string;
   filename?: string;
   public?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean | null>;
   contentType?: string;
   cacheControl?: string;
   expires?: Date;

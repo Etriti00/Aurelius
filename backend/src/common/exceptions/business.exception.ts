@@ -1,11 +1,25 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 
+// Interface for exception details
+export interface ExceptionDetails {
+  field?: string;
+  code?: string;
+  message?: string;
+  value?: string | number | boolean;
+  retryAfter?: number;
+  resource?: string;
+  limit?: number;
+  current?: number;
+  model?: string;
+  [key: string]: string | number | boolean | undefined;
+}
+
 export class BusinessException extends HttpException {
   constructor(
     message: string,
     code: string,
     statusCode: HttpStatus = HttpStatus.BAD_REQUEST,
-    details?: any
+    details?: ExceptionDetails
   ) {
     super(
       {
@@ -21,7 +35,7 @@ export class BusinessException extends HttpException {
 }
 
 export class ValidationException extends BusinessException {
-  constructor(message: string, details: any) {
+  constructor(message: string, details: ExceptionDetails) {
     super(message, 'VALIDATION_ERROR', HttpStatus.BAD_REQUEST, details);
   }
 }
@@ -46,7 +60,7 @@ export class NotFoundException extends BusinessException {
 }
 
 export class ConflictException extends BusinessException {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: ExceptionDetails) {
     super(message, 'CONFLICT', HttpStatus.CONFLICT, details);
   }
 }
@@ -74,7 +88,7 @@ export class QuotaExceededException extends BusinessException {
 }
 
 export class IntegrationException extends BusinessException {
-  constructor(provider: string, message: string, details?: any) {
+  constructor(provider: string, message: string, details?: ExceptionDetails) {
     super(
       `${provider} integration error: ${message}`,
       'INTEGRATION_ERROR',
@@ -85,7 +99,7 @@ export class IntegrationException extends BusinessException {
 }
 
 export class AIException extends BusinessException {
-  constructor(message: string, model?: string, details?: any) {
-    super(message, 'AI_ERROR', HttpStatus.SERVICE_UNAVAILABLE, { model, ...details });
+  constructor(message: string, model?: string, details?: ExceptionDetails) {
+    super(message, 'AI_ERROR', HttpStatus.SERVICE_UNAVAILABLE, { model, ...(details || {}) });
   }
 }

@@ -11,6 +11,7 @@ import {
   SyncResult,
   OAuthTokens,
   IntegrationCapability,
+  DatabaseIntegration,
 } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 
@@ -54,7 +55,10 @@ export abstract class BaseIntegrationService {
   /**
    * Handle webhook
    */
-  async handleWebhook(integration: Integration, data: any): Promise<void> {
+  async handleWebhook(
+    integration: Integration,
+    data: Record<string, string | number | boolean | object>
+  ): Promise<void> {
     // Parameters required for interface but not yet implemented
     void integration; // Mark as intentionally unused
     void data; // Mark as intentionally unused
@@ -106,14 +110,17 @@ export abstract class BaseIntegrationService {
       // Queue initial sync
       await this.queueSync(integration.id, 'full');
 
-      return this.mapToIntegration(integration);
-    } catch (error: any) {
-      this.logger.error(`Failed to create integration: ${error.message}`);
+      return this.mapToIntegration(this.convertPrismaToDatabase(integration));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to create integration: ${errorMessage}`);
       throw new BusinessException(
         'Failed to create integration',
         'INTEGRATION_CREATE_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? { message: error.message, stack: error.stack }
+          : { message: String(error) }
       );
     }
   }
@@ -158,14 +165,17 @@ export abstract class BaseIntegrationService {
       // Clear cache
       await this.clearIntegrationCache(integrationId);
 
-      return this.mapToIntegration(updated);
-    } catch (error: any) {
-      this.logger.error(`Failed to update integration: ${error.message}`);
+      return this.mapToIntegration(this.convertPrismaToDatabase(updated));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to update integration: ${errorMessage}`);
       throw new BusinessException(
         'Failed to update integration',
         'INTEGRATION_UPDATE_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? { message: error.message, stack: error.stack }
+          : { message: String(error) }
       );
     }
   }
@@ -187,13 +197,16 @@ export abstract class BaseIntegrationService {
       await this.clearIntegrationCache(integrationId);
 
       this.logger.log(`Deleted integration ${integrationId}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to delete integration: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to delete integration: ${errorMessage}`);
       throw new BusinessException(
         'Failed to delete integration',
         'INTEGRATION_DELETE_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? { message: error.message, stack: error.stack }
+          : { message: String(error) }
       );
     }
   }
@@ -216,7 +229,7 @@ export abstract class BaseIntegrationService {
       return null;
     }
 
-    const mapped = this.mapToIntegration(integration);
+    const mapped = this.mapToIntegration(this.convertPrismaToDatabase(integration));
 
     // Cache for 5 minutes
     await this.cacheService.set(`integration:${integrationId}`, mapped, 300);
@@ -231,7 +244,10 @@ export abstract class BaseIntegrationService {
     await this.queueService.addIntegrationSyncJob({
       integrationId,
       syncType,
-      integrationService: this.getName(),
+      metadata: {
+        triggeredBy: 'system',
+        priority: 'medium',
+      },
     });
   }
 
@@ -259,7 +275,7 @@ export abstract class BaseIntegrationService {
       });
 
       // Map to interface and perform sync with decrypted tokens
-      const integration = this.mapToIntegration(dbIntegration);
+      const integration = this.mapToIntegration(this.convertPrismaToDatabase(dbIntegration));
       // Use decrypted tokens for authentication
       integration.config.oauth = decryptedTokens;
       const result = await this.sync(integration, syncType);
@@ -281,17 +297,20 @@ export abstract class BaseIntegrationService {
       );
 
       return result;
-    } catch (error: any) {
-      this.logger.error(`Sync failed for integration ${integrationId}: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Sync failed for integration ${integrationId}: ${errorMessage}`);
 
       // Update status
-      await this.updateStatus(integrationId, IntegrationStatusEnum.ERROR, error.message);
+      await this.updateStatus(integrationId, IntegrationStatusEnum.ERROR, errorMessage);
 
       throw new BusinessException(
         'Integration sync failed',
         'INTEGRATION_SYNC_FAILED',
         undefined,
-        error
+        error instanceof Error
+          ? { message: error.message, stack: error.stack }
+          : { message: String(error) }
       );
     }
   }
@@ -370,10 +389,66 @@ export abstract class BaseIntegrationService {
   }
 
   /**
+   * Convert Prisma result to DatabaseIntegration interface
+   */
+  protected convertPrismaToDatabase(prismaResult: {
+    id: string;
+    userId: string;
+    provider: string;
+    providerAccountId: string | null;
+    accessToken: string;
+    refreshToken: string | null;
+    tokenExpiry: Date | null;
+    tokenType: string | null;
+    accountName: string | null;
+    status: string;
+    scopes: unknown;
+    permissions: unknown;
+    settings: unknown;
+    lastSyncAt: Date | null;
+    syncError: string | null;
+    errorCount: number;
+    syncEnabled: boolean;
+    webhookUrl: string | null;
+    webhookSecret: string | null;
+    createdAt: Date;
+    updatedAt: Date | null;
+  }): DatabaseIntegration {
+    return {
+      id: prismaResult.id,
+      userId: prismaResult.userId,
+      provider: prismaResult.provider,
+      accountName: prismaResult.accountName,
+      accessToken: prismaResult.accessToken,
+      refreshToken: prismaResult.refreshToken,
+      tokenExpiry: prismaResult.tokenExpiry,
+      tokenType: prismaResult.tokenType,
+      status: prismaResult.status,
+      scopes: Array.isArray(prismaResult.scopes) ? (prismaResult.scopes as string[]) : null,
+      permissions:
+        prismaResult.permissions && typeof prismaResult.permissions === 'object'
+          ? (prismaResult.permissions as Record<string, boolean | string[]>)
+          : {},
+      settings:
+        prismaResult.settings && typeof prismaResult.settings === 'object'
+          ? (prismaResult.settings as Record<string, string | number | boolean | object>)
+          : {},
+      lastSyncAt: prismaResult.lastSyncAt,
+      syncError: prismaResult.syncError,
+      errorCount: prismaResult.errorCount,
+      syncEnabled: prismaResult.syncEnabled,
+      webhookUrl: prismaResult.webhookUrl,
+      webhookSecret: prismaResult.webhookSecret,
+      createdAt: prismaResult.createdAt,
+      updatedAt: prismaResult.updatedAt,
+    };
+  }
+
+  /**
    * Map database model to interface
    */
-  protected mapToIntegration(dbIntegration: any): Integration {
-    const settings = dbIntegration.settings as Record<string, any>;
+  protected mapToIntegration(dbIntegration: DatabaseIntegration): Integration {
+    const settings = dbIntegration.settings as Record<string, string | number | boolean | object>;
 
     let clientId = '';
     let clientSecret = '';
@@ -381,17 +456,17 @@ export abstract class BaseIntegrationService {
     let scopes: string[] = [];
 
     if (settings) {
-      if (settings.clientId) {
+      if (settings.clientId && typeof settings.clientId === 'string') {
         clientId = settings.clientId;
       }
-      if (settings.clientSecret) {
+      if (settings.clientSecret && typeof settings.clientSecret === 'string') {
         clientSecret = settings.clientSecret;
       }
-      if (settings.redirectUri) {
+      if (settings.redirectUri && typeof settings.redirectUri === 'string') {
         redirectUri = settings.redirectUri;
       }
       if (settings.scopes && Array.isArray(settings.scopes)) {
-        scopes = settings.scopes;
+        scopes = settings.scopes as string[];
       }
     }
 
@@ -424,7 +499,7 @@ export abstract class BaseIntegrationService {
       },
       capabilities: this.capabilities,
       status: status,
-      lastSyncAt: dbIntegration.lastSyncAt,
+      lastSyncAt: dbIntegration.lastSyncAt || undefined,
       createdAt: dbIntegration.createdAt,
       updatedAt: updatedAt,
     };

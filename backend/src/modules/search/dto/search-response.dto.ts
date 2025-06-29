@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { SearchMetadata } from '../interfaces/search.interface';
 
 export class SearchResultDto {
   @ApiProperty({ description: 'Result ID' })
@@ -14,7 +15,7 @@ export class SearchResultDto {
   data: {
     content: string;
     type?: string;
-    metadata?: Record<string, any>;
+    metadata?: SearchMetadata;
     createdAt?: Date;
     updatedAt?: Date;
   };
@@ -47,8 +48,36 @@ export class SearchResponseDto {
   @ApiProperty({ description: 'Search execution time in milliseconds' })
   took: number;
 
-  @ApiPropertyOptional({ description: 'Search facets/aggregations' })
-  facets?: Record<string, any>;
+  @ApiPropertyOptional({
+    description: 'Search facets/aggregations',
+    type: 'object',
+    additionalProperties: {
+      type: 'object',
+      properties: {
+        field: { type: 'string' },
+        values: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              value: { oneOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] },
+              count: { type: 'number' },
+            },
+          },
+        },
+      },
+    },
+  })
+  facets?: Record<
+    string,
+    {
+      field: string;
+      values: Array<{
+        value: string | number | boolean;
+        count: number;
+      }>;
+    }
+  >;
 
   @ApiPropertyOptional({
     description: 'Query suggestions',

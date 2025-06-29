@@ -5,14 +5,28 @@ import { AIGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { EmailService } from '../../email/email.service';
 import { TasksService } from '../../tasks/tasks.service';
 import { CalendarService } from '../../calendar/calendar.service';
-import { WorkflowAction, ActionType, ExecutedAction } from '../interfaces';
+import {
+  WorkflowAction,
+  ActionType,
+  ExecutedAction,
+  ActionInput,
+  ActionOutput,
+} from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  NotificationChannel,
+  NotificationType,
+  NotificationPriority,
+} from '../../../common/types/notification.types';
 
 @Injectable()
 export class ActionService {
   private readonly logger = new Logger(ActionService.name);
-  private readonly actionHandlers = new Map<ActionType, Function>();
+  private readonly actionHandlers = new Map<
+    ActionType,
+    (userId: string, parameters: ActionInput) => Promise<ActionOutput>
+  >();
 
   constructor(
     private prisma: PrismaService,
@@ -32,7 +46,7 @@ export class ActionService {
   async executeAction(
     userId: string,
     action: WorkflowAction,
-    parameters: Record<string, any>
+    parameters: ActionInput
   ): Promise<ExecutedAction> {
     const startTime = Date.now();
 
@@ -71,8 +85,9 @@ export class ActionService {
 
       this.logger.log(`Executed action ${action.type} for user ${userId}`);
       return executedAction;
-    } catch (error: any) {
-      this.logger.error(`Action execution failed: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Action execution failed: ${errorMessage}`, error);
 
       const executedAction: ExecutedAction = {
         actionId: action.id,
@@ -80,14 +95,14 @@ export class ActionService {
         duration: Date.now() - startTime,
         status: 'failed',
         input: parameters,
-        error: error.message,
+        error: errorMessage,
       };
 
       // Emit failure event
       this.eventEmitter.emit('workflow.action.failed', {
         userId,
         action: action.type,
-        error: error.message,
+        error: errorMessage,
       });
 
       return executedAction;
@@ -99,7 +114,7 @@ export class ActionService {
    */
   async executeActions(
     userId: string,
-    actions: Array<{ action: WorkflowAction; parameters: Record<string, any> }>
+    actions: Array<{ action: WorkflowAction; parameters: ActionInput }>
   ): Promise<ExecutedAction[]> {
     const results: ExecutedAction[] = [];
 
@@ -108,7 +123,8 @@ export class ActionService {
       results.push(result);
 
       // Stop execution if action failed and it's not optional
-      if (result.status === 'failed' && !action.parameters.optional) {
+      if (result.status === 'failed') {
+        this.logger.warn(`Action ${action.id} failed, stopping execution`);
         break;
       }
     }
@@ -135,32 +151,44 @@ export class ActionService {
   /**
    * Action handlers
    */
-  private async handleCreateTask(userId: string, parameters: Record<string, any>): Promise<any> {
+  private async handleCreateTask(userId: string, parameters: ActionInput): Promise<ActionOutput> {
+    const taskParams = parameters.parameters;
     const task = await this.tasksService.create(userId, {
-      title: parameters.title,
-      description: parameters.description,
-      dueDate: parameters.dueDate ? new Date(parameters.dueDate) : undefined,
-      priority: parameters.priority || 'medium',
-      labels: parameters.labels || [],
+      title: String(taskParams.title),
+      description: taskParams.description ? String(taskParams.description) : undefined,
+      dueDate: taskParams.dueDate ? new Date(String(taskParams.dueDate)) : undefined,
+      priority: String(taskParams.priority || 'medium'),
+      labels: Array.isArray(taskParams.labels) ? taskParams.labels.map(String) : [],
     });
 
     return {
-      taskId: task.id,
-      title: task.title,
-      createdAt: task.createdAt,
+      result: {
+        taskId: task.id,
+        title: task.title,
+        createdAt: task.createdAt,
+      },
+      metadata: {
+        executionTime: Date.now() - parameters.context.timestamp.getTime(),
+        resourcesUsed: ['tasks'],
+      },
     };
   }
 
-  private async handleUpdateTask(userId: string, parameters: Record<string, any>): Promise<any> {
-    const updates: any = {};
+  private async handleUpdateTask(userId: string, parameters: ActionInput): Promise<ActionOutput> {
+    const taskParams = parameters.parameters;
+    const updates: Record<string, string | Date | string[]> = {};
 
-    if (parameters.status) updates.status = parameters.status;
-    if (parameters.priority) updates.priority = parameters.priority;
-    if (parameters.dueDate) updates.dueDate = new Date(parameters.dueDate);
-    if (parameters.assignedTo) updates.assignedTo = parameters.assignedTo;
+    if (taskParams.status) updates.status = String(taskParams.status);
+    if (taskParams.priority) updates.priority = String(taskParams.priority);
+    if (taskParams.dueDate) updates.dueDate = new Date(String(taskParams.dueDate));
+    if (taskParams.assignedTo) updates.assignedTo = String(taskParams.assignedTo);
 
-    const results = [];
-    for (const taskId of parameters.taskIds || [parameters.taskId]) {
+    const taskIds = Array.isArray(taskParams.taskIds)
+      ? taskParams.taskIds.map(String)
+      : [String(taskParams.taskId)];
+
+    const results: Array<{ taskId: string; updated: boolean }> = [];
+    for (const taskId of taskIds) {
       const task = await this.tasksService.update(userId, taskId, updates);
       results.push({
         taskId: task.id,
@@ -168,13 +196,20 @@ export class ActionService {
       });
     }
 
-    return { results };
+    return {
+      result: { results: results.length.toString() },
+      metadata: {
+        executionTime: Date.now() - parameters.context.timestamp.getTime(),
+        resourcesUsed: ['tasks'],
+      },
+    };
   }
 
-  private async handleSendEmail(userId: string, parameters: Record<string, any>): Promise<any> {
+  private async handleSendEmail(userId: string, parameters: ActionInput): Promise<ActionOutput> {
+    const emailParams = parameters.parameters;
     // Generate email content if needed
-    let content = parameters.content;
-    if (parameters.generateContent) {
+    let content = String(emailParams.content || '');
+    if (emailParams.generateContent) {
       // Get user subscription info for AI gateway
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -186,7 +221,9 @@ export class ActionService {
       }
 
       const generated = await this.aiGateway.processRequest({
-        prompt: `Write a professional email with subject: ${parameters.subject}\nContext: ${parameters.context}`,
+        prompt: `Write a professional email with subject: ${String(
+          emailParams.subject
+        )}\nContext: ${String(emailParams.context || '')}`,
         userId,
         action: 'email-content-generation',
         userSubscription: { tier: user.subscription.tier },
@@ -196,48 +233,67 @@ export class ActionService {
     }
 
     const email = await this.emailService.sendEmail({
-      from: parameters.from || 'noreply@aurelius.ai',
-      to: parameters.to,
-      subject: parameters.subject,
+      from: String(emailParams.from || 'noreply@aurelius.ai'),
+      to: String(emailParams.to),
+      subject: String(emailParams.subject),
       content,
       html: content,
     });
 
     return {
-      messageId: email.messageId,
-      sentAt: new Date(),
+      result: {
+        messageId: email.messageId,
+        sentAt: new Date(),
+      },
+      metadata: {
+        executionTime: Date.now() - parameters.context.timestamp.getTime(),
+        resourcesUsed: ['email'],
+      },
     };
   }
 
-  private async handleScheduleEvent(userId: string, parameters: Record<string, any>): Promise<any> {
+  private async handleScheduleEvent(
+    userId: string,
+    parameters: ActionInput
+  ): Promise<ActionOutput> {
+    const eventParams = parameters.parameters;
     const event = await this.calendarService.createEvent(userId, {
-      title: parameters.title,
-      description: parameters.description,
-      startTime: new Date(parameters.startTime),
-      endTime: new Date(parameters.endTime || Date.now() + parameters.duration * 60000),
-      location: parameters.location,
-      attendees: parameters.attendees || [],
+      title: String(eventParams.title),
+      description: eventParams.description ? String(eventParams.description) : undefined,
+      startTime: new Date(String(eventParams.startTime)),
+      endTime: eventParams.endTime
+        ? new Date(String(eventParams.endTime))
+        : new Date(Date.now() + (Number(eventParams.duration) || 60) * 60000),
+      location: eventParams.location ? String(eventParams.location) : undefined,
+      attendees: Array.isArray(eventParams.attendees) ? eventParams.attendees.map(String) : [],
     });
 
     return {
-      eventId: event.id,
-      title: event.title,
-      startTime: event.startTime,
+      result: {
+        eventId: event.id,
+        title: event.title,
+        startTime: event.startTime,
+      },
+      metadata: {
+        executionTime: Date.now() - parameters.context.timestamp.getTime(),
+        resourcesUsed: ['calendar'],
+      },
     };
   }
 
   private async handleCreateReminder(
     userId: string,
-    parameters: Record<string, any>
-  ): Promise<any> {
+    parameters: ActionInput
+  ): Promise<ActionOutput> {
+    const reminderParams = parameters.parameters;
     // Create a scheduled notification as a reminder
     const reminder = await this.prisma.notification.create({
       data: {
         userId,
         type: 'reminder',
-        title: parameters.title,
-        message: parameters.message,
-        scheduledFor: new Date(parameters.remindAt),
+        title: String(reminderParams.title),
+        message: String(reminderParams.message),
+        scheduledFor: new Date(String(reminderParams.remindAt)),
         actions: [],
         channels: ['in_app'],
       },
@@ -245,29 +301,38 @@ export class ActionService {
 
     // Schedule reminder notification
     await this.queueService.addNotificationJob({
-      notificationId: reminder.id,
       userId,
-      type: 'reminder',
-      scheduledFor: new Date(parameters.remindAt),
+      type: NotificationType.TASK_REMINDER,
+      title: String(reminderParams.title),
+      message: String(reminderParams.message),
+      priority: NotificationPriority.MEDIUM,
+      channels: [NotificationChannel.IN_APP],
+      scheduledFor: new Date(String(reminderParams.remindAt)),
     });
 
     return {
-      reminderId: reminder.id,
-      scheduledFor: new Date(parameters.remindAt),
+      result: {
+        reminderId: reminder.id,
+        scheduledFor: new Date(String(reminderParams.remindAt)),
+      },
+      metadata: {
+        executionTime: Date.now() - parameters.context.timestamp.getTime(),
+        resourcesUsed: ['notifications'],
+      },
     };
   }
 
   private async handleExecuteIntegration(
-    userId: string,
-    parameters: Record<string, any>
-  ): Promise<any> {
-    // This would call the appropriate integration service
-    const integration = parameters.integration;
-    const action = parameters.action;
+    _userId: string,
+    parameters: ActionInput
+  ): Promise<ActionOutput> {
+    const integrationParams = parameters.parameters;
+    const integration = String(integrationParams.integration);
+    const action = String(integrationParams.action);
 
     // Queue integration execution
     const job = await this.queueService.addIntegrationSyncJob(
-      { integrationId: integration, userId, action },
+      { integrationId: integration },
       {
         removeOnComplete: true,
         removeOnFail: false,
@@ -275,38 +340,58 @@ export class ActionService {
     );
 
     return {
-      jobId: job.id,
-      status: 'queued',
-      integration,
-      action,
+      result: {
+        jobId: job.id,
+        status: 'queued',
+        integration,
+        action,
+      },
+      metadata: {
+        executionTime: Date.now() - parameters.context.timestamp.getTime(),
+        resourcesUsed: ['integrations'],
+      },
     };
   }
 
   private async handleTriggerWorkflow(
     userId: string,
-    parameters: Record<string, any>
-  ): Promise<any> {
-    const workflowId = parameters.workflowId || parameters.workflowType;
+    parameters: ActionInput
+  ): Promise<ActionOutput> {
+    const workflowParams = parameters.parameters;
+    const workflowId = String(workflowParams.workflowId || workflowParams.workflowType);
 
     // Queue workflow execution
     const job = await this.queueService.addWorkflowJob({
       userId,
       triggerId: workflowId,
       triggerType: 'manual',
-      triggerData: parameters.data || {},
+      triggerData:
+        typeof workflowParams.data === 'object' &&
+        workflowParams.data !== null &&
+        !Array.isArray(workflowParams.data) &&
+        !(workflowParams.data instanceof Date)
+          ? (workflowParams.data as Record<string, string | number | boolean>)
+          : {},
     });
 
     return {
-      workflowExecutionId: job.id,
-      status: 'triggered',
+      result: {
+        workflowExecutionId: job.id,
+        status: 'triggered',
+      },
+      metadata: {
+        executionTime: Date.now() - parameters.context.timestamp.getTime(),
+        resourcesUsed: ['workflows'],
+      },
     };
   }
 
   private async handleGenerateContent(
     userId: string,
-    parameters: Record<string, any>
-  ): Promise<any> {
-    const prompt = parameters.prompt || this.buildContentPrompt(parameters);
+    parameters: ActionInput
+  ): Promise<ActionOutput> {
+    const contentParams = parameters.parameters;
+    const prompt = String(contentParams.prompt || this.buildContentPrompt(contentParams));
 
     // Get user subscription info for AI gateway
     const user = await this.prisma.user.findUnique({
@@ -329,7 +414,7 @@ export class ActionService {
     });
 
     // Save generated content if requested
-    if (parameters.save) {
+    if (contentParams.save) {
       // Save to ActionLog since there's no generatedContent model
       await this.prisma.actionLog.create({
         data: {
@@ -339,24 +424,32 @@ export class ActionService {
           output: response.text,
           metadata: {
             prompt,
-            parameters,
-            contentType: parameters.contentType || 'text',
+            parameters: contentParams,
+            contentType: String(contentParams.contentType || 'text'),
           },
         },
       });
     }
 
     return {
-      content: response.text,
-      metadata: response.metadata,
-      saved: parameters.save || false,
+      result: {
+        content: response.text,
+        saved: Boolean(contentParams.save),
+      },
+      metadata: {
+        executionTime: Date.now() - parameters.context.timestamp.getTime(),
+        resourcesUsed: ['ai'],
+      },
     };
   }
 
-  private async handleAnalyzeData(userId: string, parameters: Record<string, any>): Promise<any> {
-    const dataType = parameters.dataType;
-    const timeRange = parameters.timeRange || '7d';
-    const metricsRequested = parameters.metrics || [];
+  private async handleAnalyzeData(userId: string, parameters: ActionInput): Promise<ActionOutput> {
+    const analysisParams = parameters.parameters;
+    const dataType = String(analysisParams.dataType);
+    const timeRange = String(analysisParams.timeRange || '7d');
+    const metricsRequested = Array.isArray(analysisParams.metrics)
+      ? analysisParams.metrics.map(String)
+      : [];
 
     // Log the metrics requested for potential future use
     this.logger.debug(
@@ -366,7 +459,7 @@ export class ActionService {
     );
 
     // Gather data based on type
-    let data: any;
+    let data: Record<string, number | string | boolean>;
     switch (dataType) {
       case 'tasks':
         data = await this.analyzeTaskData(userId, timeRange);
@@ -382,51 +475,83 @@ export class ActionService {
     }
 
     return {
-      analysis: data,
-      generatedAt: new Date(),
-      timeRange,
+      result: {
+        analysis: JSON.stringify(data),
+        generatedAt: new Date(),
+        timeRange,
+      },
+      metadata: {
+        executionTime: Date.now() - parameters.context.timestamp.getTime(),
+        resourcesUsed: ['analytics'],
+      },
     };
   }
 
-  private async handleNotifyUser(userId: string, parameters: Record<string, any>): Promise<any> {
+  private async handleNotifyUser(userId: string, parameters: ActionInput): Promise<ActionOutput> {
+    const notificationParams = parameters.parameters;
     const notification = await this.prisma.notification.create({
       data: {
         userId,
-        type: parameters.notificationType || 'info',
-        title: parameters.title,
-        message: parameters.message,
-        actions: parameters.actions || [],
-        channels: parameters.channels || ['in_app'],
-        relatedType: parameters.relatedType,
-        relatedId: parameters.relatedId,
+        type: String(notificationParams.notificationType || 'info'),
+        title: String(notificationParams.title),
+        message: String(notificationParams.message),
+        actions: Array.isArray(notificationParams.actions)
+          ? notificationParams.actions.map(String)
+          : [],
+        channels: Array.isArray(notificationParams.channels)
+          ? notificationParams.channels.map(String)
+          : ['in_app'],
+        relatedType: notificationParams.relatedType
+          ? String(notificationParams.relatedType)
+          : undefined,
+        relatedId: notificationParams.relatedId ? String(notificationParams.relatedId) : undefined,
       },
     });
 
     // Queue notification delivery
     await this.queueService.addNotificationJob({
-      notificationId: notification.id,
       userId,
-      channels: notification.channels,
+      type: NotificationType.SYSTEM_UPDATE,
+      title: String(notificationParams.title),
+      message: String(notificationParams.message),
+      priority: NotificationPriority.MEDIUM,
+      channels: notification.channels.map(channel => {
+        const channelMap: Record<string, NotificationChannel> = {
+          in_app: NotificationChannel.IN_APP,
+          email: NotificationChannel.EMAIL,
+          push: NotificationChannel.PUSH,
+          sms: NotificationChannel.SMS,
+          slack: NotificationChannel.SLACK,
+        };
+        return channelMap[channel.toLowerCase()] || NotificationChannel.IN_APP;
+      }),
     });
 
     return {
-      notificationId: notification.id,
-      delivered: true,
+      result: {
+        notificationId: notification.id,
+        delivered: true,
+      },
+      metadata: {
+        executionTime: Date.now() - parameters.context.timestamp.getTime(),
+        resourcesUsed: ['notifications'],
+      },
     };
   }
 
   /**
    * Helper methods
    */
-  private validateParameters(action: WorkflowAction, parameters: Record<string, any>): void {
+  private validateParameters(action: WorkflowAction, parameters: ActionInput): void {
+    const parameterValues = parameters.parameters;
     const required = action.parameters.required;
 
     for (const [key, definition] of Object.entries(required)) {
-      if (!(key in parameters)) {
+      if (!(key in parameterValues)) {
         throw new BusinessException(`Missing required parameter: ${key}`, 'MISSING_PARAMETER');
       }
 
-      const value = parameters[key];
+      const value = parameterValues[key];
 
       // Type validation
       if (definition.type === 'array' && !Array.isArray(value)) {
@@ -466,13 +591,16 @@ export class ActionService {
     for (const requirement of action.requires) {
       switch (requirement.type) {
         case 'permission':
-          await this.checkPermission(userId, requirement.details.scope);
+          await this.checkPermission(userId, requirement.details.permission?.scope || 'default');
           break;
         case 'integration':
-          await this.checkIntegration(userId, requirement.details.service);
+          await this.checkIntegration(
+            userId,
+            requirement.details.integration?.provider || 'default'
+          );
           break;
         case 'data':
-          await this.checkDataAvailability(userId, requirement.details.required);
+          await this.checkDataAvailability(userId, requirement.details.data?.source || 'default');
           break;
         case 'confirmation':
           // In a real implementation, this would check if user confirmed
@@ -518,21 +646,26 @@ export class ActionService {
     }
   }
 
-  private buildContentPrompt(parameters: Record<string, any>): string {
-    const type = parameters.contentType || 'text';
-    const context = parameters.context || '';
-    const style = parameters.style || 'professional';
-    const length = parameters.length || 'medium';
+  private buildContentPrompt(
+    parameters: Record<string, string | number | boolean | Date | string[] | number[]>
+  ): string {
+    const type = String(parameters.contentType || 'text');
+    const context = String(parameters.context || '');
+    const style = String(parameters.style || 'professional');
+    const length = String(parameters.length || 'medium');
 
     return `Generate ${type} content:
 Type: ${type}
 Style: ${style}
 Length: ${length}
 Context: ${context}
-Additional requirements: ${parameters.requirements || 'None'}`;
+Additional requirements: ${String(parameters.requirements || 'None')}`;
   }
 
-  private async analyzeTaskData(userId: string, timeRange: string): Promise<any> {
+  private async analyzeTaskData(
+    userId: string,
+    timeRange: string
+  ): Promise<Record<string, number | string | boolean>> {
     const startDate = this.getStartDate(timeRange);
 
     const [total, completed, overdue] = await Promise.all([
@@ -559,7 +692,10 @@ Additional requirements: ${parameters.requirements || 'None'}`;
     };
   }
 
-  private async analyzeEmailData(userId: string, timeRange: string): Promise<any> {
+  private async analyzeEmailData(
+    userId: string,
+    timeRange: string
+  ): Promise<Record<string, number | string | boolean>> {
     const startDate = this.getStartDate(timeRange);
 
     const [received, sent, threads] = await Promise.all([
@@ -582,20 +718,31 @@ Additional requirements: ${parameters.requirements || 'None'}`;
     };
   }
 
-  private async analyzeProductivityData(userId: string, timeRange: string): Promise<any> {
+  private async analyzeProductivityData(
+    userId: string,
+    timeRange: string
+  ): Promise<Record<string, number | string | boolean>> {
     const taskData = await this.analyzeTaskData(userId, timeRange);
     const emailData = await this.analyzeEmailData(userId, timeRange);
 
     return {
-      tasks: taskData,
-      emails: emailData,
-      productivityScore: this.calculateProductivityScore(taskData, emailData),
+      tasks: JSON.stringify(taskData),
+      emails: JSON.stringify(emailData),
+      productivityScore: String(
+        this.calculateProductivityScore(
+          taskData as Record<string, number>,
+          emailData as Record<string, number>
+        )
+      ),
     };
   }
 
-  private calculateProductivityScore(taskData: any, emailData: any): number {
-    const taskScore = taskData.completionRate * 0.6;
-    const emailScore = Math.min(emailData.responseRate, 100) * 0.4;
+  private calculateProductivityScore(
+    taskData: Record<string, number>,
+    emailData: Record<string, number>
+  ): number {
+    const taskScore = Number(taskData.completionRate || 0) * 0.6;
+    const emailScore = Math.min(Number(emailData.responseRate || 0), 100) * 0.4;
     return Math.round(taskScore + emailScore);
   }
 

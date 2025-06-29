@@ -9,7 +9,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { TriggerType, ConditionOperator } from '../interfaces';
+import { TriggerType, ConditionOperator, ConditionValue } from '../interfaces';
 
 export class TriggerConditionDto {
   @ApiProperty({ description: 'Field to check' })
@@ -21,7 +21,7 @@ export class TriggerConditionDto {
   operator: ConditionOperator;
 
   @ApiProperty({ description: 'Value to compare against' })
-  value: any;
+  value: ConditionValue;
 
   @ApiPropertyOptional({
     enum: ['AND', 'OR'],
@@ -59,7 +59,7 @@ export class CreateTriggerDto {
   @ApiPropertyOptional({ description: 'Trigger metadata' })
   @IsObject()
   @IsOptional()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean | null>;
 
   constructor() {
     this.type = TriggerType.EMAIL_RECEIVED;
@@ -81,7 +81,7 @@ export class TriggerResponseDto {
   enabled: boolean;
 
   @ApiPropertyOptional({ description: 'Trigger metadata' })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean | null>;
 
   constructor() {
     this.id = '';
@@ -95,5 +95,5 @@ export class TestTriggerDto {
   @ApiPropertyOptional({ description: 'Test data for trigger' })
   @IsObject()
   @IsOptional()
-  testData?: Record<string, any>;
+  testData?: Record<string, string | number | boolean | null>;
 }

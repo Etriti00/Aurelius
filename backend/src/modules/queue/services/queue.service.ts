@@ -2,6 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { JobOptions } from 'bull';
+import {
+  AIAnalysisJobData,
+  AISuggestionJobData,
+  IntegrationSyncJobData,
+  NotificationJobData,
+  BatchNotificationJobData,
+  AnalyticsEventJobData,
+  UsageCalculationJobData,
+} from '../interfaces/queue-job-data.interface';
 
 @Injectable()
 export class QueueService {
@@ -16,7 +25,17 @@ export class QueueService {
   /**
    * Email Queue Methods
    */
-  async addEmailJob(data: any, options?: JobOptions) {
+  async addEmailJob(
+    data: {
+      to: string;
+      subject: string;
+      html?: string;
+      text?: string;
+      template?: string;
+      context?: Record<string, string | number | boolean>;
+    },
+    options?: JobOptions
+  ) {
     return await this.emailQueue.add('send-email', data, {
       removeOnComplete: true,
       removeOnFail: false,
@@ -29,7 +48,10 @@ export class QueueService {
     });
   }
 
-  async addEmailProcessingJob(data: any, options?: JobOptions) {
+  async addEmailProcessingJob(
+    data: { userId: string; emailId: string; action: 'parse' | 'classify' | 'extract' },
+    options?: JobOptions
+  ) {
     return await this.emailQueue.add('process-email', data, {
       removeOnComplete: true,
       removeOnFail: false,
@@ -40,7 +62,7 @@ export class QueueService {
   /**
    * AI Task Queue Methods
    */
-  async addAIAnalysisJob(data: any, options?: JobOptions) {
+  async addAIAnalysisJob(data: AIAnalysisJobData, options?: JobOptions) {
     return await this.aiTaskQueue.add('analyze', data, {
       removeOnComplete: true,
       removeOnFail: false,
@@ -50,7 +72,7 @@ export class QueueService {
     });
   }
 
-  async addAISuggestionJob(data: any, options?: JobOptions) {
+  async addAISuggestionJob(data: AISuggestionJobData, options?: JobOptions) {
     return await this.aiTaskQueue.add('generate-suggestions', data, {
       removeOnComplete: true,
       removeOnFail: false,
@@ -62,7 +84,7 @@ export class QueueService {
   /**
    * Integration Sync Queue Methods
    */
-  async addIntegrationSyncJob(data: any, options?: JobOptions) {
+  async addIntegrationSyncJob(data: IntegrationSyncJobData, options?: JobOptions) {
     return await this.integrationsQueue.add('sync', data, {
       removeOnComplete: true,
       removeOnFail: false,
@@ -90,7 +112,7 @@ export class QueueService {
   /**
    * Notification Queue Methods
    */
-  async addNotificationJob(data: any, options?: JobOptions) {
+  async addNotificationJob(data: NotificationJobData, options?: JobOptions) {
     return await this.notificationsQueue.add('send', data, {
       removeOnComplete: true,
       removeOnFail: false,
@@ -99,7 +121,7 @@ export class QueueService {
     });
   }
 
-  async addBatchNotificationJob(data: any, options?: JobOptions) {
+  async addBatchNotificationJob(data: BatchNotificationJobData, options?: JobOptions) {
     return await this.notificationsQueue.add('send-batch', data, {
       removeOnComplete: true,
       removeOnFail: false,
@@ -115,7 +137,7 @@ export class QueueService {
       userId: string;
       triggerId: string;
       triggerType: string;
-      triggerData: Record<string, unknown>;
+      triggerData: Record<string, string | number | boolean>;
     },
     options?: JobOptions
   ) {
@@ -131,7 +153,7 @@ export class QueueService {
   /**
    * Analytics Queue Methods
    */
-  async addAnalyticsEventJob(data: any, options?: JobOptions) {
+  async addAnalyticsEventJob(data: AnalyticsEventJobData, options?: JobOptions) {
     return await this.analyticsQueue.add('track-event', data, {
       removeOnComplete: true,
       removeOnFail: false,
@@ -139,16 +161,12 @@ export class QueueService {
     });
   }
 
-  async addUsageCalculationJob(userId: string, options?: JobOptions) {
-    return await this.analyticsQueue.add(
-      'calculate-usage',
-      { userId },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        ...options,
-      }
-    );
+  async addUsageCalculationJob(data: UsageCalculationJobData, options?: JobOptions) {
+    return await this.analyticsQueue.add('calculate-usage', data, {
+      removeOnComplete: true,
+      removeOnFail: false,
+      ...options,
+    });
   }
 
   /**

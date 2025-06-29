@@ -1,5 +1,6 @@
 import { IsObject } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { UserPreferences } from '../interfaces/user-response.interface';
 
 export class UpdatePreferencesDto {
   @ApiProperty({
@@ -26,7 +27,7 @@ export class UpdatePreferencesDto {
     },
   })
   @IsObject()
-  preferences: Record<string, any>;
+  preferences: UserPreferences;
 
   constructor() {
     this.preferences = {};

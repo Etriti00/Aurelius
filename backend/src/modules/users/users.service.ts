@@ -2,23 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotFoundException, ConflictException } from '../../common/exceptions/app.exception';
 import { Tier } from '@prisma/client';
-
-interface CreateUserData {
-  email: string;
-  name?: string;
-  avatar?: string;
-  googleId?: string;
-  microsoftId?: string;
-  appleId?: string;
-}
-
-interface UpdateUserData {
-  name?: string;
-  avatar?: string;
-  preferences?: Record<string, any>;
-  voiceId?: string;
-  voiceSpeed?: number;
-}
+import {
+  CreateUserData,
+  UpdateUserData,
+  UserWithRelations,
+  UserProfileResponse,
+  UserUsageStatsResponse,
+  UserPreferences,
+} from './interfaces/user-response.interface';
 
 @Injectable()
 export class UsersService {
@@ -26,7 +17,29 @@ export class UsersService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async findById(id: string): Promise<any> {
+  private isUserPreferences(value: unknown): value is UserPreferences {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'workingHours' in value &&
+      'communicationStyle' in value &&
+      'priorities' in value &&
+      'automationLevel' in value &&
+      'notifications' in value
+    );
+  }
+
+  private getDefaultPreferences(): UserPreferences {
+    return {
+      workingHours: { start: '09:00', end: '17:00', timezone: 'UTC' },
+      communicationStyle: 'casual',
+      priorities: [],
+      automationLevel: 'moderate',
+      notifications: {},
+    };
+  }
+
+  async findById(id: string): Promise<UserWithRelations> {
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
@@ -62,16 +75,24 @@ export class UsersService {
     return user;
   }
 
-  async findByEmail(email: string): Promise<any> {
+  async findByEmail(email: string): Promise<UserWithRelations | null> {
     return this.prisma.user.findUnique({
       where: { email },
       include: {
         subscription: true,
+        integrations: true,
+        _count: {
+          select: {
+            tasks: true,
+            emailThreads: true,
+            events: true,
+          },
+        },
       },
     });
   }
 
-  async create(userData: CreateUserData): Promise<any> {
+  async create(userData: CreateUserData): Promise<UserWithRelations> {
     try {
       // Check if user with email already exists
       const existingUser = await this.findByEmail(userData.email);
@@ -102,6 +123,14 @@ export class UsersService {
         },
         include: {
           subscription: true,
+          integrations: true,
+          _count: {
+            select: {
+              tasks: true,
+              emailThreads: true,
+              events: true,
+            },
+          },
         },
       });
 
@@ -116,7 +145,7 @@ export class UsersService {
     }
   }
 
-  async update(id: string, updateData: UpdateUserData): Promise<any> {
+  async update(id: string, updateData: UpdateUserData): Promise<UserWithRelations> {
     try {
       const user = await this.prisma.user.update({
         where: { id },
@@ -127,12 +156,19 @@ export class UsersService {
         include: {
           subscription: true,
           integrations: {
-            where: { status: 'ACTIVE' },
+            where: { status: 'active' },
             select: {
               id: true,
               provider: true,
               status: true,
               lastSyncAt: true,
+            },
+          },
+          _count: {
+            select: {
+              tasks: true,
+              emailThreads: true,
+              events: true,
             },
           },
         },
@@ -160,13 +196,24 @@ export class UsersService {
     }
   }
 
-  async updatePreferences(id: string, preferences: Record<string, any>): Promise<any> {
+  async updatePreferences(id: string, preferences: UserPreferences): Promise<UserWithRelations> {
     try {
       const user = await this.prisma.user.update({
         where: { id },
         data: {
           preferences,
           updatedAt: new Date(),
+        },
+        include: {
+          subscription: true,
+          integrations: true,
+          _count: {
+            select: {
+              tasks: true,
+              emailThreads: true,
+              events: true,
+            },
+          },
         },
       });
 
@@ -180,7 +227,7 @@ export class UsersService {
     }
   }
 
-  async getProfile(id: string): Promise<any> {
+  async getProfile(id: string): Promise<UserProfileResponse> {
     const user = await this.findById(id);
 
     return {
@@ -190,10 +237,13 @@ export class UsersService {
       avatar: user.avatar,
       voiceId: user.voiceId,
       voiceSpeed: user.voiceSpeed,
-      preferences: user.preferences,
+      preferences: this.isUserPreferences(user.preferences)
+        ? user.preferences
+        : this.getDefaultPreferences(),
       createdAt: user.createdAt,
       lastActiveAt: user.lastActiveAt,
-      subscription: user.subscription,
+      subscription:
+        user.subscription !== null && user.subscription !== undefined ? user.subscription : null,
       integrations: user.integrations,
       stats: {
         activeTasks: user._count.tasks,
@@ -203,7 +253,7 @@ export class UsersService {
     };
   }
 
-  async getUsageStats(id: string): Promise<any> {
+  async getUsageStats(id: string): Promise<UserUsageStatsResponse> {
     const user = await this.findById(id);
 
     if (!user.subscription) {

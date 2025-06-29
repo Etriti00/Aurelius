@@ -7,6 +7,7 @@ import {
   WorkflowAction,
   TriggerType,
   ActionType,
+  ConditionOperator,
 } from '../interfaces';
 import { BusinessException } from '../../../common/exceptions';
 
@@ -51,7 +52,10 @@ export class WorkflowTemplateService {
   async createFromTemplate(
     userId: string,
     templateId: string,
-    customizations?: Record<string, any>
+    customizations?: {
+      triggers?: Record<string, Record<string, string | number | boolean>>;
+      actions?: Record<string, Record<string, string | number | boolean>>;
+    }
   ): Promise<{
     triggers: WorkflowTrigger[];
     actions: WorkflowAction[];
@@ -104,7 +108,7 @@ export class WorkflowTemplateService {
           conditions: [],
           enabled: true,
           metadata: {
-            filterImportant: true,
+            priority: 1,
           },
         },
       ],
@@ -134,7 +138,18 @@ export class WorkflowTemplateService {
               tone: { type: 'string', description: 'Response tone', default: 'professional' },
             },
           },
-          requires: [{ type: 'permission', details: { scope: 'email.draft' } }],
+          requires: [
+            {
+              type: 'permission',
+              details: {
+                permission: {
+                  scope: 'email',
+                  resource: 'draft',
+                  action: 'create',
+                },
+              },
+            },
+          ],
           effects: [{ type: 'creates', target: 'draft', description: 'Creates email draft' }],
           reversible: true,
         },
@@ -158,7 +173,10 @@ export class WorkflowTemplateService {
           conditions: [],
           enabled: true,
           metadata: {
-            cronPattern: '0 8 * * *', // 8 AM daily
+            schedule: {
+              cron: '0 8 * * *', // 8 AM daily
+              timezone: 'UTC',
+            },
           },
         },
         {
@@ -167,7 +185,7 @@ export class WorkflowTemplateService {
           conditions: [
             {
               field: 'status',
-              operator: 'equals' as any,
+              operator: ConditionOperator.EQUALS,
               value: 'overdue',
             },
           ],
@@ -200,7 +218,18 @@ export class WorkflowTemplateService {
               title: { type: 'string', description: 'Session title', default: 'Focus Time' },
             },
           },
-          requires: [{ type: 'integration', details: { service: 'calendar' } }],
+          requires: [
+            {
+              type: 'integration',
+              details: {
+                integration: {
+                  provider: 'calendar',
+                  scopes: ['calendar.read', 'calendar.write'],
+                  required: true,
+                },
+              },
+            },
+          ],
           effects: [
             { type: 'creates', target: 'calendar_event', description: 'Creates calendar block' },
           ],
@@ -226,8 +255,10 @@ export class WorkflowTemplateService {
           conditions: [],
           enabled: true,
           metadata: {
-            minutesBefore: 30,
-            eventTypes: ['meeting'],
+            calendar: {
+              timeBeforeEvent: 30,
+              eventPattern: 'meeting',
+            },
           },
         },
       ],
@@ -242,7 +273,18 @@ export class WorkflowTemplateService {
               eventId: { type: 'string', description: 'Calendar event ID' },
             },
           },
-          requires: [{ type: 'integration', details: { service: 'calendar' } }],
+          requires: [
+            {
+              type: 'integration',
+              details: {
+                integration: {
+                  provider: 'calendar',
+                  scopes: ['calendar.read', 'calendar.write'],
+                  required: true,
+                },
+              },
+            },
+          ],
           effects: [{ type: 'creates', target: 'document', description: 'Creates meeting brief' }],
           reversible: false,
         },
@@ -281,7 +323,10 @@ export class WorkflowTemplateService {
           conditions: [],
           enabled: true,
           metadata: {
-            cronPattern: '0 16 * * 5', // 4 PM Friday
+            schedule: {
+              cron: '0 16 * * 5', // 4 PM Friday
+              timezone: 'UTC',
+            },
           },
         },
       ],
@@ -334,13 +379,16 @@ export class WorkflowTemplateService {
           conditions: [
             {
               field: 'taskCount',
-              operator: 'greater_than' as any,
+              operator: ConditionOperator.GREATER_THAN,
               value: 15,
             },
           ],
           enabled: true,
           metadata: {
-            checkInterval: 3600000, // Check hourly
+            schedule: {
+              cron: '0 * * * *', // Check hourly
+              timezone: 'UTC',
+            },
           },
         },
       ],
