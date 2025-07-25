@@ -251,7 +251,7 @@ The backend integrates seamlessly with:
 - Redis for caching and queues
 - Anthropic Claude AI
 - Google/Microsoft OAuth
-- Stripe billing
+- Paddle billing
 - AWS S3 storage
 
 ---

@@ -82,7 +82,7 @@ describe('Complete User Workflow E2E Tests', () => {
   });
 
   describe('2. Subscription Management', () => {
-    it('should create a stripe customer', async () => {
+    it('should create a paddle customer', async () => {
       const response = await request(app.getHttpServer())
         .post('/billing/customer')
         .set('Authorization', `Bearer ${accessToken}`)
@@ -101,14 +101,15 @@ describe('Complete User Workflow E2E Tests', () => {
         .post('/billing/checkout')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
-          priceId: 'price_professional',
-          successUrl: 'https://app.aurelius.ai/success',
-          cancelUrl: 'https://app.aurelius.ai/cancel',
+          priceId: 'pri_professional',
+          successUrl: 'https://app.aurelius.plus/success',
+          cancelUrl: 'https://app.aurelius.plus/cancel',
         })
         .expect(201);
 
-      expect(response.body).toHaveProperty('url');
-      expect(response.body.url).toContain('checkout.stripe.com');
+      expect(response.body).toHaveProperty('customerId');
+      expect(response.body).toHaveProperty('priceId');
+      expect(response.body.priceId).toBe('pri_professional');
     });
 
     it('should simulate subscription creation via webhook', async () => {
@@ -118,9 +119,9 @@ describe('Complete User Workflow E2E Tests', () => {
           userId,
           tier: Tier.PRO,
           status: 'ACTIVE',
-          stripeCustomerId: 'cus_test_workflow',
-          stripeSubscriptionId: 'sub_test_workflow',
-          stripePriceId: 'price_professional',
+          paddleCustomerId: 'ctm_test_workflow',
+          paddleSubscriptionId: 'sub_test_workflow',
+          paddlePriceId: 'pri_professional',
           currentPeriodStart: new Date(),
           currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           monthlyActionLimit: 1000,
@@ -427,12 +428,12 @@ describe('Complete User Workflow E2E Tests', () => {
         .post('/billing/portal')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
-          returnUrl: 'https://app.aurelius.ai/billing',
+          returnUrl: 'https://app.aurelius.plus/billing',
         })
         .expect(201);
 
       expect(response.body).toHaveProperty('url');
-      expect(response.body.url).toContain('billing.stripe.com');
+      expect(response.body.returnUrl).toBe('https://app.aurelius.plus/billing');
     });
 
     it('should get billing invoices', async () => {

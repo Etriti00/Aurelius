@@ -1,7 +1,7 @@
 import { IsString, IsObject, IsNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class StripeWebhookDto {
+export class PaddleWebhookDto {
   @ApiProperty({ description: 'Webhook event ID' })
   @IsString()
   id: string;
@@ -49,13 +49,13 @@ export class StripeWebhookDto {
   }
 }
 
-export enum StripeWebhookEvent {
-  CHECKOUT_SESSION_COMPLETED = 'checkout.session.completed',
-  CUSTOMER_SUBSCRIPTION_CREATED = 'customer.subscription.created',
-  CUSTOMER_SUBSCRIPTION_UPDATED = 'customer.subscription.updated',
-  CUSTOMER_SUBSCRIPTION_DELETED = 'customer.subscription.deleted',
+export enum PaddleWebhookEvent {
+  SUBSCRIPTION_CREATED = 'subscription.created',
+  SUBSCRIPTION_UPDATED = 'subscription.updated',
+  SUBSCRIPTION_CANCELLED = 'subscription.cancelled',
+  TRANSACTION_COMPLETED = 'transaction.completed',
+  TRANSACTION_UPDATED = 'transaction.updated',
   INVOICE_PAID = 'invoice.paid',
-  INVOICE_PAYMENT_FAILED = 'invoice.payment_failed',
-  PAYMENT_METHOD_ATTACHED = 'payment_method.attached',
-  PAYMENT_METHOD_DETACHED = 'payment_method.detached',
+  PAYMENT_SUCCEEDED = 'payment.succeeded',
+  PAYMENT_FAILED = 'payment.failed',
 }

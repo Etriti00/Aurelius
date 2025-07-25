@@ -73,6 +73,47 @@ const plans = [
 export function PricingSection() {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly')
 
+  // Handle subscription with Paddle checkout
+  const handleSubscribe = async (planId: string, period: 'monthly' | 'yearly') => {
+    try {
+      // Import Paddle config dynamically to avoid SSR issues
+      const { openPaddleCheckout, getPriceIdForTier } = await import('@/lib/paddle/config')
+      
+      // Map plan IDs to tier names
+      const tierMap: Record<string, 'PRO' | 'MAX' | 'TEAMS'> = {
+        'professional': 'PRO',
+        'max': 'MAX',
+        'team': 'TEAMS'
+      }
+      
+      const tier = tierMap[planId]
+      if (!tier) {
+        console.error('Invalid plan ID:', planId)
+        return
+      }
+      
+      // Get the appropriate price ID for the selected tier and billing period
+      const interval = period === 'yearly' ? 'annual' : 'monthly'
+      const priceId = getPriceIdForTier(tier, interval)
+      
+      // Open Paddle checkout
+      await openPaddleCheckout({
+        items: [{ priceId, quantity: 1 }],
+        customData: {
+          planId,
+          tier,
+          billingPeriod: period,
+          source: 'landing_page'
+        },
+        successUrl: `${window.location.origin}/dashboard?welcome=true`
+      })
+    } catch (error) {
+      console.error('Failed to open Paddle checkout:', error)
+      // Fallback to signup page
+      window.location.href = '/signup'
+    }
+  }
+
   return (
     <section className="py-16 sm:py-24 md:py-32 bg-white dark:bg-gray-900 relative overflow-hidden granular-bg">
       {/* Apple-inspired background */}
@@ -236,15 +277,26 @@ export function PricingSection() {
                   </ul>
 
                   {/* CTA */}
-                  <Link href="/signup" className="block">
+                  {plan.id === 'team' ? (
+                    <Link href="/contact" className="block">
+                      <Button
+                        variant={plan.popular ? "outline" : "dark"}
+                        size="lg"
+                        className="w-full"
+                      >
+                        Contact Sales
+                      </Button>
+                    </Link>
+                  ) : (
                     <Button
                       variant={plan.popular ? "outline" : "dark"}
                       size="lg"
                       className="w-full"
+                      onClick={() => handleSubscribe(plan.id, billingPeriod)}
                     >
-                      {plan.id === 'teams' ? 'Contact Sales' : 'Get Started'}
+                      Get Started
                     </Button>
-                  </Link>
+                  )}
                 </div>
               </motion.div>
             </motion.div>

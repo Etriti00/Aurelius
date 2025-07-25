@@ -4,6 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheModule } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import { redisStore } from 'cache-manager-redis-store';
@@ -46,6 +47,9 @@ import { AppService } from './app.service';
 
     // Scheduling
     ScheduleModule.forRoot(),
+
+    // Event Emitter
+    EventEmitterModule.forRoot(),
 
     // Winston Logger
     WinstonModule.forRootAsync({

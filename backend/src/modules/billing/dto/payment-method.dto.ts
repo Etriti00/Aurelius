@@ -2,7 +2,7 @@ import { IsString, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AddPaymentMethodDto {
-  @ApiProperty({ description: 'Stripe payment method ID' })
+  @ApiProperty({ description: 'Paddle payment method ID' })
   @IsString()
   paymentMethodId: string;
 

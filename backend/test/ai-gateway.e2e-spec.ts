@@ -56,9 +56,9 @@ describe('AI Gateway E2E Tests', () => {
         userId,
         tier: Tier.PRO,
         status: 'ACTIVE',
-        stripeCustomerId: 'cus_test123',
-        stripeSubscriptionId: 'sub_test123',
-        stripePriceId: 'price_test123',
+        paddleCustomerId: 'ctm_test123',
+        paddleSubscriptionId: 'sub_test123',
+        paddlePriceId: 'pri_test123',
         currentPeriodStart: new Date(),
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
         monthlyActionLimit: 1000,

@@ -109,7 +109,7 @@ Aurelius is an AI Personal Assistant platform that provides proactive task execu
 
 Key entities with pgvector for semantic search:
 - **Users**: OAuth integration support
-- **Subscriptions**: Stripe billing integration
+- **Subscriptions**: Paddle billing integration
 - **Tasks**: AI-generated insights
 - **EmailThreads**: Email processing
 - **CalendarEvents**: Meeting preparation
@@ -232,7 +232,7 @@ main
 - Set up Redis connection
 - Add OAuth credentials (Google, Microsoft)
 - Configure Anthropic API key
-- Add Stripe keys for billing
+- Add Paddle keys for billing
 - Configure SendGrid for emails
 
 ### 13. Testing Requirements

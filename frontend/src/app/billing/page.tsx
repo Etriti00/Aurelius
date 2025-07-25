@@ -71,17 +71,44 @@ export default function BillingPage() {
     }
   }
 
-  // Handle plan upgrade/downgrade
-  const handlePlanChange = (tier: SubscriptionTier) => {
+  // Handle plan upgrade/downgrade with Paddle checkout
+  const handlePlanChange = async (tier: SubscriptionTier) => {
     if (session?.user?.id) {
       setSelectedTier(tier)
-      // Navigate to pricing with pre-selected tier and billing cycle
-      const params = new URLSearchParams({
-        tier,
-        cycle: billingCycle,
-        userId: session.user.id
-      })
-      window.location.href = `/pricing?${params.toString()}`
+      
+      try {
+        // Import Paddle config dynamically to avoid SSR issues
+        const { openPaddleCheckout, getPriceIdForTier } = await import('@/lib/paddle/config')
+        
+        // Get the appropriate price ID for the selected tier and billing cycle
+        const priceId = getPriceIdForTier(tier as 'PRO' | 'MAX' | 'TEAMS', billingCycle === 'monthly' ? 'monthly' : 'annual')
+        
+        // Open Paddle checkout
+        await openPaddleCheckout({
+          items: [{ priceId, quantity: 1 }],
+          customer: {
+            email: session.user.email || '',
+            firstName: session.user.name?.split(' ')[0] || '',
+            lastName: session.user.name?.split(' ').slice(1).join(' ') || '',
+          },
+          customData: {
+            userId: session.user.id,
+            tier,
+            billingCycle,
+            upgradeFrom: subscription?.tier || 'none'
+          },
+          successUrl: `${window.location.origin}/billing?success=true`
+        })
+      } catch (error) {
+        console.error('Failed to open Paddle checkout:', error)
+        // Fallback to pricing page navigation
+        const params = new URLSearchParams({
+          tier,
+          cycle: billingCycle,
+          userId: session.user.id
+        })
+        window.location.href = `/pricing?${params.toString()}`
+      }
     }
   }
 

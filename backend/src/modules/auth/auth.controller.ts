@@ -17,6 +17,8 @@ import { User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { LoginDto, LoginResponseDto } from './dto/login.dto';
+import { RegisterDto, RegisterResponseDto } from './dto/register.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/interfaces/user.interface';
 import { UsersService } from '../users/users.service';
@@ -101,6 +103,49 @@ export class AuthController {
   @UseGuards(AuthGuard('apple'))
   async appleCallback(@Request() req: OAuthRequest): Promise<AuthResponse> {
     return this.handleOAuthCallback(req);
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login with email and password' })
+  @ApiResponse({ status: 200, description: 'Login successful', type: LoginResponseDto })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
+  async login(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
+    const user = await this.authService.validateUserCredentials(loginDto.email, loginDto.password);
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const tokens = await this.authService.generateTokens(user);
+
+    return new LoginResponseDto(tokens.accessToken, tokens.refreshToken, tokens.expiresIn, {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatar: user.avatar,
+      mfaEnabled: user.mfaEnabled,
+    });
+  }
+
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register new user account' })
+  @ApiResponse({ status: 201, description: 'Registration successful', type: RegisterResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid input or user already exists' })
+  @Throttle({ default: { limit: 3, ttl: 300000 } }) // 3 requests per 5 minutes
+  async register(@Body() registerDto: RegisterDto): Promise<RegisterResponseDto> {
+    const user = await this.authService.registerUser(registerDto);
+    const tokens = await this.authService.generateTokens(user);
+
+    return new RegisterResponseDto(tokens.accessToken, tokens.refreshToken, tokens.expiresIn, {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatar: user.avatar,
+      mfaEnabled: user.mfaEnabled,
+    });
   }
 
   @Post('refresh')

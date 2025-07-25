@@ -170,31 +170,63 @@ export class ConfigService {
     return value;
   }
 
-  // Stripe
-  get stripeSecretKey(): string {
-    const value = this.configService.get<string>('integrations.stripe.secretKey');
+  // Paddle
+  get paddleApiKey(): string {
+    const value = this.configService.get<string>('integrations.paddle.apiKey');
     if (!value) {
-      throw new Error('Missing required configuration: integrations.stripe.secretKey');
+      throw new Error('Missing required configuration: integrations.paddle.apiKey');
     }
     return value;
   }
 
-  get stripeWebhookSecret(): string {
-    const value = this.configService.get<string>('integrations.stripe.webhookSecret');
+  get paddleVendorId(): string {
+    const value = this.configService.get<string>('integrations.paddle.vendorId');
     if (!value) {
-      throw new Error('Missing required configuration: integrations.stripe.webhookSecret');
+      throw new Error('Missing required configuration: integrations.paddle.vendorId');
     }
     return value;
   }
 
-  get stripePriceIds(): { pro: string; max: string; teams: string } {
+  get paddleVendorAuthCode(): string {
+    const value = this.configService.get<string>('integrations.paddle.vendorAuthCode');
+    if (!value) {
+      throw new Error('Missing required configuration: integrations.paddle.vendorAuthCode');
+    }
+    return value;
+  }
+
+  get paddlePublicKey(): string {
+    const value = this.configService.get<string>('integrations.paddle.publicKey');
+    if (!value) {
+      throw new Error('Missing required configuration: integrations.paddle.publicKey');
+    }
+    return value;
+  }
+
+  get paddleWebhookSecret(): string {
+    const value = this.configService.get<string>('integrations.paddle.webhookSecret');
+    if (!value) {
+      throw new Error('Missing required configuration: integrations.paddle.webhookSecret');
+    }
+    return value;
+  }
+
+  get paddleEnvironment(): string {
+    return this.configService.get<string>('integrations.paddle.environment') ?? 'sandbox';
+  }
+
+  get paddlePriceIds(): { professional: string; team: string; enterprise: string } {
     return (
-      this.configService.get('integrations.stripe.priceIds') ?? {
-        pro: 'price_default_pro',
-        max: 'price_default_max',
-        teams: 'price_default_teams',
+      this.configService.get('integrations.paddle.priceIds') ?? {
+        professional: 'price_default_professional',
+        team: 'price_default_team',
+        enterprise: 'price_default_enterprise',
       }
     );
+  }
+
+  get paddleTrialDays(): number {
+    return this.configService.get<number>('integrations.paddle.trialDays') ?? 14;
   }
 
   // SendGrid

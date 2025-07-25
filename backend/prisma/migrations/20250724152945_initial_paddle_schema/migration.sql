@@ -1,9 +1,6 @@
 -- CreateExtension
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
--- CreateExtension
-CREATE EXTENSION IF NOT EXISTS "vector";
-
 -- CreateEnum
 CREATE TYPE "Tier" AS ENUM ('PRO', 'MAX', 'TEAMS');
 
@@ -21,7 +18,6 @@ CREATE TABLE "User" (
     "appleId" TEXT,
     "emailVerified" TIMESTAMP(3),
     "passwordHash" TEXT,
-    "stripeCustomerId" TEXT,
     "voiceId" TEXT NOT NULL DEFAULT 'rachel',
     "voiceSpeed" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
     "voicePitch" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
@@ -63,9 +59,10 @@ CREATE TABLE "Subscription" (
     "userId" TEXT NOT NULL,
     "tier" "Tier" NOT NULL DEFAULT 'PRO',
     "status" "Status" NOT NULL DEFAULT 'ACTIVE',
-    "stripeCustomerId" TEXT NOT NULL,
-    "stripeSubscriptionId" TEXT NOT NULL,
-    "stripePriceId" TEXT NOT NULL,
+    "paddleCustomerId" TEXT NOT NULL,
+    "paddleSubscriptionId" TEXT NOT NULL,
+    "paddlePriceId" TEXT NOT NULL,
+    "paddleTransactionId" TEXT,
     "currentPeriodStart" TIMESTAMP(3) NOT NULL,
     "currentPeriodEnd" TIMESTAMP(3) NOT NULL,
     "cancelAtPeriodEnd" BOOLEAN NOT NULL DEFAULT false,
@@ -126,7 +123,7 @@ CREATE TABLE "UsageHistory" (
     "overageActions" INTEGER NOT NULL DEFAULT 0,
     "overageCost" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "breakdown" JSONB NOT NULL,
-    "invoiceId" TEXT,
+    "paddleInvoiceId" TEXT,
     "paidAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -676,13 +673,7 @@ CREATE UNIQUE INDEX "User_microsoftId_key" ON "User"("microsoftId");
 CREATE UNIQUE INDEX "User_appleId_key" ON "User"("appleId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "User_stripeCustomerId_key" ON "User"("stripeCustomerId");
-
--- CreateIndex
 CREATE INDEX "User_email_idx" ON "User"("email");
-
--- CreateIndex
-CREATE INDEX "User_stripeCustomerId_idx" ON "User"("stripeCustomerId");
 
 -- CreateIndex
 CREATE INDEX "User_lastActiveAt_idx" ON "User"("lastActiveAt");
@@ -703,16 +694,19 @@ CREATE INDEX "Session_expires_idx" ON "Session"("expires");
 CREATE UNIQUE INDEX "Subscription_userId_key" ON "Subscription"("userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Subscription_stripeCustomerId_key" ON "Subscription"("stripeCustomerId");
+CREATE UNIQUE INDEX "Subscription_paddleCustomerId_key" ON "Subscription"("paddleCustomerId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Subscription_stripeSubscriptionId_key" ON "Subscription"("stripeSubscriptionId");
+CREATE UNIQUE INDEX "Subscription_paddleSubscriptionId_key" ON "Subscription"("paddleSubscriptionId");
 
 -- CreateIndex
 CREATE INDEX "Subscription_status_currentPeriodEnd_idx" ON "Subscription"("status", "currentPeriodEnd");
 
 -- CreateIndex
-CREATE INDEX "Subscription_stripeSubscriptionId_idx" ON "Subscription"("stripeSubscriptionId");
+CREATE INDEX "Subscription_paddleSubscriptionId_idx" ON "Subscription"("paddleSubscriptionId");
+
+-- CreateIndex
+CREATE INDEX "Subscription_paddleCustomerId_idx" ON "Subscription"("paddleCustomerId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Usage_userId_key" ON "Usage"("userId");
@@ -727,7 +721,7 @@ CREATE INDEX "Usage_periodEnd_idx" ON "Usage"("periodEnd");
 CREATE INDEX "UsageHistory_userId_periodEnd_idx" ON "UsageHistory"("userId", "periodEnd");
 
 -- CreateIndex
-CREATE INDEX "UsageHistory_invoiceId_idx" ON "UsageHistory"("invoiceId");
+CREATE INDEX "UsageHistory_paddleInvoiceId_idx" ON "UsageHistory"("paddleInvoiceId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "UsageHistory_userId_periodStart_key" ON "UsageHistory"("userId", "periodStart");
@@ -1121,4 +1115,3 @@ ALTER TABLE "SyncStatistics" ADD CONSTRAINT "SyncStatistics_integrationId_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "SyncConflict" ADD CONSTRAINT "SyncConflict_integrationId_fkey" FOREIGN KEY ("integrationId") REFERENCES "Integration"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

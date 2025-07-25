@@ -64,7 +64,7 @@ Aurelius AI is a sophisticated AI-powered personal assistant platform designed t
 ┌─────────────────────────────────────────────────────────────────┐
 │                   External Services                             │
 ├──────────────┬──────────────┬──────────────┬──────────────────┤
-│  Anthropic   │    OpenAI    │   Stripe     │  OAuth Providers │
+│  Anthropic   │    OpenAI    │   Paddle     │  OAuth Providers │
 │   Claude     │ Embeddings   │   Billing    │  (Google, MS)    │
 └──────────────┴──────────────┴──────────────┴──────────────────┘
 ```

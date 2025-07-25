@@ -1,13 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Stripe from 'stripe';
+import { Customer } from '@paddle/paddle-node-sdk';
 import { Tier, Status } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaddleService } from './services/paddle.service';
 
 // Define proper types for billing operations
 interface SubscriptionUpdateData {
   tier?: Tier;
-  stripePriceId?: string;
+  paddlePriceId?: string;
   monthlyActionLimit?: number;
   integrationLimit?: number;
   aiModelAccess?: string[];
@@ -57,6 +58,7 @@ interface UsageData {
 
 interface UsageLogEntry {
   createdAt: Date;
+  type: string;
 }
 import {
   CreateCheckoutDto,
@@ -80,20 +82,16 @@ import {
 @Injectable()
 export class BillingService {
   private readonly logger = new Logger(BillingService.name);
-  private readonly stripe: Stripe;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly paddleService: PaddleService
   ) {
-    const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
-    if (!stripeSecretKey) {
-      throw new Error('STRIPE_SECRET_KEY is required');
-    }
-
-    this.stripe = new Stripe(stripeSecretKey, {
-      apiVersion: '2025-05-28.basil',
-    });
+    // Configuration service used for environment variables
+    this.logger.log(
+      `Billing service initialized with environment: ${this.configService.get('NODE_ENV')}`
+    );
   }
 
   async createCheckoutSession(
@@ -103,37 +101,14 @@ export class BillingService {
     try {
       this.logger.log(`Creating checkout session for user ${userId} with price ${dto.priceId}`);
 
-      // Get or create Stripe customer
-      const customer = await this.getOrCreateStripeCustomer(userId);
-
-      // Create checkout session
-      const session = await this.stripe.checkout.sessions.create({
-        customer: customer.id,
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price: dto.priceId,
-            quantity: 1,
-          },
-        ],
-        mode: 'subscription',
-        success_url: `${this.configService.get(
-          'FRONTEND_URL'
-        )}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${this.configService.get('FRONTEND_URL')}/billing/cancelled`,
-        metadata: {
-          userId,
-        },
-        subscription_data: {
-          metadata: {
-            userId,
-          },
-        },
-      });
+      // Get or create Paddle customer
+      const customer = await this.getOrCreatePaddleCustomer(userId);
 
       return {
-        sessionId: session.id,
-        url: session.url || '',
+        customerId: customer.id,
+        priceId: dto.priceId,
+        customerEmail: customer.email,
+        successUrl: dto.successUrl,
       };
     } catch (error) {
       this.logger.error(`Failed to create checkout session for user ${userId}`, error);
@@ -152,29 +127,19 @@ export class BillingService {
     try {
       this.logger.log(`Creating subscription for user ${userId}`);
 
-      // Get or create Stripe customer
-      const customer = await this.getOrCreateStripeCustomer(userId);
+      // Get or create Paddle customer
+      const customer = await this.getOrCreatePaddleCustomer(userId);
 
-      // Create Stripe subscription
-      const stripeSubscription = await this.stripe.subscriptions.create({
-        customer: customer.id,
-        items: [
-          {
-            price: dto.priceId,
+      // Create Paddle subscription transaction
+      const paddleTransaction = await this.paddleService.createSubscription(
+        customer.id,
+        dto.priceId,
+        {
+          metadata: {
+            userId,
           },
-        ],
-        payment_behavior: 'default_incomplete',
-        payment_settings: {
-          save_default_payment_method: 'on_subscription',
-        },
-        expand: ['latest_invoice.payment_intent'],
-        metadata: {
-          userId,
-        },
-      });
-
-      // Retrieve the full subscription to get all fields
-      const fullSubscription = await this.stripe.subscriptions.retrieve(stripeSubscription.id);
+        }
+      );
 
       // Map price ID to tier
       const tier = this.getTierFromPriceId(dto.priceId);
@@ -184,12 +149,13 @@ export class BillingService {
         data: {
           userId,
           tier,
-          status: this.mapStripeStatusToLocal(fullSubscription.status),
-          stripeCustomerId: customer.id,
-          stripeSubscriptionId: fullSubscription.id,
-          stripePriceId: dto.priceId,
-          currentPeriodStart: new Date(fullSubscription.created * 1000),
-          currentPeriodEnd: new Date((fullSubscription.created + 2592000) * 1000), // 30 days from creation
+          status: this.mapPaddleStatusToLocal(paddleTransaction.status),
+          paddleCustomerId: customer.id,
+          paddleSubscriptionId: paddleTransaction.subscriptionId ?? paddleTransaction.id,
+          paddlePriceId: dto.priceId,
+          paddleTransactionId: paddleTransaction.id,
+          currentPeriodStart: new Date(paddleTransaction.createdAt),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
           monthlyActionLimit: this.getActionLimit(tier),
           integrationLimit: this.getIntegrationLimit(tier),
           aiModelAccess: this.getAIModelAccess(tier),
@@ -203,10 +169,10 @@ export class BillingService {
         status: subscription.status,
         currentPeriodStart: subscription.currentPeriodStart,
         currentPeriodEnd: subscription.currentPeriodEnd,
-        items: stripeSubscription.items.data.map(item => ({
-          id: item.id,
-          priceId: item.price.id,
-          quantity: item.quantity || 1,
+        items: paddleTransaction.items.map(item => ({
+          id: item.price?.id ?? '',
+          priceId: item.price?.id ?? '',
+          quantity: item.quantity,
         })),
       };
     } catch (error) {
@@ -234,7 +200,7 @@ export class BillingService {
       items: [
         {
           id: `si_${Date.now()}`,
-          priceId: subscription.stripePriceId,
+          priceId: subscription.paddlePriceId,
           quantity: 1,
         },
       ],
@@ -250,7 +216,7 @@ export class BillingService {
     if (dto.priceId) {
       const tier = this.getTierFromPriceId(dto.priceId);
       updateData.tier = tier;
-      updateData.stripePriceId = dto.priceId;
+      updateData.paddlePriceId = dto.priceId;
       updateData.monthlyActionLimit = this.getActionLimit(tier);
       updateData.integrationLimit = this.getIntegrationLimit(tier);
       updateData.aiModelAccess = this.getAIModelAccess(tier);
@@ -275,7 +241,7 @@ export class BillingService {
       items: [
         {
           id: `si_${Date.now()}`,
-          priceId: subscription.stripePriceId,
+          priceId: subscription.paddlePriceId,
           quantity: 1,
         },
       ],
@@ -303,7 +269,7 @@ export class BillingService {
       items: [
         {
           id: `si_${Date.now()}`,
-          priceId: subscription.stripePriceId,
+          priceId: subscription.paddlePriceId,
           quantity: 1,
         },
       ],
@@ -318,11 +284,11 @@ export class BillingService {
       `Creating billing portal session for user ${userId} with return URL ${dto.returnUrl}`
     );
 
-    // In a real implementation, this would create a Stripe billing portal session
+    // In a real implementation, this would create a Paddle billing portal session
     const sessionId = `bps_${Date.now()}`;
     return {
       id: sessionId,
-      url: `https://billing.stripe.com/p/session_${sessionId}`,
+      url: `https://billing.paddle.com/p/session_${sessionId}`,
       returnUrl: dto.returnUrl,
       created: new Date(),
     };
@@ -393,7 +359,7 @@ export class BillingService {
     let totalEmailsProcessed = 0;
     let totalTasksAutomated = 0;
 
-    usageLogs.forEach(log => {
+    usageLogs.forEach((log: UsageLogEntry) => {
       usageByAction[log.type] = (usageByAction[log.type] || 0) + 1;
 
       switch (log.type) {
@@ -439,7 +405,7 @@ export class BillingService {
   async listInvoices(userId: string, query: ListInvoicesDto): Promise<InvoiceListResponseDto> {
     this.logger.log(`Listing invoices for user ${userId} with limit ${query.limit}`);
 
-    // In a real implementation, this would fetch from Stripe
+    // In a real implementation, this would fetch from Paddle
     return {
       data: [],
       hasMore: false,
@@ -450,7 +416,7 @@ export class BillingService {
   async listPaymentMethods(userId: string): Promise<ListPaymentMethodsResponseDto> {
     this.logger.log(`Listing payment methods for user ${userId}`);
 
-    // In a real implementation, this would fetch from Stripe
+    // In a real implementation, this would fetch from Paddle
     return {
       data: [],
       defaultPaymentMethodId: undefined,
@@ -460,7 +426,7 @@ export class BillingService {
   async addPaymentMethod(userId: string, dto: AddPaymentMethodDto): Promise<PaymentMethodDto> {
     this.logger.log(`Adding payment method ${dto.paymentMethodId} for user ${userId}`);
 
-    // In a real implementation, this would create a payment method in Stripe
+    // In a real implementation, this would create a payment method in Paddle
     return {
       id: dto.paymentMethodId,
       type: 'card',
@@ -478,20 +444,73 @@ export class BillingService {
   async removePaymentMethod(userId: string, paymentMethodId: string): Promise<void> {
     this.logger.log(`Removing payment method ${paymentMethodId} for user ${userId}`);
 
-    // In a real implementation, this would remove the payment method from Stripe
+    // In a real implementation, this would remove the payment method from Paddle
     // For now, we just log the operation
   }
 
   async handleWebhook(rawBody: Buffer, signature: string): Promise<void> {
-    this.logger.log(`Processing webhook with signature ${signature.substring(0, 10)}...`);
+    this.logger.log(`Processing Paddle webhook with signature ${signature.substring(0, 10)}...`);
 
-    // In a real implementation, this would verify the webhook signature
-    // and process the event from Stripe
-    const bodyString = rawBody.toString();
-    this.logger.debug(`Webhook body length: ${bodyString.length} bytes`);
+    try {
+      // Verify webhook signature using Paddle service
+      const event = await this.paddleService.unmarshalWebhook(rawBody, signature);
 
-    // Process the webhook event here
-    // This is where you would handle subscription updates, payment confirmations, etc.
+      this.logger.log(`Processing Paddle webhook event: ${event.eventType}`);
+
+      // Process different Paddle webhook events
+      switch (event.eventType) {
+        case 'subscription.created':
+          await this.handleSubscriptionCreated(event.data as Record<string, unknown>);
+          break;
+        case 'subscription.updated':
+          await this.handleSubscriptionUpdated(event.data as Record<string, unknown>);
+          break;
+        case 'subscription.canceled':
+          await this.handleSubscriptionCanceled(event.data as Record<string, unknown>);
+          break;
+        case 'transaction.completed':
+          await this.handleTransactionCompleted(event.data as Record<string, unknown>);
+          break;
+        case 'transaction.payment_failed':
+          await this.handlePaymentFailed(event.data as Record<string, unknown>);
+          break;
+        default:
+          this.logger.warn(`Unhandled Paddle webhook event type: ${event.eventType}`);
+      }
+
+      this.logger.log(`Successfully processed Paddle webhook: ${event.eventType}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Failed to process Paddle webhook: ${errorMessage}`, errorStack);
+      throw error;
+    }
+  }
+
+  private async handleSubscriptionCreated(data: Record<string, unknown>): Promise<void> {
+    this.logger.log(`Handling subscription created: ${data.id}`);
+    // Update database with new subscription info
+    // This is where you'd sync the Paddle subscription with your database
+  }
+
+  private async handleSubscriptionUpdated(data: Record<string, unknown>): Promise<void> {
+    this.logger.log(`Handling subscription updated: ${data.id}`);
+    // Update database with subscription changes
+  }
+
+  private async handleSubscriptionCanceled(data: Record<string, unknown>): Promise<void> {
+    this.logger.log(`Handling subscription canceled: ${data.id}`);
+    // Update database to reflect canceled subscription
+  }
+
+  private async handleTransactionCompleted(data: Record<string, unknown>): Promise<void> {
+    this.logger.log(`Handling transaction completed: ${data.id}`);
+    // Record successful payment, update usage limits, etc.
+  }
+
+  private async handlePaymentFailed(data: Record<string, unknown>): Promise<void> {
+    this.logger.log(`Handling payment failed: ${data.id}`);
+    // Handle failed payment, possibly suspend service, notify user, etc.
   }
 
   async getUsage(userId: string): Promise<UsageData> {
@@ -602,7 +621,7 @@ export class BillingService {
 
   private getTierFromPriceId(priceId: string): Tier {
     // In a real implementation, this would be a lookup table or database query
-    // For now, we'll use a simple mapping based on common Stripe price ID patterns
+    // For now, we'll use a simple mapping based on common Paddle price ID patterns
     if (priceId.includes('pro') || priceId.includes('basic')) {
       return Tier.PRO;
     } else if (priceId.includes('max') || priceId.includes('premium')) {
@@ -624,7 +643,7 @@ export class BillingService {
     const usageByDate: Record<string, number> = {};
 
     // Count usage by date
-    usageLogs.forEach(log => {
+    usageLogs.forEach((log: UsageLogEntry) => {
       const dateKey = log.createdAt.toISOString().split('T')[0];
       usageByDate[dateKey] = (usageByDate[dateKey] || 0) + 1;
     });
@@ -643,7 +662,7 @@ export class BillingService {
     return dailyUsage;
   }
 
-  private async getOrCreateStripeCustomer(userId: string): Promise<Stripe.Customer> {
+  private async getOrCreatePaddleCustomer(userId: string): Promise<Customer> {
     try {
       // Get user details
       const user = await this.prisma.user.findUnique({
@@ -658,48 +677,42 @@ export class BillingService {
       // Check if customer already exists in our database
       const existingSubscription = await this.prisma.subscription.findUnique({
         where: { userId },
-        select: { stripeCustomerId: true },
+        select: { paddleCustomerId: true },
       });
 
-      if (existingSubscription?.stripeCustomerId) {
-        // Verify customer exists in Stripe
+      if (existingSubscription?.paddleCustomerId) {
+        // Verify customer exists in Paddle
         try {
-          const customer = await this.stripe.customers.retrieve(
-            existingSubscription.stripeCustomerId
+          const customer = await this.paddleService.getCustomer(
+            existingSubscription.paddleCustomerId
           );
-          if (!customer.deleted) {
-            return customer as Stripe.Customer;
-          }
+          return customer;
         } catch (error) {
           this.logger.warn(
-            `Stripe customer ${existingSubscription.stripeCustomerId} not found, creating new one`
+            `Paddle customer ${existingSubscription.paddleCustomerId} not found, creating new one`
           );
         }
       }
 
-      // Create new Stripe customer
-      const customer = await this.stripe.customers.create({
-        email: user.email,
-        name: user.name || undefined,
-        metadata: {
-          userId,
-        },
+      // Create new Paddle customer
+      const customer = await this.paddleService.createCustomer(user.email, user.name ?? undefined, {
+        userId,
       });
 
-      this.logger.log(`Created Stripe customer ${customer.id} for user ${userId}`);
+      this.logger.log(`Created Paddle customer ${customer.id} for user ${userId}`);
       return customer;
     } catch (error) {
-      this.logger.error(`Failed to get or create Stripe customer for user ${userId}`, error);
+      this.logger.error(`Failed to get or create Paddle customer for user ${userId}`, error);
       throw new Error(
         `Failed to create customer: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
 
-  private mapStripeStatusToLocal(
-    stripeStatus: string
+  private mapPaddleStatusToLocal(
+    paddleStatus: string
   ): 'ACTIVE' | 'CANCELED' | 'PAST_DUE' | 'TRIALING' | 'PAUSED' {
-    switch (stripeStatus) {
+    switch (paddleStatus) {
       case 'active':
         return 'ACTIVE';
       case 'past_due':
@@ -707,15 +720,10 @@ export class BillingService {
       case 'canceled':
       case 'cancelled':
         return 'CANCELED';
-      case 'unpaid':
-        return 'PAST_DUE';
-      case 'incomplete':
-      case 'incomplete_expired':
+      case 'paused':
         return 'PAUSED';
       case 'trialing':
         return 'TRIALING';
-      case 'paused':
-        return 'PAUSED';
       default:
         return 'PAUSED';
     }

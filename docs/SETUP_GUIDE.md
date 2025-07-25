@@ -189,12 +189,13 @@ MICROSOFT_CLIENT_ID="your-microsoft-client-id"
 MICROSOFT_CLIENT_SECRET="your-microsoft-client-secret"
 MICROSOFT_REDIRECT_URI="http://localhost:4000/api/v1/auth/microsoft/callback"
 
-# Stripe
-STRIPE_SECRET_KEY="sk_test_your-stripe-secret-key"
-STRIPE_WEBHOOK_SECRET="whsec_your-webhook-secret"
-STRIPE_PRICE_ID_PROFESSIONAL="price_test_professional"
-STRIPE_PRICE_ID_TEAM="price_test_team"
-STRIPE_PRICE_ID_ENTERPRISE="price_test_enterprise"
+# Paddle
+PADDLE_VENDOR_ID="your-paddle-vendor-id"
+PADDLE_API_KEY="your-paddle-api-key"
+PADDLE_WEBHOOK_SECRET="your-webhook-secret"
+PADDLE_PRODUCT_ID_PROFESSIONAL="pro_product_id"
+PADDLE_PRODUCT_ID_TEAM="team_product_id"
+PADDLE_PRODUCT_ID_ENTERPRISE="enterprise_product_id"
 
 # AI Services
 ANTHROPIC_API_KEY="sk-ant-your-anthropic-api-key"
@@ -241,8 +242,9 @@ GOOGLE_CLIENT_SECRET="your-google-client-secret"
 MICROSOFT_CLIENT_ID="your-microsoft-client-id"
 MICROSOFT_CLIENT_SECRET="your-microsoft-client-secret"
 
-# Stripe Public Keys
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_your-stripe-publishable-key"
+# Paddle Public Keys
+NEXT_PUBLIC_PADDLE_VENDOR_ID="your-paddle-vendor-id"
+NEXT_PUBLIC_PADDLE_ENVIRONMENT="sandbox"
 
 # Feature Flags
 NEXT_PUBLIC_ENABLE_VOICE_FEATURES="true"
@@ -279,23 +281,23 @@ NEXT_PUBLIC_ENABLE_TEAM_FEATURES="false"
    - Microsoft Graph: User.Read, Mail.Read, Mail.Send, Calendars.ReadWrite
 5. Create client secret and copy values to `.env` files
 
-### Stripe Setup
+### Paddle Setup
 
-1. Create account at [Stripe Dashboard](https://dashboard.stripe.com)
-2. Get API keys from Developers → API keys
-3. Create products and prices:
+1. Create account at [Paddle Dashboard](https://vendors.paddle.com)
+2. Get Vendor ID and API key from Developer Tools → Authentication
+3. Create products and plans:
    - Professional: $30/month
-   - Team: $50/month
+   - Team: $50/month  
    - Enterprise: $100/month
 4. Set up webhook endpoint:
    - Endpoint URL: `http://localhost:4000/api/v1/billing/webhook`
    - Events to listen:
-     - `checkout.session.completed`
-     - `customer.subscription.created`
-     - `customer.subscription.updated`
-     - `customer.subscription.deleted`
-     - `invoice.payment_succeeded`
-     - `invoice.payment_failed`
+     - `subscription_created`
+     - `subscription_updated`
+     - `subscription_cancelled`
+     - `payment_succeeded`
+     - `payment_failed`
+     - `subscription_payment_succeeded`
 
 ### Anthropic API Setup
 

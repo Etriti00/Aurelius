@@ -54,9 +54,9 @@ export class BillingController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Create Stripe checkout session',
+    summary: 'Create Paddle checkout session',
     description:
-      'Create a new Stripe checkout session for subscription or one-time payments. Returns a secure checkout URL for the user to complete payment.',
+      'Create a new Paddle checkout session for subscription payments. Returns customer and pricing information for client-side Paddle checkout integration.',
   })
   @ApiBody({
     type: CreateCheckoutDto,
@@ -65,24 +65,9 @@ export class BillingController {
       subscription: {
         summary: 'Create subscription checkout',
         value: {
-          priceId: 'price_1ABC123xyz',
-          mode: 'subscription',
-          successUrl: 'https://app.aurelius.ai/billing/success',
-          cancelUrl: 'https://app.aurelius.ai/billing/cancel',
-          metadata: {
-            plan: 'pro',
-            source: 'upgrade_prompt',
-          },
-        },
-      },
-      oneTime: {
-        summary: 'One-time payment checkout',
-        value: {
-          priceId: 'price_1DEF456abc',
-          mode: 'payment',
-          quantity: 1,
-          successUrl: 'https://app.aurelius.ai/billing/success',
-          cancelUrl: 'https://app.aurelius.ai/billing/cancel',
+          priceId: 'pri_01ABC123xyz',
+          successUrl: 'https://app.aurelius.plus/billing/success',
+          cancelUrl: 'https://app.aurelius.plus/billing/cancel',
         },
       },
     },
@@ -254,10 +239,10 @@ export class BillingController {
   }
 
   @Post('webhook')
-  @ApiOperation({ summary: 'Stripe webhook endpoint' })
+  @ApiOperation({ summary: 'Paddle webhook endpoint' })
   @ApiResponse({ status: 200 })
   async handleWebhook(
-    @Headers('stripe-signature') signature: string,
+    @Headers('paddle-signature') signature: string,
     @Req() request: RawBodyRequest<Request>
   ): Promise<{ received: boolean }> {
     const rawBody = request.rawBody;

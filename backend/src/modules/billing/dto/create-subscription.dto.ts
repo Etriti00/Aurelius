@@ -2,7 +2,7 @@ import { IsString, IsOptional, IsNumber, IsObject, Min, Max } from 'class-valida
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateSubscriptionDto {
-  @ApiProperty({ description: 'Stripe price ID' })
+  @ApiProperty({ description: 'Paddle price ID' })
   @IsString()
   priceId: string;
 

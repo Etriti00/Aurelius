@@ -216,7 +216,7 @@ export interface User {
   name?: string
   avatarUrl?: string
   provider?: string
-  stripeCustomerId?: string
+  paddleCustomerId?: string
   preferences: Record<string, unknown>
   createdAt: string
   updatedAt: string
@@ -229,7 +229,9 @@ export interface Subscription {
   userId: string
   tier: SubscriptionTier
   status: SubscriptionStatus
-  stripeSubscriptionId?: string
+  paddleSubscriptionId?: string
+  paddleTransactionId?: string
+  paddleCustomerId?: string
   currentPeriodStart?: string
   currentPeriodEnd?: string
   aiActionsUsed: number
@@ -248,8 +250,64 @@ export enum SubscriptionStatus {
   CANCELED = 'CANCELED',
   PAST_DUE = 'PAST_DUE',
   TRIALING = 'TRIALING',
-  INCOMPLETE = 'INCOMPLETE'
+  INCOMPLETE = 'INCOMPLETE',
+  PAUSED = 'PAUSED'
 }
+
+// Paddle-specific billing types
+export interface PaddleSubscriptionDetails {
+  subscriptionId: string
+  planId: string
+  status: string
+  nextBillDate?: string
+  lastPayment?: {
+    amount: string
+    currency: string
+    date: string
+  }
+  updateUrl?: string
+  cancelUrl?: string
+}
+
+export interface PaddleTransaction {
+  transactionId: string
+  status: string
+  amount: string
+  currency: string
+  createdAt: string
+  receiptUrl?: string
+}
+
+export interface BillingPortalUrl {
+  url: string
+  expiresAt: string
+}
+
+// Paddle webhook event types
+export interface PaddleWebhookEvent {
+  alertId: string
+  alertName: string
+  customerId?: string
+  subscriptionId?: string
+  subscriptionPlanId?: string
+  status?: string
+  email?: string
+  marketingConsent?: boolean
+  eventTime: string
+  passthrough?: string
+  quantity?: string
+  subscriptionPaymentId?: string
+  unitPrice?: string
+  currency?: string
+  nextBillDate?: string
+  cancellationEffectiveDate?: string
+  updateUrl?: string
+  cancelUrl?: string
+}
+
+// Billing management DTOs
+
+
 
 export interface Integration {
   id: string

@@ -9,7 +9,7 @@ export interface User {
   googleId?: string;
   microsoftId?: string;
   appleId?: string;
-  stripeCustomerId?: string;
+  paddleCustomerId?: string;
   voiceId: string;
   voiceSpeed: number;
   voicePitch: number;

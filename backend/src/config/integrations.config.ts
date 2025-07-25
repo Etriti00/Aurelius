@@ -57,17 +57,20 @@ export default registerAs('integrations', () => ({
     ],
   },
 
-  // Stripe
-  stripe: {
-    secretKey: process.env.STRIPE_SECRET_KEY,
-    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
-    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  // Paddle
+  paddle: {
+    apiKey: process.env.PADDLE_API_KEY,
+    vendorId: process.env.PADDLE_VENDOR_ID,
+    vendorAuthCode: process.env.PADDLE_VENDOR_AUTH_CODE,
+    publicKey: process.env.PADDLE_PUBLIC_KEY,
+    webhookSecret: process.env.PADDLE_WEBHOOK_SECRET,
+    environment: process.env.PADDLE_ENVIRONMENT || 'sandbox',
     priceIds: {
-      professional: process.env.STRIPE_PRICE_PRO || 'price_pro',
-      team: process.env.STRIPE_PRICE_TEAM || 'price_team',
-      enterprise: process.env.STRIPE_PRICE_ENTERPRISE || 'price_enterprise',
+      professional: process.env.PADDLE_PRICE_PRO || 'price_pro',
+      team: process.env.PADDLE_PRICE_TEAM || 'price_team',
+      enterprise: process.env.PADDLE_PRICE_ENTERPRISE || 'price_enterprise',
     },
-    trialDays: parseInt(process.env.STRIPE_TRIAL_DAYS || '14', 10),
+    trialDays: parseInt(process.env.PADDLE_TRIAL_DAYS || '14', 10),
   },
 
   // SendGrid

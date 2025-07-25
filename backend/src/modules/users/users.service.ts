@@ -113,9 +113,9 @@ export class UsersService {
               currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
               monthlyActionLimit: 1000,
               integrationLimit: 10,
-              stripeCustomerId: '',
-              stripeSubscriptionId: '',
-              stripePriceId: '',
+              paddleCustomerId: '',
+              paddleSubscriptionId: '',
+              paddlePriceId: '',
               monthlyPrice: 50.0,
               overageRate: 0.06,
             },

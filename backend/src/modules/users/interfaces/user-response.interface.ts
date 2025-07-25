@@ -25,9 +25,10 @@ export interface UserSubscriptionInfo {
   integrationLimit: number;
   monthlyPrice: number;
   overageRate: number;
-  stripeCustomerId: string | null;
-  stripeSubscriptionId: string | null;
-  stripePriceId: string | null;
+  paddleCustomerId: string;
+  paddleSubscriptionId: string;
+  paddlePriceId: string;
+  paddleTransactionId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

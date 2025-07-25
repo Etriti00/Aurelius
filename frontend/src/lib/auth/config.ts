@@ -53,11 +53,30 @@ export const authConfig: NextAuthConfig = {
         }
 
         try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-            method: 'POST',
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
+          
+          // First, get CSRF token
+          const healthResponse = await fetch(`${apiUrl}/health`, {
+            method: 'GET',
             headers: {
               'Content-Type': 'application/json',
             },
+          })
+
+          const csrfToken = healthResponse.headers.get('X-CSRF-Token')
+
+          // Now make the login request with CSRF token
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+          }
+
+          if (csrfToken) {
+            headers['X-CSRF-Token'] = csrfToken
+          }
+
+          const response = await fetch(`${apiUrl}/auth/login`, {
+            method: 'POST',
+            headers,
             body: JSON.stringify({
               email: credentials.email,
               password: credentials.password,
@@ -70,17 +89,15 @@ export const authConfig: NextAuthConfig = {
 
           const data = await response.json()
           
-          // Handle standardized API response
-          const responseData = data.success ? data.data : data
-
-          if (responseData.user) {
+          // Our backend returns LoginResponseDto directly (not wrapped)
+          if (data.user && data.accessToken) {
             return {
-              id: responseData.user.id,
-              email: responseData.user.email,
-              name: responseData.user.name,
-              image: responseData.user.avatarUrl,
-              accessToken: responseData.accessToken || responseData.access_token,
-              refreshToken: responseData.refreshToken || responseData.refresh_token,
+              id: data.user.id,
+              email: data.user.email,
+              name: data.user.name,
+              image: data.user.avatar,
+              accessToken: data.accessToken,
+              refreshToken: data.refreshToken,
             }
           }
 

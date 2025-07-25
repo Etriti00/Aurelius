@@ -55,9 +55,13 @@ import * as Joi from 'joi';
         MICROSOFT_CLIENT_ID: Joi.string().required(),
         MICROSOFT_CLIENT_SECRET: Joi.string().required(),
 
-        // Stripe Configuration
-        STRIPE_SECRET_KEY: Joi.string().required(),
-        STRIPE_WEBHOOK_SECRET: Joi.string().required(),
+        // Paddle Configuration
+        PADDLE_API_KEY: Joi.string().required(),
+        PADDLE_VENDOR_ID: Joi.string().required(),
+        PADDLE_VENDOR_AUTH_CODE: Joi.string().required(),
+        PADDLE_PUBLIC_KEY: Joi.string().required(),
+        PADDLE_WEBHOOK_SECRET: Joi.string().required(),
+        PADDLE_ENVIRONMENT: Joi.string().valid('sandbox', 'production').default('sandbox'),
 
         // SendGrid Configuration
         SENDGRID_API_KEY: Joi.string().required(),

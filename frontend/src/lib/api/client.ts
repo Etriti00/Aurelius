@@ -5,12 +5,39 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/a
 
 export class ApiClient {
   private baseURL: string
+  private csrfToken: string | null = null
 
   constructor(baseURL: string = API_BASE_URL) {
     this.baseURL = baseURL
   }
 
-  private async getAuthHeaders(): Promise<HeadersInit> {
+  private async getCsrfToken(): Promise<string | null> {
+    if (this.csrfToken) {
+      return this.csrfToken
+    }
+
+    try {
+      // Make a GET request to any endpoint to get CSRF token from X-CSRF-Token header
+      const response = await fetch(`${this.baseURL}/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const csrfToken = response.headers.get('X-CSRF-Token')
+      if (csrfToken) {
+        this.csrfToken = csrfToken
+        return csrfToken
+      }
+    } catch (error) {
+      console.error('Failed to get CSRF token:', error)
+    }
+
+    return null
+  }
+
+  private async getAuthHeaders(includeCsrf: boolean = false): Promise<HeadersInit> {
     const session = await getSession()
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -18,6 +45,14 @@ export class ApiClient {
 
     if (session?.accessToken) {
       headers.Authorization = `Bearer ${session.accessToken}`
+    }
+
+    // Include CSRF token for state-changing requests
+    if (includeCsrf) {
+      const csrfToken = await this.getCsrfToken()
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken
+      }
     }
 
     return headers
@@ -142,7 +177,7 @@ export class ApiClient {
   }
 
   async post<T>(endpoint: string, data?: unknown): Promise<T> {
-    const headers = await this.getAuthHeaders()
+    const headers = await this.getAuthHeaders(true) // Include CSRF token
     
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
@@ -155,7 +190,7 @@ export class ApiClient {
     } catch (error) {
       if (error instanceof Error && error.message === 'AUTH_REFRESH_NEEDED') {
         // Retry with refreshed headers
-        const newHeaders = await this.getAuthHeaders()
+        const newHeaders = await this.getAuthHeaders(true)
         const retryResponse = await fetch(`${this.baseURL}${endpoint}`, {
           method: 'POST',
           headers: newHeaders,
@@ -168,7 +203,7 @@ export class ApiClient {
   }
 
   async put<T>(endpoint: string, data?: unknown): Promise<T> {
-    const headers = await this.getAuthHeaders()
+    const headers = await this.getAuthHeaders(true) // Include CSRF token
     
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
@@ -181,7 +216,7 @@ export class ApiClient {
     } catch (error) {
       if (error instanceof Error && error.message === 'AUTH_REFRESH_NEEDED') {
         // Retry with refreshed headers
-        const newHeaders = await this.getAuthHeaders()
+        const newHeaders = await this.getAuthHeaders(true)
         const retryResponse = await fetch(`${this.baseURL}${endpoint}`, {
           method: 'PUT',
           headers: newHeaders,
@@ -194,7 +229,7 @@ export class ApiClient {
   }
 
   async patch<T>(endpoint: string, data?: unknown): Promise<T> {
-    const headers = await this.getAuthHeaders()
+    const headers = await this.getAuthHeaders(true) // Include CSRF token
     
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
@@ -207,7 +242,7 @@ export class ApiClient {
     } catch (error) {
       if (error instanceof Error && error.message === 'AUTH_REFRESH_NEEDED') {
         // Retry with refreshed headers
-        const newHeaders = await this.getAuthHeaders()
+        const newHeaders = await this.getAuthHeaders(true)
         const retryResponse = await fetch(`${this.baseURL}${endpoint}`, {
           method: 'PATCH',
           headers: newHeaders,
@@ -220,7 +255,7 @@ export class ApiClient {
   }
 
   async delete<T, D = Record<string, unknown>>(endpoint: string, data?: D): Promise<T> {
-    const headers = await this.getAuthHeaders()
+    const headers = await this.getAuthHeaders(true) // Include CSRF token
     
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
@@ -233,7 +268,7 @@ export class ApiClient {
     } catch (error) {
       if (error instanceof Error && error.message === 'AUTH_REFRESH_NEEDED') {
         // Retry with refreshed headers
-        const newHeaders = await this.getAuthHeaders()
+        const newHeaders = await this.getAuthHeaders(true)
         const retryResponse = await fetch(`${this.baseURL}${endpoint}`, {
           method: 'DELETE',
           headers: newHeaders,

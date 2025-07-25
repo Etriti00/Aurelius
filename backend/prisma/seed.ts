@@ -40,9 +40,9 @@ async function main() {
         create: {
           tier: 'PRO',
           status: 'ACTIVE',
-          stripeCustomerId: 'cus_demo_user',
-          stripeSubscriptionId: 'sub_demo_subscription',
-          stripePriceId: 'price_demo_professional',
+          paddleCustomerId: 'ctm_demo_user',
+          paddleSubscriptionId: 'sub_demo_subscription',
+          paddlePriceId: 'pri_demo_professional',
           currentPeriodStart: new Date(),
           currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
           monthlyActionLimit: 1000,

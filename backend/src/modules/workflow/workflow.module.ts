@@ -14,6 +14,9 @@ import { CacheModule } from '../cache/cache.module';
 import { QueueModule } from '../queue/queue.module';
 import { AIGatewayModule } from '../ai-gateway/ai-gateway.module';
 import { SearchModule } from '../search/search.module';
+import { EmailModule } from '../email/email.module';
+import { TasksModule } from '../tasks/tasks.module';
+import { CalendarModule } from '../calendar/calendar.module';
 
 @Module({
   imports: [
@@ -24,6 +27,9 @@ import { SearchModule } from '../search/search.module';
     QueueModule,
     AIGatewayModule,
     SearchModule,
+    EmailModule,
+    TasksModule,
+    CalendarModule,
   ],
   controllers: [WorkflowController],
   providers: [

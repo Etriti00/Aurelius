@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Brain3DLogo } from '@/components/shared/Brain3DLogo'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
+import { apiClient } from '@/lib/api/client'
 
 export default function SignUpPage() {
   const [name, setName] = useState('')
@@ -54,24 +55,14 @@ export default function SignUpPage() {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-        }),
+      // Use API client which includes CSRF token handling
+      const data = await apiClient.post('/auth/register', {
+        name,
+        email,
+        password,
+        acceptTerms: agreeToTerms,
+        marketingEmails: false, // Optional: add checkbox for this later
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.message || 'An error occurred during registration')
-        return
-      }
 
       // Auto sign in after successful registration
       const result = await signIn('credentials', {

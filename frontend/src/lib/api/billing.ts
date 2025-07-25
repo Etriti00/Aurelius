@@ -53,8 +53,10 @@ export interface ListInvoicesDto {
 }
 
 export interface CheckoutResponseDto {
-  sessionId: string
-  url: string
+  customerId: string
+  priceId: string
+  customerEmail: string
+  successUrl?: string
 }
 
 export interface SubscriptionResponseDto {
@@ -62,7 +64,7 @@ export interface SubscriptionResponseDto {
   userId: string
   tier: SubscriptionTier
   status: SubscriptionStatus
-  stripeSubscriptionId?: string
+  paddleSubscriptionId?: string
   currentPeriodStart: Date
   currentPeriodEnd: Date
   aiActionsUsed: number

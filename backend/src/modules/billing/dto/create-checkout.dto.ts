@@ -8,17 +8,19 @@ export enum CheckoutMode {
 }
 
 export class CreateCheckoutDto {
-  @ApiProperty({ description: 'Stripe price ID' })
+  @ApiProperty({ description: 'Paddle price ID' })
   @IsString()
   priceId: string;
 
-  @ApiProperty({ description: 'Success redirect URL' })
+  @ApiPropertyOptional({ description: 'Success redirect URL' })
   @IsString()
-  successUrl: string;
+  @IsOptional()
+  successUrl?: string;
 
-  @ApiProperty({ description: 'Cancel redirect URL' })
+  @ApiPropertyOptional({ description: 'Cancel redirect URL' })
   @IsString()
-  cancelUrl: string;
+  @IsOptional()
+  cancelUrl?: string;
 
   @ApiPropertyOptional({ enum: CheckoutMode, default: CheckoutMode.SUBSCRIPTION })
   @IsEnum(CheckoutMode)
@@ -32,21 +34,26 @@ export class CreateCheckoutDto {
 
   constructor() {
     this.priceId = '';
-    this.successUrl = '';
-    this.cancelUrl = '';
     this.mode = CheckoutMode.SUBSCRIPTION;
   }
 }
 
 export class CheckoutResponseDto {
-  @ApiProperty({ description: 'Checkout session ID' })
-  sessionId: string;
+  @ApiProperty({ description: 'Paddle customer ID for checkout' })
+  customerId: string;
 
-  @ApiProperty({ description: 'Checkout URL' })
-  url: string;
+  @ApiProperty({ description: 'Paddle price ID for checkout' })
+  priceId: string;
+
+  @ApiProperty({ description: 'Customer email' })
+  customerEmail: string;
+
+  @ApiPropertyOptional({ description: 'Success redirect URL' })
+  successUrl?: string;
 
   constructor() {
-    this.sessionId = '';
-    this.url = '';
+    this.customerId = '';
+    this.priceId = '';
+    this.customerEmail = '';
   }
 }

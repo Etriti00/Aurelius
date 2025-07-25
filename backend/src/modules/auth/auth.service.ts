@@ -12,6 +12,8 @@ import { JwtPayload, RequestUser } from '../../common/interfaces/user.interface'
 import { User, RefreshToken } from '@prisma/client';
 import { AuthTokens as ImportedAuthTokens } from '../../common/types';
 import { getOrDefault } from '../../common/utils/type-guards';
+import { RegisterDto } from './dto/register.dto';
+import { ConflictException, BadRequestException } from '@nestjs/common';
 
 // Use imported AuthTokens type
 type AuthTokens = ImportedAuthTokens;
@@ -136,6 +138,47 @@ export class AuthService {
     } catch (error) {
       this.logger.error('Credential validation failed', error);
       return null;
+    }
+  }
+
+  async registerUser(registerDto: RegisterDto): Promise<User> {
+    try {
+      // Check if user already exists
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: registerDto.email },
+      });
+
+      if (existingUser) {
+        throw new ConflictException('User with this email already exists');
+      }
+
+      // Hash password
+      const saltRounds = 12;
+      const passwordHash = await bcrypt.hash(registerDto.password, saltRounds);
+
+      // Create user
+      const user = await this.prisma.user.create({
+        data: {
+          email: registerDto.email,
+          name: registerDto.name,
+          passwordHash,
+          timezone: registerDto.timezone || 'UTC',
+          preferences: {
+            acceptTerms: registerDto.acceptTerms || false,
+            marketingEmails: registerDto.marketingEmails || false,
+          },
+          lastActiveAt: new Date(),
+        },
+      });
+
+      this.logger.log(`New user registered: ${user.email}`);
+      return user;
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      this.logger.error('User registration failed', error);
+      throw new BadRequestException('Registration failed');
     }
   }
 

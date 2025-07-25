@@ -181,7 +181,7 @@ async function bootstrap(): Promise<void> {
       )
       .addTag(
         'billing',
-        'Billing & Subscriptions - Stripe integration, subscription management, and usage tracking'
+        'Billing & Subscriptions - Paddle integration, subscription management, and usage tracking'
       )
       .addTag(
         'search',
