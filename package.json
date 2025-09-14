@@ -30,6 +30,6 @@
     "npm": ">=8.0.0"
   },
   "dependencies": {
-    "firecrawl-mcp": "^1.11.0"
+    "firecrawl-mcp": "^3.0.0"
   }
 }
